@@ -1,0 +1,223 @@
+2024-11-26 16:44:08,605 - INFO - Application started.
+2024-11-26 16:44:08,620 - INFO - Previous Login Found.
+2024-11-26 16:44:09,837 - INFO - http://192.168.29.107:4000/check_if_tally_running API called - Status 200
+2024-11-26 16:44:18,964 - INFO - Application started.
+2024-11-26 16:44:32,935 - INFO - Application started.
+2024-11-26 16:44:55,049 - INFO - http://192.168.29.107:4000/v2/master/tally_data/tally_app/login API called - Status 200
+2024-11-26 16:44:57,873 - INFO - http://192.168.29.107:4000/check_if_tally_running API called - Status 200
+2024-11-26 16:45:01,183 - INFO - http://192.168.29.107:4000/v2/master/tally_data/v2/reset_application_mappings API called - Status 200
+2024-11-26 16:45:49,618 - INFO - Application started.
+2024-11-26 16:46:00,263 - INFO - http://192.168.29.107:4000/v2/master/tally_data/tally_app/login API called - Status 200
+2024-11-26 16:46:03,646 - INFO - http://192.168.29.107:4000/check_if_tally_running API called - Status 200
+2024-11-26 16:46:03,856 - INFO - http://192.168.29.107:4000/get_tally_companies API called - Status 200
+2024-11-26 16:52:34,647 - INFO - Application started.
+2024-11-26 16:52:59,501 - INFO - http://192.168.29.107:4000/v2/master/tally_data/tally_app/login API called - Status 200
+2024-11-26 16:53:20,841 - INFO - http://192.168.29.107:4000/v2/master/tally_data/tally_app/login API called - Status 200
+2024-11-26 16:53:24,437 - INFO - http://192.168.29.107:4000/check_if_tally_running API called - Status 200
+2024-11-26 16:53:24,581 - INFO - http://192.168.29.107:4000/get_tally_companies API called - Status 200
+2024-11-26 16:54:42,269 - INFO - Application started.
+2024-11-26 16:54:54,762 - INFO - http://192.168.29.107:4000/v2/master/tally_data/tally_app/login API called - Status 200
+2024-11-26 16:54:58,915 - INFO - http://192.168.29.107:4000/check_if_tally_running API called - Status 200
+2024-11-26 16:54:59,066 - INFO - http://192.168.29.107:4000/get_tally_companies API called - Status 200
+2024-11-26 16:55:17,688 - INFO - http://192.168.29.107:4000/check_if_tally_running API called - Status 200
+2024-11-26 16:55:17,777 - INFO - http://192.168.29.107:4000/get_tally_companies API called - Status 200
+2024-11-26 16:55:51,245 - INFO - Application started.
+2024-11-26 16:56:03,926 - INFO - http://192.168.29.107:4000/v2/master/tally_data/tally_app/login API called - Status 200
+2024-11-26 16:56:10,359 - INFO - http://192.168.29.107:4000/v2/master/tally_data/tally_app/login API called - Status 200
+2024-11-26 16:56:13,573 - INFO - http://192.168.29.107:4000/check_if_tally_running API called - Status 200
+2024-11-26 16:56:13,773 - INFO - http://192.168.29.107:4000/get_tally_companies API called - Status 200
+2024-11-26 16:57:19,622 - INFO - Application started.
+2024-11-26 16:57:33,251 - INFO - http://192.168.29.107:4000/v2/master/tally_data/tally_app/login API called - Status 200
+2024-11-26 16:57:37,111 - INFO - http://192.168.29.107:4000/check_if_tally_running API called - Status 200
+2024-11-26 16:57:37,215 - INFO - http://192.168.29.107:4000/get_tally_companies API called - Status 200
+2024-11-26 16:58:38,693 - INFO - Application started.
+2024-11-26 16:58:52,275 - INFO - http://192.168.29.107:4000/v2/master/tally_data/tally_app/login API called - Status 200
+2024-11-26 16:58:56,923 - INFO - http://192.168.29.107:4000/check_if_tally_running API called - Status 200
+2024-11-26 16:58:57,014 - INFO - http://192.168.29.107:4000/get_tally_companies API called - Status 200
+2024-11-26 17:00:14,635 - INFO - Application started.
+2024-11-26 17:00:24,702 - INFO - http://192.168.29.107:4000/v2/master/tally_data/tally_app/login API called - Status 200
+2024-11-26 17:00:28,534 - INFO - http://192.168.29.107:4000/check_if_tally_running API called - Status 200
+2024-11-26 17:00:28,660 - INFO - http://192.168.29.107:4000/get_tally_companies API called - Status 200
+2024-11-26 17:02:32,711 - INFO - http://192.168.29.107:4000/check_if_tally_running API called - Status 200
+2024-11-26 17:02:32,836 - INFO - http://192.168.29.107:4000/get_tally_companies API called - Status 200
+2024-11-26 17:02:37,935 - INFO - http://192.168.29.107:4000/v2/master/tally_data/v2/import_reports_data API called - Status 200
+2024-11-26 17:02:39,891 - INFO - http://192.168.29.107:4000/check_if_tally_running API called - Status 200
+2024-11-26 17:02:50,667 - INFO - http://192.168.29.107:4000/check_if_tally_running API called - Status 200
+2024-11-26 17:02:50,837 - INFO - http://192.168.29.107:4000/check_if_tally_running API called - Status 200
+2024-11-26 17:02:52,339 - INFO - Tally Data Fetched
+2024-11-26 17:02:52,714 - INFO - Tally Data Fetched
+2024-11-26 17:02:53,312 - INFO - Tally Data Fetched
+2024-11-26 17:02:54,517 - INFO - Tally Data Fetched
+2024-11-26 17:02:54,773 - INFO - Tally Data Fetched
+2024-11-26 17:02:55,769 - INFO - http://192.168.29.107:4000/v2/master/tally_data/import API called
+2024-11-26 17:02:55,770 - INFO - http://192.168.29.107:4000/v2/master/tally_data/import API called - Status 200
+2024-11-26 17:03:00,707 - INFO - http://192.168.29.107:4000/v2/master/tally_data/v2/import_ledgers_and_groups API called - Status 200
+2024-11-26 17:07:18,693 - INFO - Application started.
+2024-11-26 17:07:18,694 - INFO - Previous Login Found.
+2024-11-26 17:07:23,514 - INFO - http://192.168.29.107:4000/v2/master/tally_data/v2/reset_application_mappings API called - Status 200
+2024-11-26 17:07:28,872 - INFO - Application started.
+2024-11-26 17:07:40,737 - INFO - http://192.168.29.107:4000/v2/master/tally_data/tally_app/login API called - Status 200
+2024-11-26 17:07:51,708 - ERROR - Tally is offline on mapping
+2024-11-26 17:08:41,724 - INFO - Application started.
+2024-11-26 17:08:52,226 - INFO - http://192.168.29.107:4000/v2/master/tally_data/tally_app/login API called - Status 200
+2024-11-26 17:08:58,157 - INFO - http://192.168.29.107:4000/v2/master/tally_data/tally_app/login API called - Status 200
+2024-11-26 17:09:02,253 - INFO - http://192.168.29.107:4000/check_if_tally_running API called - Status 200
+2024-11-26 17:09:02,377 - INFO - http://192.168.29.107:4000/get_tally_companies API called - Status 200
+2024-11-26 17:10:26,523 - INFO - Application started.
+2024-11-26 17:10:36,630 - INFO - http://192.168.29.107:4000/v2/master/tally_data/tally_app/login API called - Status 200
+2024-11-26 17:10:39,602 - INFO - http://192.168.29.107:4000/check_if_tally_running API called - Status 200
+2024-11-26 17:10:39,705 - INFO - http://192.168.29.107:4000/get_tally_companies API called - Status 200
+2024-11-26 17:10:59,954 - INFO - Application started.
+2024-11-26 17:11:11,363 - INFO - http://192.168.29.107:4000/v2/master/tally_data/tally_app/login API called - Status 200
+2024-11-26 17:11:14,487 - INFO - http://192.168.29.107:4000/check_if_tally_running API called - Status 200
+2024-11-26 17:11:14,631 - INFO - http://192.168.29.107:4000/get_tally_companies API called - Status 200
+2024-11-26 17:11:17,486 - INFO - http://192.168.29.107:4000/v2/master/tally_data/v2/import_reports_data API called - Status 200
+2024-11-26 17:11:19,137 - INFO - http://192.168.29.107:4000/check_if_tally_running API called - Status 200
+2024-11-26 17:11:24,921 - INFO - http://192.168.29.107:4000/check_if_tally_running API called - Status 200
+2024-11-26 17:11:25,055 - INFO - http://192.168.29.107:4000/check_if_tally_running API called - Status 200
+2024-11-26 17:11:25,439 - INFO - Tally Data Fetched
+2024-11-26 17:11:25,884 - INFO - Tally Data Fetched
+2024-11-26 17:11:26,500 - INFO - Tally Data Fetched
+2024-11-26 17:11:27,223 - INFO - Tally Data Fetched
+2024-11-26 17:11:27,496 - INFO - Tally Data Fetched
+2024-11-26 17:11:28,049 - INFO - http://192.168.29.107:4000/v2/master/tally_data/import API called
+2024-11-26 17:11:28,050 - INFO - http://192.168.29.107:4000/v2/master/tally_data/import API called - Status 200
+2024-11-26 17:11:36,130 - INFO - http://192.168.29.107:4000/v2/master/tally_data/v2/import_ledgers_and_groups API called - Status 200
+2024-11-26 17:12:13,480 - INFO - http://192.168.29.107:4000/check_if_tally_running API called - Status 200
+2024-11-26 17:12:13,559 - INFO - http://192.168.29.107:4000/check_if_tally_running API called - Status 200
+2024-11-26 17:12:13,824 - INFO - Tally Data Fetched
+2024-11-26 17:12:14,218 - INFO - Tally Data Fetched
+2024-11-26 17:12:14,550 - INFO - Tally Data Fetched
+2024-11-26 17:12:15,678 - INFO - Tally Data Fetched
+2024-11-26 17:12:15,983 - INFO - Tally Data Fetched
+2024-11-26 17:12:16,323 - INFO - http://192.168.29.107:4000/v2/master/tally_data/import API called
+2024-11-26 17:12:16,324 - INFO - http://192.168.29.107:4000/v2/master/tally_data/import API called - Status 200
+2024-11-26 17:12:25,788 - INFO - http://192.168.29.107:4000/v2/master/tally_data/v2/import_ledgers_and_groups API called - Status 200
+2024-11-28 10:51:22,272 - INFO - Application started.
+2024-11-28 10:51:22,299 - INFO - Previous Login Found.
+2024-11-28 10:52:06,852 - INFO - Application started.
+2024-11-28 10:52:06,854 - INFO - Previous Login Found.
+2024-11-28 10:52:07,620 - INFO - https://dev-api.evitalrx.in:3050/check_if_tally_running API called - Status 200
+2024-11-28 10:52:14,427 - INFO - Application started.
+2024-11-28 10:52:35,728 - INFO - https://dev-api.evitalrx.in:3050/v2/master/tally_data/tally_app/login API called - Status 200
+2024-11-28 10:52:37,520 - INFO - https://dev-api.evitalrx.in:3050/check_if_tally_running API called - Status 200
+2024-11-28 10:52:37,540 - INFO - https://dev-api.evitalrx.in:3050/get_tally_companies API called - Status 200
+2024-11-30 11:22:37,242 - INFO - Application started.
+2024-11-30 11:23:03,023 - INFO - https://dev-api.evitalrx.in:3050/v2/master/tally_data/tally_app/login API called - Status 200
+2024-11-30 11:23:04,175 - INFO - https://dev-api.evitalrx.in:3050/check_if_tally_running API called - Status 200
+2024-11-30 11:23:04,186 - INFO - https://dev-api.evitalrx.in:3050/get_tally_companies API called - Status 200
+2024-11-30 11:23:11,585 - INFO - https://dev-api.evitalrx.in:3050/v2/master/tally_data/v2/import_reports_data API called - Status 200
+2024-11-30 11:24:14,293 - INFO - Application started.
+2024-11-30 11:24:57,514 - INFO - https://dev-api.evitalrx.in:3050/v2/master/tally_data/tally_app/login API called - Status 200
+2024-11-30 11:24:58,343 - INFO - https://dev-api.evitalrx.in:3050/check_if_tally_running API called - Status 200
+2024-11-30 11:24:58,375 - INFO - https://dev-api.evitalrx.in:3050/get_tally_companies API called - Status 200
+2024-11-30 11:25:01,793 - INFO - https://dev-api.evitalrx.in:3050/v2/master/tally_data/v2/import_reports_data API called - Status 200
+2024-11-30 11:25:49,260 - INFO - https://dev-api.evitalrx.in:3050/v2/master/tally_data/v2/import_reports_data API called - Status 200
+2024-11-30 11:26:27,226 - INFO - Application started.
+2024-11-30 11:27:05,664 - INFO - https://dev-api.evitalrx.in:3050/v2/master/tally_data/tally_app/login API called - Status 200
+2024-11-30 11:27:06,830 - INFO - https://dev-api.evitalrx.in:3050/check_if_tally_running API called - Status 200
+2024-11-30 11:27:06,849 - INFO - https://dev-api.evitalrx.in:3050/get_tally_companies API called - Status 200
+2024-11-30 11:27:09,920 - INFO - https://dev-api.evitalrx.in:3050/v2/master/tally_data/v2/import_reports_data API called - Status 200
+2025-01-03 11:30:08,826 - INFO - Application started.
+2025-01-03 11:39:04,311 - INFO - Application started.
+2025-01-03 11:42:35,838 - INFO - Application started.
+2025-01-03 11:43:25,793 - INFO - Application started.
+2025-01-03 11:46:42,377 - INFO - Application started.
+2025-01-03 11:47:12,849 - INFO - Application started.
+2025-01-03 11:48:01,202 - INFO - Application started.
+2025-01-03 11:48:31,043 - INFO - Application started.
+2025-01-03 11:49:18,966 - INFO - Application started.
+2025-01-03 11:50:06,025 - INFO - Application started.
+2025-01-03 11:50:24,668 - INFO - Application started.
+2025-01-03 11:51:26,822 - INFO - Application started.
+2025-01-03 11:52:27,064 - INFO - Application started.
+2025-01-03 11:52:37,668 - INFO - Application started.
+2025-01-03 11:53:35,062 - INFO - Application started.
+2025-01-03 11:54:58,613 - INFO - Application started.
+2025-01-03 11:55:30,903 - INFO - Application started.
+2025-01-03 11:56:49,857 - INFO - Application started.
+2025-01-03 11:57:18,557 - INFO - Application started.
+2025-01-03 11:57:29,324 - INFO - Application started.
+2025-01-03 11:58:11,747 - INFO - Application started.
+2025-01-03 11:58:46,733 - INFO - Application started.
+2025-01-03 11:59:09,561 - INFO - Application started.
+2025-01-03 11:59:36,319 - INFO - Application started.
+2025-01-03 12:01:23,315 - INFO - Application started.
+2025-01-03 12:02:12,312 - INFO - Application started.
+2025-01-03 12:02:58,459 - INFO - Application started.
+2025-01-03 12:03:19,571 - INFO - Application started.
+2025-01-03 12:05:55,462 - INFO - Application started.
+2025-01-03 12:06:19,612 - INFO - Application started.
+2025-01-03 12:06:50,253 - INFO - Application started.
+2025-01-03 12:07:23,498 - INFO - Application started.
+2025-01-03 12:08:18,277 - INFO - Application started.
+2025-01-03 12:12:03,573 - INFO - Application started.
+2025-01-03 12:13:26,178 - INFO - Application started.
+2025-01-03 12:14:56,915 - INFO - Application started.
+2025-01-03 12:15:18,165 - INFO - Application started.
+2025-01-03 12:17:53,581 - INFO - Application started.
+2025-01-03 12:18:11,728 - INFO - Application started.
+2025-01-03 12:18:40,791 - INFO - Application started.
+2025-01-03 12:19:48,810 - INFO - Application started.
+2025-01-03 12:21:36,277 - INFO - Application started.
+2025-01-03 12:22:03,341 - INFO - Application started.
+2025-01-03 12:24:59,999 - INFO - Application started.
+2025-01-03 12:41:06,741 - INFO - Application started.
+2025-01-03 12:41:35,723 - INFO - Application started.
+2025-01-03 12:42:22,254 - INFO - Application started.
+2025-01-03 12:43:29,047 - INFO - Application started.
+2025-01-03 12:44:45,510 - INFO - Application started.
+2025-01-03 12:45:42,282 - INFO - Application started.
+2025-01-03 12:47:58,941 - INFO - Application started.
+2025-01-03 12:48:18,637 - INFO - Application started.
+2025-01-03 12:48:43,054 - INFO - Application started.
+2025-01-03 12:48:55,569 - INFO - Application started.
+2025-01-03 12:49:47,698 - INFO - Application started.
+2025-01-03 12:50:09,593 - INFO - Application started.
+2025-01-03 12:53:03,681 - INFO - Application started.
+2025-01-03 12:53:25,035 - INFO - Application started.
+2025-01-03 12:55:40,492 - INFO - Application started.
+2025-01-03 12:56:34,960 - INFO - Application started.
+2025-01-03 12:58:57,544 - INFO - Application started.
+2025-01-03 12:59:24,207 - INFO - Application started.
+2025-01-03 13:00:02,525 - INFO - Application started.
+2025-01-03 13:00:33,118 - INFO - Application started.
+2025-01-03 13:01:37,531 - INFO - Application started.
+2025-01-03 13:02:12,208 - INFO - Application started.
+2025-01-03 13:02:24,641 - INFO - Application started.
+2025-01-03 13:03:47,565 - INFO - Application started.
+2025-01-03 13:05:08,765 - INFO - Application started.
+2025-01-03 13:06:50,471 - INFO - Application started.
+2025-01-03 13:08:04,963 - INFO - Application started.
+2025-01-03 13:12:20,691 - INFO - Application started.
+2025-01-03 13:20:14,773 - INFO - Application started.
+2025-01-03 13:20:23,767 - INFO - Application started.
+2025-01-03 13:20:58,187 - INFO - Application started.
+2025-01-03 13:21:31,122 - INFO - Application started.
+2025-01-03 13:21:53,700 - INFO - Application started.
+2025-01-03 14:43:57,889 - INFO - Application started.
+2025-01-03 14:45:14,040 - INFO - Application started.
+2025-01-03 14:50:14,051 - INFO - Application started.
+2025-01-03 14:51:59,498 - INFO - Application started.
+2025-01-03 14:52:44,004 - INFO - Application started.
+2025-01-03 14:56:05,265 - INFO - Application started.
+2025-01-03 14:56:15,899 - INFO - https://dev-api.evitalrx.in:3050/v2/master/tally_data/tally_app/login API called - Status 200
+2025-01-03 15:06:35,442 - INFO - Application started.
+2025-01-03 15:11:23,987 - INFO - Application started.
+2025-01-03 15:11:53,493 - INFO - Application started.
+2025-01-03 15:13:08,812 - INFO - Application started.
+2025-01-03 15:15:27,802 - INFO - Application started.
+2025-01-03 15:17:11,086 - INFO - Application started.
+2025-01-03 15:19:13,386 - INFO - Application started.
+2025-01-03 15:21:31,042 - INFO - Application started.
+2025-01-03 15:27:38,575 - INFO - Application started.
+2025-01-03 15:28:50,179 - INFO - Application started.
+2025-01-03 15:30:43,118 - INFO - Application started.
+2025-01-03 16:19:34,544 - INFO - Application started.
+2025-01-03 16:22:06,710 - INFO - Application started.
+2025-01-03 16:23:15,009 - INFO - Application started.
+2025-01-03 16:23:42,048 - INFO - Application started.
+2025-01-03 16:23:57,770 - INFO - Application started.
+2025-01-03 16:25:05,291 - INFO - Application started.
+2025-01-03 16:25:17,256 - INFO - Application started.
+2025-01-03 16:25:39,753 - INFO - Application started.
