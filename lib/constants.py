@@ -6,22 +6,24 @@ HOST = "localhost"
 # HOST = "192.168.29.107"
 # HOST = "192.168.1.21"
 # HOST = "192.168.1.46"
-# HOST = "192.168.1.17"
+# HOST = "192.168.1.29"
 TALLY_URL = F"http://{HOST}:9000"
 COMPANY_NAME = "abc"    
 
 EVITAL_RX_HOST = "192.168.29.107"
 # EVITAL_RX_HOST = "192.168.1.46"
-# EVITAL_RX_HOST = "localhost"
-# EVITAL_RX_HOST = "192.168.1.17"
-EVITAL_RX_HOST = "api.evitalrx.in"
-EVITAL_RX_URL = "https://dev-api.evitalrx.in:3050/"
+EVITAL_RX_HOST = "localhost"
+# EVITAL_RX_HOST = "192.168.1.29"
+# EVITAL_RX_HOST = "0f9d-2405-201-2000-a0d0-b81f-b3cc-cee8-c796.ngrok-free.app"
+EVITAL_RX_HOST = "a163-2405-201-2000-a0d0-cc0-1d57-46f2-6337.ngrok-free.app"
+# EVITAL_RX_HOST = "api.evitalrx.in"
+# EVITAL_RX_URL = "https://dev-api.evitalrx.in:3050/"
 # EVITAL_RX_URL = f"https://{EVITAL_RX_HOST}:4050/"
 # EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}:4000/"
+EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}/"
 # EVITAL_RX_API_KEY = "masteraYQ8DVYzLP559sGJeWty4wXHaw"
 EVITAL_RX_API_KEY = ""
 
-CHEMIST_ID = 677
 LOGIN_RESPONSE = {}
 IS_LOGIN = False
 RX_ACCOUNTS = []
@@ -33,10 +35,15 @@ ACCESS_TOKEN = ""
 THREAD = None
 STOP_THREAD = False
 DISPLAY_SYNC_LOADER = False
-FIRST_LOADER_INIT = False
 REQUEST_TIMEOUT = 2000
 
+MAPPING_HISTORY = []
+ONE_SYNC = []
 LAST_SYNCED = ""
+MOBILE = ""
+MOBILE_VAR = None
+SYNC_TIMER = 0
+
 
 VOUCHERS = {
 "company_data": {

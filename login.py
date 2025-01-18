@@ -14,6 +14,7 @@ from ctypes import windll
 # from app import logging
 import logging
 
+
 def login_thread():
 
     def show_mapping_screen(account_window):
@@ -333,6 +334,7 @@ def login_thread():
         # For demonstration, just check for specific mobile number and password
             res = send_login_request(mobile_number, password)
             print('➡ login.py:89 res:', res)
+            logging.info(res)
             
             if "status_code" in res.keys() and res['status_code'] in [1,'1']:
                 if_chain_pharmacy = res["data"]["pharmacy_details"]["is_chain_pharmacy"]
@@ -487,7 +489,7 @@ def login_thread():
     # title_label.pack(side=tk.LEFT, padx=10)
 
     # Add a close button to the custom title bar
-    close_button = tk.Button(title_bar, text='x', font=header_font, command=close_window, bg='white', fg='#044C9D', relief='flat')
+    close_button = tk.Button(title_bar, text='x', font=header_font, command=close_window, bg='white', fg='#044C9D', borderwidth=0, relief=tk.SUNKEN)
     close_button.pack(side=tk.RIGHT, padx=20, pady=15)
 
     right_panel = tk.Frame(root, bg="white", width=400 , height=480)
@@ -495,7 +497,7 @@ def login_thread():
     right_panel.pack_propagate(False)
 
     login_label = tk.Label(right_panel, text="Login with your", bg="white", font=header_font1, justify=tk.LEFT)
-    login_label.pack(pady=(50, 0), padx=50, anchor=tk.W)
+    login_label.pack(pady=(45, 0), padx=50, anchor=tk.W)
     login_label = tk.Label(right_panel, text="eVitalRx account", bg="white", font=header_font, justify=tk.LEFT)
     login_label.pack(pady=(0, 30), padx=50, anchor=tk.W)
 
@@ -504,8 +506,8 @@ def login_thread():
 
     mobile_entry = tk.Entry(right_panel, bg="white", font=header_font1, bd=0, width=40)
     mobile_entry.pack(pady=4, padx=53, anchor=tk.W)
-    mobile_line = tk.Canvas(right_panel, width=260, height=1, bg="#004BA8", highlightthickness=0)
-    mobile_line.pack(pady=(0, 10), padx=53, anchor=tk.W)
+    mobile_line = tk.Canvas(right_panel, width=280, height=1, bg="#004BA8", highlightthickness=0)
+    mobile_line.pack(pady=(0, 10), padx=(53,40), anchor=tk.W)
     mobile_entry.insert(0, "9876543210")  # Placeholder value
     mobile_entry.propagate(False)
 
@@ -514,8 +516,8 @@ def login_thread():
 
     password_entry = tk.Entry(right_panel, bg="white", font=header_font1, bd=0, show="*")
     password_entry.pack(pady=4, padx=53, anchor=tk.W, fill=tk.X)
-    password_line = tk.Canvas(right_panel, width=260, height=1, bg="#004BA8", highlightthickness=0)
-    password_line.pack(pady=(0, 20), padx=53, anchor=tk.W)
+    password_line = tk.Canvas(right_panel, width=280, height=1, bg="#004BA8", highlightthickness=0)
+    password_line.pack(pady=(0, 20), padx=(53, 40), anchor=tk.W)
 
     login_button = tk.Button(right_panel, text="Login", bg="#0CA1F6", fg="white", font=header_font, relief=tk.FLAT, height=1, width=20, command=login)
     login_button.pack(pady=20, padx=(0, 15))

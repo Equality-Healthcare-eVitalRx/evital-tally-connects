@@ -102,11 +102,12 @@ def send_data_to_evitalrx(request_params):
     # #print('➡ lib/import_export_data.py:27 json_request:', json_request)
     #print(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data")
     try:
-        response = requests.post(url=constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data", data=json.dumps(json_request), headers=headers, timeout=constants.REQUEST_TIMEOUT)
-        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data " + "API called")
         #print('➡ lib/import_export_data.py:27 response:', response)
+        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data " + "API called")
+        response = requests.post(url=constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data", data=json.dumps(json_request), headers=headers, timeout=constants.REQUEST_TIMEOUT)
+        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data " + "API called - Status "+str(response.status_code))
+        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data " + "API called - Response "+str(response.content))
         if response.status_code == 200:
-            logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data " + "API called - Status "+str(response.status_code))
             #print(response.content)
             status = json.loads(response.content)
             if status["status_code"] not in [1,'1']:
@@ -135,12 +136,13 @@ def send_login_request(mobile_no, password):
         "status_message" : "Couldn't send request."
     }
     try:
-        #print("onw")
+        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/tally_app/login " + "API called ")
         response = requests.post(url=constants.EVITAL_RX_URL+"v2/master/tally_data/tally_app/login", data=json.dumps(json_request), headers=headers, timeout=constants.REQUEST_TIMEOUT)
-        #print('➡ lib/import_export_data.py:78 response:', response)
+        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/tally_app/login " + "API called - Status "+str(response.status_code))
+        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/tally_app/login " + "API called - Response "+str(response.content))
+        print('➡ lib/import_export_data.py:78 response:', response)
         if response.status_code == 200:
             login_response = json.loads(response.content)
-            logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/tally_app/login " + "API called - Status "+str(response.status_code))
             if login_response["status_code"] == "1" or login_response["status_code"] == 1:
                 constants.LOGIN_RESPONSE = login_response
                 #print(login_response["data"]["pharmacy_details"]["logged_in_pharmacy"])
@@ -150,7 +152,7 @@ def send_login_request(mobile_no, password):
                         constants.RX_ACCOUNTS += [x for x in login_response["data"]["pharmacy_details"]["child_pharmacies"]]
                     if "HO_pharmacy" in login_response["data"]["pharmacy_details"].keys():
                         constants.RX_ACCOUNTS += list([{key:value for key,value in login_response["data"]["pharmacy_details"]["HO_pharmacy"].items()}])
-                    
+                  
                 
                 #print('➡ lib/import_export_data.py:56 RX_ACCOUNTS:', constants.RX_ACCOUNTS)
                 #print('➡ lib/import_export_data.py:55 LOGIN_RESPONSE:', constants.LOGIN_RESPONSE)
@@ -179,9 +181,11 @@ def get_tally_companies():
     
     try:
         
+        logging.info(constants.EVITAL_RX_URL+"get_tally_companies " + "API called  ")
         response = requests.post(url=constants.TALLY_URL, data=request_params, headers=headers, timeout=constants.REQUEST_TIMEOUT)
+        logging.info(constants.EVITAL_RX_URL+"get_tally_companies " + "API called - Status "+str(response.status_code))
+        logging.info(constants.EVITAL_RX_URL+"get_tally_companies " + "API called - Response "+str(response.content))
         if response.status_code == 200:
-            logging.info(constants.EVITAL_RX_URL+"get_tally_companies " + "API called - Status "+str(response.status_code))
             response_content = response.content
             content = response_content.replace(b'&#4;', b'')
             raw_data = xmltodict.parse(content)
@@ -201,11 +205,11 @@ def get_tally_companies():
         return parsed_data
     except requests.exceptions.Timeout:
         error_message = "Connection timed out. Please try again later."
-        messagebox.showerror("Login Failed", error_message)
+        messagebox.showerror("Tally Company", error_message)
         # save_error_message(error_message)
     except requests.exceptions.RequestException as e:
         error_message = str(e)
-        messagebox.showerror("Login Failed", error_message)
+        messagebox.showerror("Tally Company", error_message)
         # save_error_message(error_message)
 
     return 0
@@ -227,9 +231,11 @@ def map_rx_companies():
     # if len(constants.COMPANY_MAPPING)>0:
          
     try:
+        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data " + "API called ")
         response = requests.post(url=constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data", data=json.dumps(json_request), headers=headers, timeout=constants.REQUEST_TIMEOUT)
         logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data " + "API called - Status "+str(response.status_code))
-        #print('➡ lib/import_export_data.py:149 response:', response.content)
+        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data " + "API called - Response "+str(response.content))
+        print('➡ lib/import_export_data.py:149 response:', response.content)
         messagebox.showinfo("Company Mapping", "Comapny mapped successfully.")
         return json.loads(response.content)
     except:
@@ -247,11 +253,78 @@ def reset_mapping_from_rx():
     if constants.EVITAL_RX_API_KEY != "":
         json_request["apikey"] = constants.EVITAL_RX_API_KEY
     try:
+        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/reset_application_mappings " + "API called  ")
         response = requests.post(url=constants.EVITAL_RX_URL+"v2/master/tally_data/v2/reset_application_mappings", data=json.dumps(json_request), headers=headers, timeout=constants.REQUEST_TIMEOUT)
         logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/reset_application_mappings " + "API called - Status "+str(response.status_code))
+        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/reset_application_mappings " + "API called - Response "+str(response.content))
         #print('➡ lib/import_export_data.py:149 response:', response.content)
         messagebox.showinfo("Mapping Reset","Tally companies mapping reset successfully.")
         return json.loads(response.content)
+    except:
+        messagebox.showerror("Map Companies","Internet issues. Please try again later.")
+    return 0
+
+def get_mapping_details():
+    headers = {'Content-Type': 'application/json'}
+    json_request = {
+        # "accesstoken" : constants.ACCESS_TOKEN,
+        # "chemist_id" : constants.LOGIN_RESPONSE["data"]["pharmacy_details"]["logged_in_pharmacy"]["id"],
+    }
+    # if constants.ACCESS_TOKEN != "":
+    #     json_request["accesstoken"] = constants.ACCESS_TOKEN
+    # if constants.EVITAL_RX_API_KEY != "":
+    
+    json_data = json.load(open("./lib/credentials.json", "rb"))
+    # json_data["login_response"]["data"]
+   
+       
+    json_request["apikey"] = constants.EVITAL_RX_API_KEY
+    if constants.EVITAL_RX_API_KEY == "":
+        print("blank api key")
+        return {}
+    print('➡ lib/import_export_data.py:265 json_request:', json_request)
+    # if constants.EVITAL_RX_API_KEY == "":
+    #     return {}
+    try:
+        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/get_mapping_details " + "API called ")
+        response = requests.post(url=constants.EVITAL_RX_URL+"v2/master/tally_data/v2/get_mapping_details", data=json.dumps(json_request), headers=headers, timeout=constants.REQUEST_TIMEOUT)
+        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/get_mapping_details " + "API called - Status "+str(response.status_code))
+        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/get_mapping_details " + "API called - Response "+str(response.content))
+        #print('➡ lib/import_export_data.py:149 response:', response.content)
+        
+        response_josn = json.loads(response.content)
+        # print('➡ lib/import_export_data.py:284 response_josn:', response_josn)
+        # print('➡ lib/import_export_data.py:284 response_josn:', type(response_josn))
+#         response_josn = {
+#     "status_code": "1",
+#     "status_message": "Tally Company mappings fetched successfully",
+#     "datetime": "2025-01-04 17:39:07",
+#     "data": {
+#         "login_entity_last_synced": "",
+#         "results": [
+#             {
+#                 "chemist_id": "rM9k/ftzTZOC2y9KFKF5Vg==",
+#                 "evitalrx_branch_name": "Smit Pharmacy, Ahmedabad",
+#                 "tally_company_name": "Smit Pharmacy",
+#                 "last_synced": "25 min ago",
+#                 "is_mapped": "false"
+#             },
+#             {
+#                 "chemist_id": "4rCzgqEKT1jjLrpV/6xShg==",
+#                 "evitalrx_branch_name": "Shyam Pharmacy, Ahmedabad",
+#                 "tally_company_name": "",
+#                 "last_synced": "",
+#                 "is_mapped": "true"
+#             }
+#         ]
+#     }
+# }
+        if "data" in response_josn.keys():
+            constants.MAPPING_HISTORY = response_josn["data"]
+        # messagebox.showinfo("Mapping Reset","Tally companies mapping reset successfully.")
+        # print('➡ lib/import_export_data.py:284 response_josn:', response_josn)
+        return json.loads(response.content)
+    
     except:
         messagebox.showerror("Map Companies","Internet issues. Please try again later.")
     return 0
@@ -313,10 +386,13 @@ def send_init_data_to_evital_rx(request_array, from_date, to_date):
         # with open("./lib/data2.json", "w") as json_file:
         #     json.dump(json_request, json_file)
     try:
+        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_ledgers_and_groups " + "API called - ")
         response = requests.post(url=constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_ledgers_and_groups", data=json.dumps(json_request), headers=headers, timeout=constants.REQUEST_TIMEOUT)
+        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_ledgers_and_groups " + "API called - Status "+str(response.status_code))
+        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_ledgers_and_groups " + "API called - Response "+str(response.content))
         #print('➡ lib/import_export_data.py:27 response:', response)
         if response.status_code == 200:
-            logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_ledgers_and_groups " + "API called - Status "+str(response.status_code))
+            # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_ledgers_and_groups " + "API called - Status "+str(response.status_code))
             # json.dumps()
             # #print(response.content)
             status = json.loads(response.content)
