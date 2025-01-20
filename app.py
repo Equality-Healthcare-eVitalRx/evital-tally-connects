@@ -1,4 +1,5 @@
 import json
+import multiprocessing
 from pathlib import Path
 from main import main_thread
 from login import login_thread
@@ -72,6 +73,11 @@ if my_file.is_file():
             constants.ACCESS_TOKEN = json_data["login_response"]["data"]["accesstoken"]
         if "apikey" in json_data["login_response"]["data"]:
             constants.EVITAL_RX_API_KEY = json_data["login_response"]["data"]["apikey"]
+            
+        # list_of_dates = [x["synced_timestamp"] for x in json_data["data"]["last_synced_history"]]
+        # if len(list_of_dates) > 0:
+        #     constants.LAST_SYNCED = max(list_of_dates)
+        
         # print('➡ app.py:71 json_data:', json_data)
         # print('➡ app.py:72 constants.EVITAL_RX_API_KEY:', constants.EVITAL_RX_API_KEY)
         # main_thread()
@@ -92,7 +98,9 @@ else:
     appObj = App()
     appObj.show_frame("LoginScreen")
     
-appObj.update()
-appObj.update_idletasks()
-appObj.mainloop()
+if __name__ == "__main__":
+    appObj.update()
+    appObj.update_idletasks()
+    appObj.mainloop()
+    multiprocessing.freeze_support()
     # login_thread()

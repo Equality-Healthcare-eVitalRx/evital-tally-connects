@@ -15,11 +15,11 @@ EVITAL_RX_HOST = "192.168.29.107"
 EVITAL_RX_HOST = "localhost"
 # EVITAL_RX_HOST = "192.168.1.29"
 # EVITAL_RX_HOST = "0f9d-2405-201-2000-a0d0-b81f-b3cc-cee8-c796.ngrok-free.app"
-EVITAL_RX_HOST = "a163-2405-201-2000-a0d0-cc0-1d57-46f2-6337.ngrok-free.app"
+EVITAL_RX_HOST = "9774-182-70-125-130.ngrok-free.app"
 # EVITAL_RX_HOST = "api.evitalrx.in"
 # EVITAL_RX_URL = "https://dev-api.evitalrx.in:3050/"
 # EVITAL_RX_URL = f"https://{EVITAL_RX_HOST}:4050/"
-# EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}:4000/"
+EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}:4000/"
 EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}/"
 # EVITAL_RX_API_KEY = "masteraYQ8DVYzLP559sGJeWty4wXHaw"
 EVITAL_RX_API_KEY = ""
@@ -42,6 +42,9 @@ ONE_SYNC = []
 LAST_SYNCED = ""
 MOBILE = ""
 MOBILE_VAR = None
+CURRENT_BRANCH_SYNC = None
+LAST_SYNC_VAR = None
+REQUIRE_REBOOT = False
 SYNC_TIMER = 0
 
 

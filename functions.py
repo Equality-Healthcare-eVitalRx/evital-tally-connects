@@ -75,17 +75,22 @@ def logout():
     with open("./lib/credentials.json", "w") as json_file:
         json.dump({}, json_file)
     constants.COMPANY_MAPPING = {}
+    constants.MAPPING_HISTORY = {}
     # root.destroy()
     
 def get_all_mapping_details():
     res = get_mapping_details()
     if "status_code" in res and res["status_code"] in [1, '1']:
         constants.MAPPING_HISTORY = res["data"]
-    print('➡ functions.py:76 res:', res)
+        # if constants.LAST_SYNC_VAR is not None:
+        #     last_time = [str()]
+        #     constants.LAST_SYNC_VAR.set()
+    print('➡ functions.py:85 res:', res)
     
     
 def startprocess(one_sync=False):
     constants.DISPLAY_SYNC_LOADER = True
+    time.sleep(1)
     # animation_thread = threading.Thread(target=show_animation, daemon=True)
     # animation_thread.start()
     # show_animation()
@@ -109,7 +114,7 @@ def startprocess(one_sync=False):
     # print(constants.MAPPING_HISTORY)
     if not one_sync:
         companies = [
-            {"chemist_id" : x["chemist_id"], "company_name":x["tally_company_name"], "company_guid":x["tally_company_guid"]}
+            {"chemist_id" : x["chemist_id"], "company_name":x["tally_company_name"], "company_guid":x["tally_company_guid"], "branch_name":x["evitalrx_branch_name"]}
             for x in constants.MAPPING_HISTORY["results"] if x["is_mapped"] in ['true', True, 'True']
         ]
     else:
@@ -126,6 +131,11 @@ def startprocess(one_sync=False):
     request_array = []
     init_data_array = []
     for company in companies:
+        if constants.CURRENT_BRANCH_SYNC is not None:
+        
+            constants.CURRENT_BRANCH_SYNC.set(
+                company["branch_name"]
+            )
         #print('➡ main.py:141 company:', company)
         data_list = {
             "list_of_companies": {},
@@ -139,10 +149,14 @@ def startprocess(one_sync=False):
             "ledgers_data" : {},
             "groups_data" : {}
         }
-        print('➡ functions.py:138 init_data_list:', init_data_list)
-        print('➡ functions.py:134 data_list:', data_list)
         
         for key, value in constants.REQUEST_FORMATS.items():
+            if constants.CURRENT_BRANCH_SYNC is not None:
+            
+                constants.CURRENT_BRANCH_SYNC.set(
+                    company["branch_name"]
+                )
+            #print('➡ main.py:141 company:', company)
             print('➡ func.py:208 key:', key)
             
             if key != "list_of_companies":
@@ -183,9 +197,17 @@ def startprocess(one_sync=False):
         }
         request_array.append(tally_data)
         init_data_array.append(init_data_list)
+        
+        if constants.STOP_THREAD:
+            print("thread stopped abnormally")
+            constants.STOP_THREAD = False
+            return 0
     #print('➡ main.py:226 request_array:', request_array)
         # #print('➡ main.py:228 init_data_array:', init_data_array)
-            
+    if constants.STOP_THREAD:   
+        print("thread stopped abnormally")
+        constants.STOP_THREAD = False
+        return 0
     res = send_data_to_evitalrx(request_array)
     print('➡ functions.py:186 res:', res)
     init_response = send_init_data_to_evital_rx(init_data_array, from_date.strftime("%Y-%m-%d"), to_date.strftime("%Y-%m-%d"))    
@@ -201,6 +223,8 @@ def startprocess(one_sync=False):
     constants.LAST_SYNCED = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if one_sync:
         constants.STOP_THREAD = True
+    else:
+        constants.REQUIRE_REBOOT = True
         
     # if parent is not None:
     #     parent.__init__(parent.parent, parent.controller)
@@ -218,9 +242,12 @@ def start_background_thread(start_now=False, one_sync=False):
                 if constants.SYNC_TIMER == 0:
                     constants.STOP_THREAD = True
                     break
-                time.sleep(constants.SYNC_TIMER * 60)
                 print("sleep")
+                time.sleep(constants.SYNC_TIMER * 60)
                 # time.sleep(3 * 1)
+            if constants.STOP_THREAD:
+                print("background thread killed")
+                break
             startprocess(one_sync=one_sync)
             if start_now:
                 constants.STOP_THREAD = True

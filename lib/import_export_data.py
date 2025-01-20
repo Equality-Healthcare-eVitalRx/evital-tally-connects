@@ -1,3 +1,4 @@
+import sys
 from lib import constants
 import requests
 import xmltodict
@@ -60,8 +61,6 @@ def send_request_to_tally(request_params, request_format = ""):
             output_json = json.dumps(cleaned_data)
             return output_json
             
-            
-            
         raw_data = xmltodict.parse(content)
         parsed_data = json.dumps(raw_data) 
 
@@ -71,13 +70,13 @@ def send_request_to_tally(request_params, request_format = ""):
     except requests.exceptions.Timeout:
         logging.error("API timeout - send_request_to_tally")
         error_message = "Make sure tally is running."
-        messagebox.showerror("Login Failed", error_message)
+        messagebox.showerror("Sync Failed", error_message)
         # save_error_message(error_message)
     except requests.exceptions.RequestException as e:
         logging.error("Tally Exception - "+str(e))
         error_message = str(e)
         error_message = "Make sure tally is running."
-        messagebox.showerror("Login Failed", error_message)
+        messagebox.showerror("Sync Failed", error_message)
     return 0
 
 def send_data_to_evitalrx(request_params):
@@ -182,7 +181,7 @@ def get_tally_companies():
     try:
         
         logging.info(constants.EVITAL_RX_URL+"get_tally_companies " + "API called  ")
-        response = requests.post(url=constants.TALLY_URL, data=request_params, headers=headers, timeout=constants.REQUEST_TIMEOUT)
+        response = requests.post(url=constants.TALLY_URL, data=request_params, headers=headers, timeout=3)
         logging.info(constants.EVITAL_RX_URL+"get_tally_companies " + "API called - Status "+str(response.status_code))
         logging.info(constants.EVITAL_RX_URL+"get_tally_companies " + "API called - Response "+str(response.content))
         if response.status_code == 200:
@@ -206,10 +205,15 @@ def get_tally_companies():
     except requests.exceptions.Timeout:
         error_message = "Connection timed out. Please try again later."
         messagebox.showerror("Tally Company", error_message)
+        sys.exit(1)
         # save_error_message(error_message)
     except requests.exceptions.RequestException as e:
         error_message = str(e)
-        messagebox.showerror("Tally Company", error_message)
+        messagebox.showerror("Tally Company", "Tally is not running.")
+        sys.exit(1)
+    except:
+        messagebox.showerror("Tally Company", "Tally is not running.")
+        sys.exit(1)
         # save_error_message(error_message)
 
     return 0
@@ -321,6 +325,8 @@ def get_mapping_details():
 # }
         if "data" in response_josn.keys():
             constants.MAPPING_HISTORY = response_josn["data"]
+            
+            
         # messagebox.showinfo("Mapping Reset","Tally companies mapping reset successfully.")
         # print('➡ lib/import_export_data.py:284 response_josn:', response_josn)
         return json.loads(response.content)
@@ -340,7 +346,7 @@ def get_last_synced_date():
 def check_if_tally_running():
     headers = {'Content-Type': 'application/xml'}
     try:
-        response = requests.post(url=constants.TALLY_URL, data="", headers=headers, timeout=6)
+        response = requests.post(url=constants.TALLY_URL, data="", headers=headers, timeout=3)
         print('➡ lib/import_export_data.py:271 response:', response)
         response_content = response.content
         logging.info(constants.EVITAL_RX_URL+"check_if_tally_running " + "API called - Status "+str(response.status_code))
@@ -352,8 +358,10 @@ def check_if_tally_running():
         #print("Data Fetched")
         return True
     except:
-        print(str(traceback.format_exc()))
-        return False
+        # print(str(traceback.format_exc()))
+        messagebox.showerror("Tally Sync", "Tally is not running")
+        sys.exit(1)
+        # return False
     
 def send_init_data_to_evital_rx(request_array, from_date, to_date):
     # #print('➡ lib/import_export_data.py:225 request_array:', request_array)

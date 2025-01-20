@@ -38,6 +38,9 @@ class App(tk.Tk):
             x = self.winfo_pointerx() - self.x
             y = self.winfo_pointery() - self.y
             self.geometry(f"+{x}+{y}")
+            
+        def on_closing():
+            self.destroy()
         # self.title("Multi-Screen App")
         # self.geometry("600x400")
         
@@ -48,7 +51,7 @@ class App(tk.Tk):
         
         # Show the first screen
         
-        self.title("Sync Utility Login")
+        # self.title("Sync Utility Login")
         self.geometry("900x600")
         self.configure(bg="#044C9D")  # Set background to blue
         self.overrideredirect(True)
@@ -56,11 +59,16 @@ class App(tk.Tk):
         self.resizable(0,0)
         self.iconbitmap("./lib/images/logo2.ico")
         self.title("Login Screen")
+        # self.config(
+        #     background='black'
+        #     # borderwidth=2, relief="solid"
+        # )
         
         self.bind("<Button-1>", start_move)
         self.bind("<ButtonRelease-1>", stop_move)
         self.bind("<B1-Motion>", do_move)
         
+        self.protocol("WM_DELETE_WINDOW", on_closing)
         # Ensure the window appears in the taskbar and Alt+Tab
         # self.attributes("-topmost", True)  # Always on top
         self.attributes("-toolwindow", False)  # Make it appear in Alt+Tab
@@ -184,7 +192,7 @@ class LoginScreen(tk.Frame):
         close_button = tk.Button(title_bar, text='x', font=header_font, command=close_window, bg='white', fg='#044C9D', borderwidth=0, relief=tk.SUNKEN)
         close_button.pack(side=tk.RIGHT, padx=20, pady=15)
 
-        right_panel = tk.Frame(self, bg="white", width=400 , height=480)
+        right_panel = tk.Frame(self, bg="white", width=400 , height=470)
         right_panel.pack(side=tk.RIGHT, fill=tk.Y)
         right_panel.pack_propagate(False)
 
@@ -222,7 +230,7 @@ class Dashboard(tk.Frame):
             widget.destroy()
         self.controller = controller
         self.parent = parent
-        
+        # self.config(borderwidth=1, relief="solid")
     
         # self.animation_running = False
              
@@ -239,6 +247,7 @@ class Dashboard(tk.Frame):
             title_bar.pack(fill=tk.X)
             close_button = tk.Button(title_bar, text='x', font=header_font, command=close_window, bg='#E7F6FF', fg='#044C9D', borderwidth=0, relief=tk.SUNKEN)
             close_button.pack(side=tk.RIGHT, padx=20, pady=(10,5))
+            get_all_mapping_details()
 
             # Upper right panel (contains last sync and button)
             upper_right_panel = tk.Frame(right_panel, bg="#E7F6FF")
@@ -253,10 +262,15 @@ class Dashboard(tk.Frame):
             top_right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
             # Last Sync header and time
+            constants.LAST_SYNC_VAR = tk.StringVar(value="No Sync")
+            
             last_sync_label = tk.Label(top_left_panel, text="Last Sync", bg="#E7F6FF", fg="#7E878C", font=label_font2, justify=tk.LEFT)
             last_sync_label.pack(pady=(15, 0), padx=30, anchor=tk.W)
+            
+            if len(constants.MAPPING_HISTORY) > 0 and 'login_entity_last_synced' in constants.MAPPING_HISTORY.keys() and constants.MAPPING_HISTORY["login_entity_last_synced"] != "":
+                constants.LAST_SYNC_VAR.set(constants.MAPPING_HISTORY["login_entity_last_synced"])
 
-            last_sync_time = tk.Label(top_left_panel, text="25 mins ago", bg="#E7F6FF", fg="#004BA8", font=label_font2, justify=tk.LEFT)
+            last_sync_time = tk.Label(top_left_panel, textvariable=constants.LAST_SYNC_VAR, bg="#E7F6FF", fg="#004BA8", font=label_font2, justify=tk.LEFT)
             last_sync_time.pack(pady=(0, 20), padx=30, anchor=tk.W)
 
             # Sync all button
@@ -268,7 +282,6 @@ class Dashboard(tk.Frame):
             lower_right_panel.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=30, pady=(10, 0))
 
 
-            get_all_mapping_details()
             # print("ASfg4e", constants.MAPPING_HISTORY)
 #             response_josn = {
 #     "status_code": "1",
@@ -383,15 +396,16 @@ class Dashboard(tk.Frame):
                 
                 if "Map Now" in branch["status"]:
                     def test_menu():
-                #     # Place menu at a controlled position relative to the application window
-                        x = branch_left_frame.winfo_rootx() + 50
+                    # Place menu at a controlled position relative to the application window
+                        x = branch_left_frame.winfo_rootx() + 10
                         y = branch_left_frame.winfo_rooty() - 10
                         map_menu.post(x, y)
+                        map_menu.place()
 
                     if len(remaining_branch) > 0:
-                        
                         test_button = tk.Button(branch_left_frame, text="Map Now >", command=test_menu, relief=tk.SUNKEN, fg='red', bg='white', borderwidth=0, border=0, font=label_font)
                         test_button.pack(anchor=tk.E, padx=5, fill=tk.X, side=tk.LEFT)
+                        # test_button.bind("<Button-3>", show_custom_menu)
 
                     else:
                         test_button = tk.Label(branch_left_frame, text="Map Now >", fg='red', bg='white', font=label_font)
@@ -416,6 +430,7 @@ class Dashboard(tk.Frame):
                     for option in remaining_branch:
                         # map_menu.add_command(label=option, command=lambda opt=option: map_branch_action(opt))
                         map_menu.add_radiobutton(label=option, command=lambda opt=option, branch=branch: map_branch_action(opt, branch))
+                        # map_menu.add_separator()
 
                     # menu.add_command(label="Map Branch", command=lambda: print(f"Mapping branch: {branch['name']}"))
 
@@ -568,7 +583,8 @@ class Dashboard(tk.Frame):
                 {
                     "chemist_id" : data["chemist_id"],
                     "tally_company_guid" : data["company_guid"],
-                    "company_name" : str(data["status"]).replace("Mapped as ", "")
+                    "company_name" : str(data["status"]).replace("Mapped as ", ""),
+                    "branch_name" : data["name"]
                 }
             ]
             show_sync_frame(True)
@@ -670,6 +686,12 @@ class Dashboard(tk.Frame):
                 time.sleep(0.1)
             re_create_main_content()
 
+        def check_if_require_reboot():
+            while not constants.REQUIRE_REBOOT:
+                time.sleep(1)
+            create_main_content()
+            constants.REQUIRE_REBOOT = False
+            check_if_require_reboot()
         
         def show_sync_frame(one_sync = False):
             # print('➡ tk_screen.py:565 one_sync:', one_sync)
@@ -726,7 +748,9 @@ class Dashboard(tk.Frame):
             # gif_label = tk.Label(right_panel, bg="white")
             # gif_label.pack(expand=True, anchor=tk.N, pady=0)
             
-            version_label = tk.Label(right_panel, text="Chandkheda Branch", bg="#E7F6FF", fg="Black", font=header_font2)
+            constants.CURRENT_BRANCH_SYNC = tk.StringVar(value="")
+            print('➡ tk_screen.py:731 constants.CURRENT_BRANCH_SYNC:', constants.CURRENT_BRANCH_SYNC)
+            version_label = tk.Label(right_panel, textvariable=constants.CURRENT_BRANCH_SYNC, bg="#E7F6FF", fg="Black", font=header_font2)
             version_label.pack(pady=(0, 20), padx=40, anchor=tk.N)
 
             
@@ -737,6 +761,14 @@ class Dashboard(tk.Frame):
 
             # Start animation
             animate_gif(gif_label, frames)
+            
+        def check_login_status():
+            # print("sleep 123")
+            while constants.MOBILE == "":
+                # print("sleep")
+                time.sleep(0.1)
+            re_create_main_content()
+                
         
 
         # Custom fonts
@@ -794,23 +826,26 @@ class Dashboard(tk.Frame):
             # Function to handle menu selection
             def auto_sync_option_selected(option):
                 auto_sync_var.set(option)  # Update the label text
-                print('➡ tk_screen.py:790 constants.THREAD:', constants.THREAD)
-                if constants.THREAD is not None:
-                    print("yes")
-                    constants.THREAD.kill()
-                    constants.THREAD = None
-                constants.SYNC_TIMER = 0 if str(option) == 'off' else int(str(option).replace(" min",""))
+                # print('➡ tk_screen.py:790 constants.THREAD:', constants.THREAD)
+                # if constants.THREAD is not None:
+                #     print("yes")
+                    # constants.THREAD.kill()
+                    # constants.THREAD = None
+                constants.SYNC_TIMER = 0 if str(option) == 'Off' else int(str(option).replace(" min",""))
+                if constants.SYNC_TIMER == 0:
+                    constants.STOP_THREAD = True
                 start_thread(False, False)
-                # thread1 = multiprocessing.Process(
-                #     target=start_thread,
-                #     args=(False, False),
-                #     daemon=True
-                # )
+                thread1 = threading.Thread(
+                    target=check_if_require_reboot,
+                    # args=(False, False),
+                    daemon=True
+                )
+                thread1.start()
+                
                 # constants.THREAD = thread1
-                print('➡ tk_screen.py:800 constants.THREAD:', constants.THREAD)
+                # print('➡ tk_screen.py:800 constants.THREAD:', constants.THREAD)
                 
                 # # check_thread_status()
-                # thread1.start()
                 
                 print(f"Auto Sync Option Selected: {option}")
 
@@ -831,7 +866,7 @@ class Dashboard(tk.Frame):
 
             # Dropdown menu
             auto_sync_menu = tk.Menu(auto_sync_frame2, tearoff=0, bg="white", fg="black", font=label_font)
-            for option in ["Off", "30 min", "60 min", "90 min", "120 min", "180 min"]:
+            for option in ["Off", "1 min", "30 min", "60 min", "90 min", "120 min", "180 min"]:
                 auto_sync_menu.add_command(label=option, command=lambda opt=option: auto_sync_option_selected(opt))
 
             # Bind right-click or left-click to show the menu
@@ -876,6 +911,17 @@ class Dashboard(tk.Frame):
             
         create_left_content()
         create_main_content()
+        
+        if constants.MOBILE == "":
+            thread1 = threading.Thread(
+                target=check_login_status,
+                daemon=True
+            )
+            # check_thread_status()
+            thread1.start()
+            
+        
+        
         # start_thread(False, False)
         # thread1 = multiprocessing.Process(
         #     target=start_thread,
