@@ -10,18 +10,22 @@ HOST = "localhost"
 TALLY_URL = F"http://{HOST}:9000"
 COMPANY_NAME = "abc"    
 
-EVITAL_RX_HOST = "192.168.29.107"
+# EVITAL_RX_HOST = "192.168.29.107"
 # EVITAL_RX_HOST = "192.168.1.46"
-EVITAL_RX_HOST = "localhost"
+# EVITAL_RX_HOST = "localhost"
 # EVITAL_RX_HOST = "192.168.1.29"
 # EVITAL_RX_HOST = "0f9d-2405-201-2000-a0d0-b81f-b3cc-cee8-c796.ngrok-free.app"
-EVITAL_RX_HOST = "06d9-2405-201-2000-a0d0-91e4-84d9-e654-2060.ngrok-free.app"
-# EVITAL_RX_HOST = "api.evitalrx.in"
-# EVITAL_RX_URL = "https://dev-api.evitalrx.in:3050/"
-# EVITAL_RX_URL = f"https://{EVITAL_RX_HOST}:4050/"
-EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}:4000/"
-EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}/"
+# EVITAL_RX_HOST = "06d9-2405-201-2000-a0d0-91e4-84d9-e654-2060.ngrok-free.app"
+# EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}:4000/"
+# EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}/"
 # EVITAL_RX_API_KEY = "masteraYQ8DVYzLP559sGJeWty4wXHaw"
+
+# EVITAL_RX_URL = "https://dev-api.evitalrx.in:3050/"
+
+# live
+EVITAL_RX_HOST = "api.evitalrx.in"
+EVITAL_RX_URL = f"https://{EVITAL_RX_HOST}:4050/"
+
 EVITAL_RX_API_KEY = ""
 
 LOGIN_RESPONSE = {}
