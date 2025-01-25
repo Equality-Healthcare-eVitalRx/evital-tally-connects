@@ -1,5 +1,6 @@
 import itertools
 import json
+from multiprocessing import freeze_support
 import threading
 from tkinter import *
 from lib import constants
@@ -313,7 +314,6 @@ def main_thread():
     root.protocol("WM_DELETE_WINDOW", on_closing)
 # atexit.register(stop_background_thread)
     atexit.register(stop_background_thread)
-    
+
     root.mainloop()
-    
 # main_thread()

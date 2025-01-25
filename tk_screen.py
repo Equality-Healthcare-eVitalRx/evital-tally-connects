@@ -7,6 +7,7 @@ import threading
 import time
 import tkinter as tk
 from tkinter import font, ttk
+from tkinter import messagebox
 from PIL import Image, ImageTk, ImageSequence
 from tkinter import Tk
 from functions import login, logout, get_all_mapping_details, constants, start_background_thread, start_thread, map_rx_companies, startprocess
@@ -23,7 +24,7 @@ except: # win 8.0 or less
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-            
+        constants.LOAD_COMPLETE = True            
 
         # Draggable functionality for the window
         def start_move(event):
@@ -144,7 +145,7 @@ class LoginScreen(tk.Frame):
                 data["mobile"] = constants.MOBILE
                 with open("./lib/credentials.json", "w") as json_file:
                         json.dump(data, json_file)
-                # print('➡ tk_screen.py:129 constants.MOBILE:', constants.MOBILE)
+                print('➡ tk_screen.py:129 constants.MOBILE:', constants.MOBILE)
                 if constants.MOBILE_VAR is not None:
                     constants.MOBILE_VAR.set(constants.MOBILE)
                 get_all_mapping_details()
@@ -159,7 +160,9 @@ class LoginScreen(tk.Frame):
             # Add static image to the left panel
         image = Image.open("./lib/images/login_panel.PNG")  # Replace with your image path
         image = image.resize((500, 600), Image.Resampling.LANCZOS)  # Resize image to fit the panel
+        print('➡ tk_screen.py:162 image:', image)
         image_tk = ImageTk.PhotoImage(image)
+        print('➡ tk_screen.py:163 image_tk:', image_tk)
 
         image_label = tk.Label(left_panel, image=image_tk, bg="#004BA8")
         image_label.image = image_tk  # Keep a reference to avoid garbage collection
@@ -694,6 +697,9 @@ class Dashboard(tk.Frame):
             check_if_require_reboot()
         
         def show_sync_frame(one_sync = False):
+            def stop_thread_process():
+                messagebox.showerror("Tally Sync", "Sync Stopped Abnormally !!")
+                re_create_main_content()
             # print('➡ tk_screen.py:565 one_sync:', one_sync)
             # startprocess(one_sync=one_sync)
             
@@ -754,7 +760,7 @@ class Dashboard(tk.Frame):
             version_label.pack(pady=(0, 20), padx=40, anchor=tk.N)
 
             
-            sync_all_button = tk.Button(right_panel, text="Stop", bg="#ED5A4A", fg="white", font=header_font, relief=tk.FLAT, height=1, width=7, command=re_create_main_content)
+            sync_all_button = tk.Button(right_panel, text="Stop", bg="#ED5A4A", fg="white", font=header_font, relief=tk.FLAT, height=1, width=7, command=stop_thread_process)
             sync_all_button.pack(pady=(10, 120), padx=40, anchor=tk.N)
             # sync_all_button.config(r)
 

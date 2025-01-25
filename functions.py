@@ -1,14 +1,19 @@
 
 
 
+import ctypes
 from datetime import date, datetime
 import json
 import logging
 import multiprocessing
 import threading
 import time
-from tkinter import messagebox
+import tkinter as tk
+from tkinter import Tk, messagebox
 import lib.constants
+import tkinter
+# import image
+from PIL import Image, ImageSequence, ImageTk
 
 from lib import constants
 from lib.import_export_data import *
@@ -68,7 +73,7 @@ def login(mobile_number, password):
             #         show_single_account_selection(login_window)
             return 1
         elif "status_code" in res.keys() and res['status_code'] in [0,'0']:
-            messagebox.showerror("Login Error", res["status_message"])
+            # messagebox.showerror("Login Error", res["status_message"])
             return 0
         
 def logout():
@@ -214,12 +219,17 @@ def startprocess(one_sync=False):
     print('➡ functions.py:188 init_response:', init_response)
     # message_label.config(text=res["status_message"])
     print('➡ main.py:168 constants.DISPLAY_SYNC_LOADER:', constants.DISPLAY_SYNC_LOADER)
+    
+    if not ('status_code' in res.keys() and res["status_code"] != 1):
+        messagebox.showerror("Tally Sync", "Unable to sync data.")
+    elif not ('status_code' in init_response.keys() and init_response["status_code"] != 1):
+        messagebox.showerror("Sync Issue", "Unable to sync data.")
+    elif constants.THREAD is None:
+        messagebox.showinfo("Tally Data Export",str(res["status_message"]).replace("_", " ").title())
+    
     # message_label.config(text=str(res["status_message"]).replace("_", " ").title())
     constants.DISPLAY_SYNC_LOADER = False
 
-    print('➡ main.py:168 constants.DISPLAY_SYNC_LOADER:', constants.DISPLAY_SYNC_LOADER)
-    if constants.THREAD is None:
-        messagebox.showinfo("Tally Data Export",str(res["status_message"]).replace("_", " ").title())
     constants.LAST_SYNCED = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if one_sync:
         constants.STOP_THREAD = True
@@ -270,4 +280,91 @@ def start_thread(start_now=False, one_sync=False):
         print("Background thread started.")
     else:
         print("Background thread is already running.")
+        
+        
+def play_loading_animation():
     
+    current_frame = 0
+    frames = []
+    start_time = time.time()
+    
+    def animate_gif(self, sync_label, frames, index=0):
+        
+        current_time = time.time()
+        if current_time - start_time >= 3:
+            print("stop")
+            constants.LOAD_COMPLETE = True
+            self.after_cancel(animate_gif)
+            self.destroy()
+            return 0
+        
+        # time.sleep(0.5)
+        # print(frames)
+        frame = frames[index]
+        sync_label.configure(image=frame)
+        next_index = (index + 3) % len(frames)
+        self.after(300, animate_gif, self, sync_label, frames, next_index)
+
+        
+    
+    def process_frame(frame, size):
+        # Convert the frame to RGBA
+        frame = frame.convert("RGBA")
+        data = frame.getdata()
+
+        # Make black background transparent
+        new_data = []
+        for item in data:
+            # If the pixel is black, make it transparent
+            if item[:3] == (0, 0, 0):
+                new_data.append((0, 0, 0, 0))  # Transparent
+            else:
+                new_data.append(item)
+        frame.putdata(new_data)
+
+        # Resize the frame
+        frame = frame.resize(size, Image.Resampling.LANCZOS)
+        return frame
+    
+    root = Tk()
+    root.overrideredirect(True)
+    
+    user32 = ctypes.windll.user32
+    x ,y = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+    x = (x - 600) // 2
+    y = (y - 600) // 2
+    
+    root.geometry(f'+{str(int(x))}+{str(int(y))}')
+    root.geometry("600x600")
+    root.attributes("-toolwindow", False)  # Make it appear in Alt+Tab
+    root.attributes("-fullscreen", False)  # Prevent full-screen mode
+    root.resizable(0,0)
+        
+    root.iconbitmap("./lib/images/logo2.ico")
+    root.title("Tally Sync")
+   
+    hwnd = ctypes.windll.user32.GetForegroundWindow()
+    ctypes.windll.user32.SetWindowLongW(hwnd, -20, 0x00000000)
+    
+    
+    gif_path = "lib\images\TallySyncSplash.gif"  # Update with your gif path
+
+    
+    gif_label = tk.Label(root, bg="white")
+    gif_label.pack(expand=True)
+
+
+    gif = Image.open(gif_path)
+    # frames = [ImageTk.PhotoImage(gif.copy().seek(i)) for i in range(gif.n_frames)]
+
+    size = (600, 600)  # Set your desired size (width, height)
+    for frame in ImageSequence.Iterator(gif):
+        processed_frame = process_frame(frame, size)
+        tk_frame = ImageTk.PhotoImage(processed_frame)
+        frames.append(tk_frame)
+
+    animate_gif(root, gif_label, frames, current_frame)
+
+    multiprocessing.freeze_support()
+  
+    root.mainloop()

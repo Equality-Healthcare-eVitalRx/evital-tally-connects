@@ -109,18 +109,19 @@ def send_data_to_evitalrx(request_params):
         if response.status_code == 200:
             #print(response.content)
             status = json.loads(response.content)
-            if status["status_code"] not in [1,'1']:
-                messagebox.showerror("Sync Failed", status["status_message"])
+            # res = status
+            # if status["status_code"] not in [1,'1']:
+            #     messagebox.showerror("Sync Failed", status["status_message"])
                 #print("complete")
             return status
     except requests.exceptions.Timeout:
         error_message = "Internet issue. Please try again later."
-        messagebox.showerror("Login Failed", error_message)
+        # messagebox.showerror("Login Failed", error_message)
         # save_error_message(error_message)
     except requests.exceptions.RequestException as e:
         error_message = str(e)
         error_message = "Internet issue. Please try again later."
-        messagebox.showerror("Login Failed", error_message)
+        # messagebox.showerror("Login Failed", error_message)
         # save_error_message(error_message)
     return res
 
@@ -155,10 +156,14 @@ def send_login_request(mobile_no, password):
                 
                 #print('➡ lib/import_export_data.py:56 RX_ACCOUNTS:', constants.RX_ACCOUNTS)
                 #print('➡ lib/import_export_data.py:55 LOGIN_RESPONSE:', constants.LOGIN_RESPONSE)
-            return login_response
-        else:
+                return login_response
             error_message = "Invalid mobile number or password."
             messagebox.showerror("Login Failed", error_message)
+        else:
+            error_message = "Connection issue, Please try again."
+            messagebox.showerror("Login Failed", error_message)
+            # return response_dict
+            # return response_dict
             
     except requests.exceptions.Timeout:
         #print(str(traceback.format_exc()))
@@ -286,7 +291,7 @@ def get_mapping_details():
     if constants.EVITAL_RX_API_KEY == "":
         print("blank api key")
         return {}
-    print('➡ lib/import_export_data.py:265 json_request:', json_request)
+    # print('➡ lib/import_export_data.py:265 json_request:', json_request)
     # if constants.EVITAL_RX_API_KEY == "":
     #     return {}
     try:
@@ -332,7 +337,8 @@ def get_mapping_details():
         return json.loads(response.content)
     
     except:
-        messagebox.showerror("Map Companies","Internet issues. Please try again later.")
+        messagebox.showerror("Tally Sync","Connection problem. Please try again later.")
+        sys.exit(1)
     return 0
 
 def get_last_synced_date():
@@ -404,8 +410,8 @@ def send_init_data_to_evital_rx(request_array, from_date, to_date):
             # json.dumps()
             # #print(response.content)
             status = json.loads(response.content)
-            if status["status_code"] not in [1,'1']:
-                messagebox.showerror("Sync Failed", status["status_message"])
+            # if status["status_code"] not in [1,'1']:
+            #     messagebox.showerror("Sync Failed", status["status_message"])
                 #print("complete")
             return status
     except requests.exceptions.Timeout:

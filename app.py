@@ -1,9 +1,11 @@
 import json
 import multiprocessing
+import multiprocessing.process
 from pathlib import Path
+import time
 from main import main_thread
 from login import login_thread
-from functions import get_all_mapping_details
+from functions import get_all_mapping_details, play_loading_animation
 from lib.import_export_data import get_tally_companies
 from lib import constants
 from tk_screen import App
@@ -29,7 +31,19 @@ logging.info("Application started.")
 
 get_tally_companies()
 
+play_loading_animation()
 
+# import threading
+# thread101 = threading.Thread(
+#     target=play_loading_animation,
+#     daemon=True
+# )
+# if __name__ == "__main__":
+#     print("main")
+#     thread101.start()
+#     time.sleep(5)
+
+appObj = App()
 my_file = Path("./lib/credentials.json")
 # print('➡ app.py:7 my_file:', my_file)
 if my_file.is_file():
@@ -69,6 +83,7 @@ if my_file.is_file():
         constants.LOGIN_RESPONSE = json_data["login_response"]
         if "mobile" in json_data.keys():
             constants.MOBILE = json_data["mobile"]
+            constants.MOBILE_VAR.set(constants.MOBILE)
         if "accesstoken" in json_data["login_response"]["data"]:
             constants.ACCESS_TOKEN = json_data["login_response"]["data"]["accesstoken"]
         if "apikey" in json_data["login_response"]["data"]:
@@ -83,11 +98,12 @@ if my_file.is_file():
         # main_thread()
         # get_all_mapping_details()
         
-        appObj = App()
+        # thread101.join()
+        
         appObj.show_frame("Dashboard")
     else:
+        # thread101.join()
         # login_thread()
-        appObj = App()
         
         appObj.show_frame("LoginScreen")
                 
@@ -95,12 +111,11 @@ if my_file.is_file():
 else:
     print("no file")
     logging.info("Login Details Not found.")
-    appObj = App()
     appObj.show_frame("LoginScreen")
     
 if __name__ == "__main__":
-    appObj.update()
-    appObj.update_idletasks()
+    # appObj.update()
+    # appObj.update_idletasks()
     appObj.mainloop()
     multiprocessing.freeze_support()
     # login_thread()
