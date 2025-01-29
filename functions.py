@@ -225,7 +225,7 @@ def startprocess(one_sync=False):
     elif not ('status_code' in init_response.keys() and init_response["status_code"] != 1):
         messagebox.showerror("Sync Issue", "Unable to sync data.")
     elif constants.THREAD is None:
-        messagebox.showinfo("Tally Data Export",str(res["status_message"]).replace("_", " ").title())
+        messagebox.showinfo("Tally Data Export",str(res["status_message"]).replace("_", " "))
     
     # message_label.config(text=str(res["status_message"]).replace("_", " ").title())
     constants.DISPLAY_SYNC_LOADER = False

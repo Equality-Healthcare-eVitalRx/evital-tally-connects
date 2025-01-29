@@ -31,7 +31,7 @@ logging.info("Application started.")
 
 get_tally_companies()
 
-play_loading_animation()
+# play_loading_animation()
 
 # import threading
 # thread101 = threading.Thread(

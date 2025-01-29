@@ -15,16 +15,16 @@ COMPANY_NAME = "abc"
 # EVITAL_RX_HOST = "localhost"
 # EVITAL_RX_HOST = "192.168.1.29"
 # EVITAL_RX_HOST = "0f9d-2405-201-2000-a0d0-b81f-b3cc-cee8-c796.ngrok-free.app"
-# EVITAL_RX_HOST = "06d9-2405-201-2000-a0d0-91e4-84d9-e654-2060.ngrok-free.app"
+EVITAL_RX_HOST = "6294-2405-201-2000-a0d0-b9d8-8213-638b-d95a.ngrok-free.app"
 # EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}:4000/"
-# EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}/"
+EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}/"
 # EVITAL_RX_API_KEY = "masteraYQ8DVYzLP559sGJeWty4wXHaw"
 
 # EVITAL_RX_URL = "https://dev-api.evitalrx.in:3050/"
 
 # live
-EVITAL_RX_HOST = "api.evitalrx.in"
-EVITAL_RX_URL = f"https://{EVITAL_RX_HOST}:4050/"
+# EVITAL_RX_HOST = "api.evitalrx.in"
+# EVITAL_RX_URL = f"https://{EVITAL_RX_HOST}:4050/"
 
 EVITAL_RX_API_KEY = ""
 
@@ -50,6 +50,7 @@ CURRENT_BRANCH_SYNC = None
 LAST_SYNC_VAR = None
 REQUIRE_REBOOT = False
 SYNC_TIMER = 0
+CURRENT_BRANCH_SYNC_JSON = {}
 
 VOUCHERS = {
 "company_data": {
