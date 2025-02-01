@@ -3,6 +3,8 @@ import multiprocessing
 import multiprocessing.process
 from pathlib import Path
 import time
+
+import pyglet
 from main import main_thread
 from login import login_thread
 from functions import get_all_mapping_details, play_loading_animation
@@ -11,14 +13,23 @@ from lib import constants
 from tk_screen import App
 import logging
 import ctypes, tkinter
+from tkinter import font
 try: # >= win 8.1
     ctypes.windll.shcore.SetProcessDpiAwareness(2)
 except: # win 8.0 or less
     ctypes.windll.user32.SetProcessDPIAware()
 ## spalsh comment
-import pyi_splash
-pyi_splash.update_text('UI Loaded ...')
-pyi_splash.close()
+# import pyi_splash
+# pyi_splash.update_text('UI Loaded ...')
+# pyi_splash.close()
+
+pyglet.font.add_file('lib/fonts/static/Manrope-Medium.ttf')
+pyglet.font.add_file('lib/fonts/static/Manrope-Bold.ttf')
+pyglet.font.add_file('lib/fonts/static/Manrope-ExtraBold.ttf')
+pyglet.font.add_file('lib/fonts/static/Manrope-Light.ttf')
+pyglet.font.add_file('lib/fonts/static/Manrope-Regular.ttf')
+pyglet.font.add_file('lib/fonts/static/Manrope-SemiBold.ttf')
+# pyglet.font.add_file('lib/fonts/static/Manrope-SemiBold.ttf')
 
 from datetime import datetime
 log_filename = f"./lib/app_logs.txt"
@@ -116,6 +127,12 @@ else:
 if __name__ == "__main__":
     # appObj.update()
     # appObj.update_idletasks()
+    available_fonts = list(font.families())
+
+    for f in available_fonts:
+        print(f)
+        
+    appObj.option_add("*Font", "Manrope 14 bold")
     appObj.mainloop()
     multiprocessing.freeze_support()
     # login_thread()

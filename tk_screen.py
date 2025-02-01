@@ -1,4 +1,5 @@
 import ctypes
+from ctypes import wintypes
 import json
 import multiprocessing
 from multiprocessing.dummy import freeze_support
@@ -18,8 +19,14 @@ try: # >= win 8.1
     ctypes.windll.shcore.SetProcessDpiAwareness(2)
 except: # win 8.0 or less
     ctypes.windll.user32.SetProcessDPIAware()
+# import pyglet
+# pyglet.font.add_file('lib/fonts/static/Manrope-Medium.ttf') 
 
-
+class MARGINS(ctypes.Structure):
+    _fields_ = [("cxLeftWidth", wintypes.INT),
+                ("cxRightWidth", wintypes.INT),
+                ("cyTopHeight", wintypes.INT),
+                ("cyBottomHeight", wintypes.INT)]
 
 class App(tk.Tk):
     def __init__(self):
@@ -60,16 +67,36 @@ class App(tk.Tk):
         #         self.geometry(f"+{x}+{y}")
             
             
+        # def start_move(event):
+        #     """Store the initial mouse position relative to the window (absolute position)."""
+        #     self.x_offset = event.x_root - self.winfo_x()
+        #     self.y_offset = event.y_root - self.winfo_y()
+
+        # def do_move(event):
+        #     """Move the window smoothly based on absolute pointer position."""
+        #     x = event.x_root - self.x_offset
+        #     y = event.y_root - self.y_offset
+        #     self.geometry(f"+{x}+{y}")
+            
+    
         def start_move(event):
-            """Store the initial mouse position relative to the window (absolute position)."""
+            hwnd = ctypes.windll.user32.GetForegroundWindow()
+            # Disable non-client area rendering
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 2, ctypes.byref(ctypes.c_int(0)), ctypes.sizeof(ctypes.c_int(0)))
+            
             self.x_offset = event.x_root - self.winfo_x()
             self.y_offset = event.y_root - self.winfo_y()
 
+        def stop_move(event):
+            hwnd = ctypes.windll.user32.GetForegroundWindow()
+            # Re-enable non-client area rendering
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 2, ctypes.byref(ctypes.c_int(2)), ctypes.sizeof(ctypes.c_int(2)))
+
         def do_move(event):
-            """Move the window smoothly based on absolute pointer position."""
             x = event.x_root - self.x_offset
             y = event.y_root - self.y_offset
             self.geometry(f"+{x}+{y}")
+
             
         def on_closing():
             self.destroy()
@@ -87,6 +114,7 @@ class App(tk.Tk):
         self.geometry("900x600")
         self.configure(bg="#044C9D")  # Set background to blue
         self.overrideredirect(True)
+        # self.option_add("*Font", "Manrope 14 bold")
         # self.geometry(f'+300+200')
         
         user32 = ctypes.windll.user32
@@ -105,7 +133,7 @@ class App(tk.Tk):
         # )
         
         self.bind("<Button-1>", start_move)
-        # self.bind("<ButtonRelease-1>", stop_move)
+        self.bind("<ButtonRelease-1>", stop_move)
         self.bind("<B1-Motion>", do_move)
         
         self.protocol("WM_DELETE_WINDOW", on_closing)
@@ -114,11 +142,15 @@ class App(tk.Tk):
         self.attributes("-toolwindow", False)  # Make it appear in Alt+Tab
         self.wm_attributes("-toolwindow", False)  # Make it appear in Alt+Tab
         self.attributes("-fullscreen", False)  # Prevent full-screen mode
+        self.attributes("-transparentcolor", "white") 
         # self.attributes()
         
         # login_window = self
         hwnd = ctypes.windll.user32.GetForegroundWindow()
         ctypes.windll.user32.SetWindowLongW(hwnd, -20, 0x00000000)
+        
+        self.add_shadow()
+        # self.update_idletasks()
 
         # hwnd = ctypes.windll.user32.GetParent(self.winfo_id())
         # Set the window style to make it appear in the taskbar
@@ -133,13 +165,36 @@ class App(tk.Tk):
         # root.resizable(0)
 
         # Custom font
-        # header_font = font.Font(family="Arial", size=14, weight="bold")
-        # header_font1 = font.Font(family="Arial", size=14)
+        # header_font = font.Font(family="manrope", size=14, weight="bold")
+        # header_font1 = font.Font(family="manrope", size=14)
         self.initialize_screens()
 
         # self.show_frame("Dashboard")
         self.show_frame("LoginScreen")
-    
+        
+ 
+    def add_shadow(self):
+        """Applies a drop shadow effect to the window without making it fully white."""
+        import ctypes
+
+        # Reduce flickering
+        # HWND = ctypes.windll.user32.GetParent(self.winfo_id())
+        # style = ctypes.windll.user32.GetWindowLongW(HWND, -20)
+        # ctypes.windll.user32.SetWindowLongW(HWND, -20, style | 0x02000000)  # WS_EX_COMPOSITED
+
+        
+        hwnd = ctypes.windll.user32.GetForegroundWindow()
+        # hwnd = ctypes.windll.user32.GetParent(self.winfo_id())
+        style = ctypes.windll.user32.GetWindowLongW(hwnd, -20)  # GWL_EXSTYLE
+        style |= 0x00020000  # WS_EX_LAYERED (For transparency)
+        style |= 0x00010000  # WS_EX_TRANSPARENT (Prevents white screen issue)
+        ctypes.windll.user32.SetWindowLongW(hwnd, -20, style)
+
+        # Apply the shadow effect
+        ctypes.windll.dwmapi.DwmSetWindowAttribute(
+            hwnd, 7, ctypes.byref(ctypes.c_int(1)), ctypes.sizeof(ctypes.c_int(1))
+        )
+        
     def close_window(self):
         self.destroy()
 
@@ -227,9 +282,9 @@ class LoginScreen(tk.Frame):
         title_bar = tk.Frame(self, width=900, bg="white")
         title_bar.pack(fill=tk.X)
         
-        header_font = font.Font(family="Arial", size=14, weight="bold")
-        header_font1 = font.Font(family="Arial", size=14)
-        header_font2 = font.Font(family="Arial", size=13)
+        header_font = font.Font(family="Manrope", size=14, weight="bold")
+        header_font1 = font.Font(family="Manrope", size=14)
+        header_font2 = font.Font(family="Manrope", size=13)
 
 
         close_button = tk.Button(title_bar, text='x', font=header_font, command=close_window, bg='white', fg='#044C9D', borderwidth=0, relief=tk.SUNKEN)
@@ -310,13 +365,13 @@ class Dashboard(tk.Frame):
             constants.LAST_SYNC_VAR = tk.StringVar(value="No Sync")
             
             last_sync_label = tk.Label(top_left_panel, text="Last Sync", bg="#E7F6FF", fg="#7E878C", font=label_font2, justify=tk.LEFT)
-            last_sync_label.pack(pady=(15, 0), padx=30, anchor=tk.W)
+            last_sync_label.pack(pady=(10, 0), padx=30, anchor=tk.W)
             
             if len(constants.MAPPING_HISTORY) > 0 and 'login_entity_last_synced' in constants.MAPPING_HISTORY.keys() and constants.MAPPING_HISTORY["login_entity_last_synced"] != "":
                 constants.LAST_SYNC_VAR.set(constants.MAPPING_HISTORY["login_entity_last_synced"])
 
             last_sync_time = tk.Label(top_left_panel, textvariable=constants.LAST_SYNC_VAR, bg="#E7F6FF", fg="#004BA8", font=label_font2, justify=tk.LEFT)
-            last_sync_time.pack(pady=(0, 20), padx=30, anchor=tk.W)
+            last_sync_time.pack(pady=(0, 10), padx=30, anchor=tk.W)
 
             # Sync all button
             # style = ttk.Style()
@@ -420,7 +475,7 @@ class Dashboard(tk.Frame):
             #     bordercolor="blue",  # Border color
             #     relief="flat") 
           # Create a canvas and a scrollbar
-            canvas = tk.Canvas(lower_right_panel, bg="white")
+            canvas = tk.Canvas(lower_right_panel, bg="white", bd=0, highlightthickness=0, relief='ridge')
             # scrollbar = ttk.Scrollbar(lower_right_panel, orient="vertical", command=canvas.yview, style="Custom.Vertical.TScrollbar")
             scrollbar = ttk.Scrollbar(lower_right_panel, orient="vertical", command=canvas.yview)
             scrollable_frame = tk.Frame(canvas, bg="white")
@@ -440,7 +495,7 @@ class Dashboard(tk.Frame):
             
             def on_scroll(event):
                 """Enable scrolling inside the frame without dragging the app."""
-                if len(branches) > 5:
+                if len(branches) > 4:
                     if event.delta:  # Windows scrolling
                         canvas.yview_scroll(-1 * (event.delta // 120), "units")
                     elif event.num == 4:  # Linux scroll up
@@ -543,18 +598,19 @@ class Dashboard(tk.Frame):
                 branch_right_frame.pack(side=tk.RIGHT, fill=tk.X, padx=(custom_padding,0))
 
                 # Subframe 1: Time
-                if branch["time"] == "No Sync":
-                    branch_time = tk.Label(
-                        branch_right_frame,
-                        text=branch["time"],
-                        bg="white",
-                        fg="#7E878C",
-                        font=label_font,
-                        justify=tk.RIGHT
-                    )
-                    branch_time.pack(anchor=tk.E, padx=(10,0), side=tk.LEFT)
+                # if branch["time"] == "No Sync":
+                #     branch_time = tk.Label(
+                #         branch_right_frame,
+                #         text=branch["time"],
+                #         bg="white",
+                #         fg="#7E878C",
+                #         font=label_font,
+                #         justify=tk.RIGHT
+                #     )
+                #     branch_time.pack(anchor=tk.E, padx=(10,0), side=tk.LEFT)
                     
-                else:
+                # else:
+                if branch["time"] != "No Sync":
                     branch_time = tk.Label(
                         branch_right_frame,
                         text=branch["time"],
@@ -607,18 +663,18 @@ class Dashboard(tk.Frame):
                         )
                         branch_image_button.image = branch_image_tk
                         branch_image_button.pack(anchor=tk.E, padx=(10,0), side=tk.LEFT)
-                    else:
-                        branch_image_button = tk.Label(
-                            branch_right_frame,
-                            image=branch_image_tk2,  # Set the image on the button
-                            bg="white",
-                            borderwidth=0,
-                            # relief=tk.FLAT,
-                            # command=lambda: print(f"Clicked image button for branch")  # Example command
-                            # command=lambda x=True:show_sync_frame(x)
-                        )
-                        branch_image_button.image = branch_image_tk2
-                        branch_image_button.pack(anchor=tk.E, padx=(10,0), side=tk.LEFT)
+                    # else:
+                    #     branch_image_button = tk.Label(
+                    #         branch_right_frame,
+                    #         image=branch_image_tk2,  # Set the image on the button
+                    #         bg="white",
+                    #         borderwidth=0,
+                    #         # relief=tk.FLAT,
+                    #         # command=lambda: print(f"Clicked image button for branch")  # Example command
+                    #         # command=lambda x=True:show_sync_frame(x)
+                    #     )
+                    #     branch_image_button.image = branch_image_tk2
+                    #     branch_image_button.pack(anchor=tk.E, padx=(10,0), side=tk.LEFT)
                 else:
                     branch_image_label = tk.Label(
                         branch_right_frame,
