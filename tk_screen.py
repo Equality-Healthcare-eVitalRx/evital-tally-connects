@@ -9,7 +9,7 @@ import time
 import tkinter as tk
 from tkinter import font, ttk
 from tkinter import messagebox
-from PIL import Image, ImageTk, ImageSequence
+from PIL import Image, ImageTk, ImageSequence, ImageGrab, ImageFilter
 from tkinter import Tk
 from functions import login, logout, get_all_mapping_details, constants, start_background_thread, start_thread, map_rx_companies, startprocess
 # from lib.import_export_data import get_tally_companies, check_if_tally_running
@@ -81,7 +81,6 @@ class App(tk.Tk):
     
         def start_move(event):
             hwnd = ctypes.windll.user32.GetForegroundWindow()
-            # Disable non-client area rendering
             ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 2, ctypes.byref(ctypes.c_int(0)), ctypes.sizeof(ctypes.c_int(0)))
             
             self.x_offset = event.x_root - self.winfo_x()
@@ -89,7 +88,6 @@ class App(tk.Tk):
 
         def stop_move(event):
             hwnd = ctypes.windll.user32.GetForegroundWindow()
-            # Re-enable non-client area rendering
             ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 2, ctypes.byref(ctypes.c_int(2)), ctypes.sizeof(ctypes.c_int(2)))
 
         def do_move(event):
@@ -100,22 +98,12 @@ class App(tk.Tk):
             
         def on_closing():
             self.destroy()
-        # self.title("Multi-Screen App")
-        # self.geometry("600x400")
         
-        # Dictionary to store frames
         self.frames = {}
         
-        # Initialize all screens
-        
-        # Show the first screen
-        
-        # self.title("Sync Utility Login")
         self.geometry("900x600")
         self.configure(bg="#044C9D")  # Set background to blue
         self.overrideredirect(True)
-        # self.option_add("*Font", "Manrope 14 bold")
-        # self.geometry(f'+300+200')
         
         user32 = ctypes.windll.user32
         x ,y = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
@@ -127,25 +115,16 @@ class App(tk.Tk):
         self.resizable(0,0)
         self.iconbitmap("./lib/images/logo2.ico")
         self.title("Login Screen")
-        # self.config(
-        #     background='black'
-        #     # borderwidth=2, relief="solid"
-        # )
-        
-        self.bind("<Button-1>", start_move)
-        self.bind("<ButtonRelease-1>", stop_move)
-        self.bind("<B1-Motion>", do_move)
+        # self.bind("<Button-1>", start_move)
+        # self.bind("<ButtonRelease-1>", stop_move)
+        # self.bind("<B1-Motion>", do_move)
         
         self.protocol("WM_DELETE_WINDOW", on_closing)
-        # Ensure the window appears in the taskbar and Alt+Tab
-        # self.attributes("-topmost", True)  # Always on top
         self.attributes("-toolwindow", False)  # Make it appear in Alt+Tab
         self.wm_attributes("-toolwindow", False)  # Make it appear in Alt+Tab
         self.attributes("-fullscreen", False)  # Prevent full-screen mode
         self.attributes("-transparentcolor", "white") 
-        # self.attributes()
         
-        # login_window = self
         hwnd = ctypes.windll.user32.GetForegroundWindow()
         ctypes.windll.user32.SetWindowLongW(hwnd, -20, 0x00000000)
         
@@ -156,19 +135,7 @@ class App(tk.Tk):
         # Set the window style to make it appear in the taskbar
         # ctypes.windll.user32.SetWindowLongW(hwnd, -8, 0)  # GWLP_HWNDPARENT = -8
 
-        # menubar = Menu(root)
-        # menubar.add_command(label="File")
-        # menubar.add_command(label="Quit", command=root.quit())
-
-        # root.config(menu=menubar)
-        # root.wm_attributes('-fullscreen','true')
-        # root.resizable(0)
-
-        # Custom font
-        # header_font = font.Font(family="manrope", size=14, weight="bold")
-        # header_font1 = font.Font(family="manrope", size=14)
         self.initialize_screens()
-
         # self.show_frame("Dashboard")
         self.show_frame("LoginScreen")
         
@@ -192,7 +159,7 @@ class App(tk.Tk):
 
         # Apply the shadow effect
         ctypes.windll.dwmapi.DwmSetWindowAttribute(
-            hwnd, 7, ctypes.byref(ctypes.c_int(1)), ctypes.sizeof(ctypes.c_int(1))
+            hwnd, 1, ctypes.byref(ctypes.c_int(1)), ctypes.sizeof(ctypes.c_int(1))
         )
         
     def close_window(self):
@@ -229,9 +196,6 @@ class LoginScreen(tk.Frame):
         
         def check_login():
             res = login(mobile_entry.get(), password_entry.get())
-            # print(constants.EVITAL_RX_API_KEY)
-            # print('➡ tk_screen.py:112 res:', res)
-            # res = 1
             if res == 1:
                 constants.MOBILE = mobile_entry.get()
                 
@@ -240,45 +204,24 @@ class LoginScreen(tk.Frame):
                 data["mobile"] = constants.MOBILE
                 with open("./lib/credentials.json", "w") as json_file:
                         json.dump(data, json_file)
-                # print('➡ tk_screen.py:129 constants.MOBILE:', constants.MOBILE)
                 if constants.MOBILE_VAR is not None:
                     constants.MOBILE_VAR.set(constants.MOBILE)
                 get_all_mapping_details()
                 parent.show_frame("Dashboard")
-            # if res = 0
-
+            
 
         # Left panel
         left_panel = tk.Frame(self, bg="#044C9D")
         left_panel.pack(side=tk.LEFT, fill=tk.Y)
         
-            # Add static image to the left panel
         image = Image.open("./lib/images/login_panel.PNG")  # Replace with your image path
         image = image.resize((500, 600), Image.Resampling.LANCZOS)  # Resize image to fit the panel
-        # print('➡ tk_screen.py:162 image:', image)
         image_tk = ImageTk.PhotoImage(image)
-        # print('➡ tk_screen.py:163 image_tk:', image_tk)
-
+        
         image_label = tk.Label(left_panel, image=image_tk, bg="#004BA8")
         image_label.image = image_tk  # Keep a reference to avoid garbage collection
         image_label.pack(pady=(0, 10))
 
-        # Icons on the left panel
-        # tally_logo = tk.Label(left_panel, text="Tally", bg="#044C9D", fg="white", font=header_font)
-        # tally_logo.pack(pady=(80, 10))
-
-        # connector = tk.Label(left_panel, text=". . . . .", bg="#044C9D", fg="white", font=header_font)
-        # connector.pack()
-
-        # evital_logo = tk.Label(left_panel, text="eVitalRx", bg="#044C9D", fg="white", font=header_font)
-        # evital_logo.pack(pady=(10, 80))
-
-        # version_label = tk.Label(left_panel, text="Sync Utility", bg="#044C9D", fg="white", font=header_font, justify=tk.CENTER)
-        # version_label.pack()
-        # version_label = tk.Label(left_panel, text="Version 2.0", bg="#044C9D", fg="white", font=header_font1, justify=tk.CENTER)
-        # version_label.pack()
-
-        # Right panel    # Create a custom title bar
         title_bar = tk.Frame(self, width=900, bg="white")
         title_bar.pack(fill=tk.X)
         
@@ -306,7 +249,6 @@ class LoginScreen(tk.Frame):
         mobile_entry.pack(pady=4, padx=53, anchor=tk.W)
         mobile_line = tk.Canvas(right_panel, width=280, height=1, bg="#004BA8", highlightthickness=0)
         mobile_line.pack(pady=(0, 10), padx=(53,40), anchor=tk.W)
-        # mobile_entry.insert(0, "9876543210")  # Placeholder value
         mobile_entry.propagate(False)
 
         password_label = tk.Label(right_panel, text="Password", bg="white", fg="#044C9D", font=header_font2, width=40, justify=tk.LEFT, anchor="w")
@@ -330,9 +272,6 @@ class Dashboard(tk.Frame):
         self.parent = parent
         parent.title = "Tally Sync"
 
-        # self.config(borderwidth=1, relief="solid")
-    
-        # self.animation_running = False
              
         def create_main_content():
 
@@ -373,20 +312,7 @@ class Dashboard(tk.Frame):
             last_sync_time = tk.Label(top_left_panel, textvariable=constants.LAST_SYNC_VAR, bg="#E7F6FF", fg="#004BA8", font=label_font2, justify=tk.LEFT)
             last_sync_time.pack(pady=(0, 10), padx=30, anchor=tk.W)
 
-            # Sync all button
-            # style = ttk.Style()
-            # style.configure("Rounded.TButton", 
-            #                 font=label_font2,
-            #                 background="#0CA1F6",
-            #                 foreground="white",
-            #                 borderwidth=0,
-            #                 padding=10)
-            # style.theme_use("clam")
-        #     style.map("Custom.TButton",
-        #   background=[("active", "darkblue"), ("pressed", "navy")],  # Color when hovered/pressed
-        #   foreground=[("active", "white"), ("pressed", "white")])
-            # sync_all_button = ttk.Button(top_right_panel, text="Sync all", style="Rounded.TButton", command=show_sync_frame)
-
+            
             sync_all_button = tk.Button(top_right_panel, text="Sync all", bg="#0CA1F6", fg="white", font=label_font2, relief=tk.FLAT, height=1, width=11, command=show_sync_frame)
             sync_all_button.pack(pady=(15,20), padx=40, anchor=tk.E)
 
@@ -395,50 +321,6 @@ class Dashboard(tk.Frame):
             lower_right_panel.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=30, pady=(10, 0))
             
 
-
-
-            # print("ASfg4e", constants.MAPPING_HISTORY)
-#             response_josn = {
-#     "status_code": "1",
-#     "status_message": "Tally Company mappings fetched successfully",
-#     "datetime": "2025-01-16 15:29:54",
-#     "data": {
-#         "login_entity_last_synced": "11 days ago",
-#         "results": [
-#             {
-#                 "chemist_id": "rM9k/ftzTZOC2y9KFKF5Vg==",
-#                 "evitalrx_branch_name": "Smit Pharmacy, Ahmedabad",
-#                 "tally_company_name": "Smit Pharmacy",
-#                 "tally_company_guid": "rtetgfdgsd4546",
-#                 "last_synced": "11 days ago",
-#                 "is_mapped": "true"
-#             },
-#             {
-#                 "chemist_id": "4rCzgqEKT1jjLrpV/6xShg==",
-#                 "evitalrx_branch_name": "Shyam Pharmacy, Ahmedabad",
-#                 "tally_company_name": "EvitalRx Smit",
-#                 "tally_company_guid": "hnfe5tge43dcds",
-#                 "last_synced": "11 days ago",
-#                 "is_mapped": "true"
-#             }
-#         ]
-#     }
-# }           
-            # if "data" in response_josn.keys():
-            #     constants.MAPPING_HISTORY = response_josn["data"]
-            # Example Branch Data
-            # branches = [
-            #     {"name": "Amin Pharmacy, Chandkheda", "status": "Mapped as Chandkheda branch", "time": "25 mins ago"},
-            #     {"name": "Lorem Ipsum Pharmacy, Chandkheda", "status": "Mapped as Chandkheda branch", "time": "2 hrs ago"},
-            #     {"name": "Shree Anupam Medical", "status": "Mapped as Chandkheda branch", "time": "85 mins ago"},
-            #     {"name": "Amin Pharmacy, Chandkheda", "status": "Map Now", "time": "No Sync"},
-            #     {"name": "Amin Pharmacy, Chandkheda", "status": "Mapped as Chandkheda branch", "time": "5 hrs ago"},
-            # ]
-
-            # constants.MAPPING_HISTORY
-            # print("main content")
-            # print(constants.MAPPING_HISTORY)
-            # print(type(constants.MAPPING_HISTORY))
             branches = [] if constants.EVITAL_RX_API_KEY == "" else [
                 {
                     "name":x["evitalrx_branch_name"], 
@@ -449,7 +331,7 @@ class Dashboard(tk.Frame):
                 } 
                 for x in constants.MAPPING_HISTORY["results"]
             ]
-            print('➡ tk_screen.py:336 branches:', branches)
+            # print('➡ tk_screen.py:336 branches:', branches)
 
             remaining_branch = [
                 x["company_name"] for x in constants.TALLY_ACCOUNTS if x["company_name"] not in [
@@ -464,17 +346,6 @@ class Dashboard(tk.Frame):
             branches_label = tk.Label(lower_right_panel, text=str(len(branches))+" Branches", bg="white", fg="#A9A9A9", font=label_font, justify=tk.LEFT)
             branches_label.pack(pady=(30, 5), padx=5, anchor=tk.W)
             
-            # style = ttk.Style()
-            # style.theme_use("clam")  # Ensure we can modify the scrollbar
-
-
-            # style.configure("Custom.Vertical.TScrollbar",
-            #     background="white",  # Background color of scrollbar
-            #     troughcolor="blue",  # Track color
-            #     arrowcolor="blue",  # Arrow color
-            #     bordercolor="blue",  # Border color
-            #     relief="flat") 
-          # Create a canvas and a scrollbar
             canvas = tk.Canvas(lower_right_panel, bg="white", bd=0, highlightthickness=0, relief='ridge')
             # scrollbar = ttk.Scrollbar(lower_right_panel, orient="vertical", command=canvas.yview, style="Custom.Vertical.TScrollbar")
             scrollbar = ttk.Scrollbar(lower_right_panel, orient="vertical", command=canvas.yview)
@@ -502,6 +373,93 @@ class Dashboard(tk.Frame):
                         canvas.yview_scroll(-1, "units")
                     elif event.num == 5:  # Linux scroll down
                         canvas.yview_scroll(1, "units")
+                        
+            def rotate_image(canvas2, size, image_tk, angle):
+                while not constants.STOP_THREAD:
+                    # Rotate image smoothly
+                    rotated_image = branch_image.rotate(angle, resample=Image.BICUBIC, expand=True)
+
+                    # Create a transparent background to prevent jiggling
+                    background = Image.new("RGBA", (size, size), (255, 255, 255, 0))
+                    offset = (
+                        int((size - rotated_image.width) / 2),
+                        int((size - rotated_image.height) / 2)
+                    )
+                    background.paste(rotated_image, offset, rotated_image)
+
+                    # Update the image on canvas
+                    image_tk = ImageTk.PhotoImage(background)
+                    canvas2.itemconfig(image_id, image=image_tk)
+
+                    # Increment angle for rotation
+                    angle = (angle - 15) % 360
+                    time.sleep(0.05)
+                re_create_main_content()
+
+            def toggle_rotation(event, branch_data, canvas2, size, image_tk, angle=0):
+                # print('➡ tk_screen.py:528 toggle_rotation:')
+                # print(event)
+                print(branch_data)
+                sync_single_branch(branch_data)
+                if not constants.STOP_THREAD:
+                    threading.Thread(target=rotate_image, args=(canvas2, size, image_tk, angle), daemon=True).start()
+                    
+            
+            def show_map_menu(event, branch_data):
+                # Capture the screen
+                constants.CURRENT_BRANCH_SYNC_JSON = branch_data
+                x = self.winfo_rootx()
+                y = self.winfo_rooty()
+                w = self.winfo_width()
+                h = self.winfo_height()
+                print(x, y)
+                
+                # Capture the screen area
+                screen = ImageGrab.grab(bbox=(x, y, x + w, y + h))
+                blurred_screen = screen.filter(ImageFilter.GaussianBlur(5))
+
+                # Create overlay window
+                overlay = tk.Toplevel(self)
+                overlay.geometry(f"{w}x{h}+{x}+{y}")
+                overlay.overrideredirect(True)
+
+                # Display blurred background
+                bg_image = ImageTk.PhotoImage(blurred_screen)
+                bg_label = tk.Label(overlay, image=bg_image)
+                bg_label.image = bg_image
+                bg_label.pack(fill="both", expand=True)
+
+                # Centered menu
+                menu_frame = tk.Frame(overlay, bg="white", bd=2, relief="ridge")
+                menu_frame.place(relx=0.5, rely=0.5, anchor="center")
+
+                tk.Label(menu_frame, text="Auto Sync", font=header_font, bg="white").pack(pady=(10, 5), padx=30)
+                tk.Label(menu_frame, text="Map Now", font=label_font2, bg="white").pack(pady=(10, 5), padx=30)
+
+                options = remaining_branch
+                
+                s = ttk.Style()                     # Creating style element
+                s.configure('Wild.TRadiobutton',    # First argument is the name of style. Needs to end with: .TRadiobutton
+                        background="white",         # Setting background to our specified color above
+                        foreground='black',
+                        font=label_font) 
+            
+                selected = tk.StringVar(value="")
+                
+                for option in options:
+                    rb = ttk.Radiobutton(menu_frame, text=option, value=option, variable=selected, style = 'Wild.TRadiobutton', command= lambda opt=option, overlay=overlay: map_branch_action(opt, overlay))
+                    rb.pack(anchor="w", padx=(40,20), pady=5, ipadx=20)
+                    
+                # Function to close the overlay when clicking outside
+                def on_click_outside(event):
+                    # Only destroy if click is outside of both the overlay and the menu_frame
+                    if not overlay.winfo_containing(event.x_root, event.y_root) == overlay and \
+                    event.widget not in menu_frame.winfo_children():
+                        overlay.destroy()
+
+                # Bind click outside the menu to close the overlay
+                overlay.bind("<Button-1>", on_click_outside)
+
             
             # Bind scrolling to the canvas
             canvas.bind_all("<MouseWheel>", on_scroll)  # Windows
@@ -553,7 +511,7 @@ class Dashboard(tk.Frame):
                     if len(remaining_branch) > 0:
                         test_button = tk.Label(branch_left_frame, text="Map Now >", fg='red', bg='white', font=label_font)
                         test_button.pack(anchor=tk.E, padx=(10,5), fill=tk.X, side=tk.LEFT)
-                        test_button.bind("<Button-1>", lambda event, branch_data=branch: test_menu(branch_data, event))
+                        test_button.bind("<Button-1>", lambda event, branch_data=branch: show_map_menu(event, branch_data))
 
                         # test_button.pack_info()
                     else:
@@ -588,28 +546,9 @@ class Dashboard(tk.Frame):
                     )
                     mapped_status.pack(anchor=tk.W, padx=(5,10), side=tk.LEFT)  
                     
-                # custom_padding = 30 if len(str(branch["name"])) > 30 else 100
-                # custom_padding = 120 if len(str(branch["name"])) < 30 else 0
-                print('➡ tk_screen.py:534 custom_padding:', custom_padding)
-                # # custom_padding = len(str(branch["name"])) + 110
-
-                # Right frame for time and image
                 branch_right_frame = tk.Frame(branch_frame, bg="white")
                 branch_right_frame.pack(side=tk.RIGHT, fill=tk.X, padx=(custom_padding,0))
 
-                # Subframe 1: Time
-                # if branch["time"] == "No Sync":
-                #     branch_time = tk.Label(
-                #         branch_right_frame,
-                #         text=branch["time"],
-                #         bg="white",
-                #         fg="#7E878C",
-                #         font=label_font,
-                #         justify=tk.RIGHT
-                #     )
-                #     branch_time.pack(anchor=tk.E, padx=(10,0), side=tk.LEFT)
-                    
-                # else:
                 if branch["time"] != "No Sync":
                     branch_time = tk.Label(
                         branch_right_frame,
@@ -622,16 +561,14 @@ class Dashboard(tk.Frame):
                     branch_time.pack(anchor=tk.E, padx=(10,0), side=tk.LEFT)
                 branch_image_path = ".\\lib\\images\\sync_btn.png"
                 branch_image_path2 = ".\\lib\\images\\sync_btn2.png"
-                # image = Image.open(branch_image_path).resize((20, 20), Image.Resampling.LANCZOS)
-                # branch_image = ImageTk.PhotoImage(image)
                 
-                # print('➡ tk_screen.py:418 branch_image:', branch_image)
-                # Subframe 2: Image (placeholder)
-                # branch_image = tk.PhotoImage(file=branch_image_path)
                 try:
-                    branch_image = Image.open(branch_image_path)
+                    branch_image = Image.open(branch_image_path).convert("RGBA")
                     branch_image = branch_image.resize((20, 20), Image.Resampling.LANCZOS)  # Resize for better visibility
                     branch_image_tk = ImageTk.PhotoImage(branch_image)
+                            # Load the original image
+                    # self.original_image = Image.open("lib\images\sync_btn.png").convert("RGBA")
+                    
                 except Exception as e:
                     print(f"Error loading image: {e}")
                     branch_image_tk = None
@@ -644,25 +581,26 @@ class Dashboard(tk.Frame):
                     branch_image_tk2 = None
 
                 if branch_image:
-                    # constants.ONE_SYNC = [
-                    #     {
-                    #         "chemist_id" : branch["chemist_id"],
-                    #         "tally_company_guid" : branch["company_guid"],
-                    #         "company_name" : str(branch).replace("Mapped as ", "")
-                    #     }
-                    # ]
                     if "Map Now" not in branch["status"]:
-                        branch_image_button = tk.Button(
-                            branch_right_frame,
-                            image=branch_image_tk,  # Set the image on the button
-                            bg="white",
-                            borderwidth=0,
-                            relief=tk.FLAT,
-                            # command=lambda: print(f"Clicked image button for branch")  # Example command
-                            command=lambda x=branch:sync_single_branch(x),
-                        )
-                        branch_image_button.image = branch_image_tk
-                        branch_image_button.pack(anchor=tk.E, padx=(10,0), side=tk.LEFT)
+                    
+                        size = int(max(branch_image.size) * 1.5)  # Add padding for smooth rotation
+
+                        # Create canvas
+                        canvas2 = tk.Canvas(branch_right_frame, width=size, height=size, bg="white", highlightthickness=0)
+                        canvas2.pack(anchor=tk.E, padx=(10,0), side=tk.LEFT)
+
+                        # Center coordinates
+                        center_x = size // 2
+                        center_y = size // 2
+
+                        # Display the image
+                        image_tk = ImageTk.PhotoImage(branch_image)
+                        image_id = canvas2.create_image(center_x, center_y, image=image_tk)
+
+                        # Bind click event to the image
+                        canvas2.tag_bind(image_id, "<Button-1>", lambda event,branch_data=branch, x=canvas2, size=size,image_tk=image_tk, angle=0: toggle_rotation(event,branch_data, x, size, image_tk, angle))
+
+                    
                     # else:
                     #     branch_image_button = tk.Label(
                     #         branch_right_frame,
@@ -687,18 +625,6 @@ class Dashboard(tk.Frame):
                     branch_image_label.pack(anchor=tk.E, padx=(10, 0), side=tk.LEFT)
                     
             
-            # Tk().update()
-            # Tk().update_idletasks()
-            
-            # def configure_scroll_region(event):
-            #     canvas.configure(scrollregion=canvas.bbox("all"))
-
-            
-            # frame_container.bind("<Configure>", configure_scroll_region)
-            # canvas.update_idletasks()  # Forces a layout update before starting the mainloop
-            # canvas.configure(scrollregion=canvas.bbox("all"))
-            
-            # self.update()
             self.update_idletasks()
        
         
@@ -716,11 +642,23 @@ class Dashboard(tk.Frame):
                     "branch_name" : data["name"]
                 }
             ]
-            show_sync_frame(True)
+            thread1 = threading.Thread(
+                target=start_background_thread,
+                args=(True,True),
+                daemon=True
+            )
+            thread1.start()
+            
+            # thread1 = threading.Thread(
+            #     target=check_thread_status,
+            #     daemon=True
+            # )
+            # thread1.start()
+            # show_sync_frame(True)
             
             
             
-        def map_branch_action(branch_name, branch={}):
+        def map_branch_action(branch_name, overlay, branch={}):
             company_guid = '' 
             if branch == {}:
                 branch = constants.CURRENT_BRANCH_SYNC_JSON
@@ -737,7 +675,7 @@ class Dashboard(tk.Frame):
             self.update()
             self.update_idletasks()
             print(f"Mapping branch: {branch_name}")
-            
+            overlay.destroy()
             create_main_content()
             
         def re_create_main_content():
@@ -748,46 +686,7 @@ class Dashboard(tk.Frame):
         def logout_account():
             logout()
             parent.show_frame("LoginScreen")
-            
-        # def sync_single_branch():
-        #     show_sync_frame(one_sync=False)
-            
-            
-        # def create_process_thread():
-            
-            
-
-        # def show_sync_frame():
-        #     for widget in right_panel.winfo_children():
-        #         widget.destroy()
-
-        #     sync_frame = tk.Frame(right_panel, bg="white")
-        #     sync_frame.pack(fill=tk.BOTH, expand=True)
-
-        #     sync_label = tk.Label(sync_frame, text="Syncing Data...", bg="white", fg="#004BA8", font=header_font)
-        #     sync_label.pack(pady=20)
-
-        #     progress = ttk.Progressbar(sync_frame, orient=tk.HORIZONTAL, length=300, mode="indeterminate")
-        #     progress.pack(pady=20)
-        #     progress.start()
-
-        #     # Back button
-        #     back_button = tk.Button(sync_frame, text="Back", bg="#004BA8", fg="white", font=label_font, relief=tk.FLAT, command=create_main_content)
-        #     back_button.pack(pady=20)
-        #     # Add your branch mapping logic here (e.g., API call, database update)
-            # messagebox.showinfo("Map Branch", f"Branch '{branch_name}' mapped successfully!")
-
-            # Function to animate GIF
-        # def check_thread_status():
-            
-        #     print("maing ", constants.STOP_THREAD)
-        #     time.sleep(30)
-        #     if not constants.STOP_THREAD:
-        #         # gif_animation.destroy()
-        #         create_main_content()
-        #     else:
-        #         self.after(500, check_thread_status)
-            
+                 
         def process_frame(frame, size):
         # Convert the frame to RGBA
             frame = frame.convert("RGBA")
@@ -960,14 +859,9 @@ class Dashboard(tk.Frame):
             auto_sync_frame2.pack(pady=(0, 20), padx=0, fill=tk.X, side=tk.RIGHT)
 
             # Function to handle menu selection
-            def auto_sync_option_selected(option):
+            def auto_sync_option_selected(option,overlay):
                 auto_sync_var.set(option)  # Update the label text
-                # print('➡ tk_screen.py:790 constants.THREAD:', constants.THREAD)
-                # if constants.THREAD is not None:
-                #     print("yes")
-                    # constants.THREAD.kill()
-                    # constants.THREAD = None
-                constants.SYNC_TIMER = 0 if str(option) == 'Off' else int(str(option).replace(" min",""))
+                constants.SYNC_TIMER = 0 if str(option) == 'Off' else int(str(option).replace(" minutes","").replace(" min",""))
                 if constants.SYNC_TIMER == 0:
                     constants.STOP_THREAD = True
                 start_thread(False, False)
@@ -978,15 +872,13 @@ class Dashboard(tk.Frame):
                 )
                 thread1.start()
                 
-                # constants.THREAD = thread1
-                # print('➡ tk_screen.py:800 constants.THREAD:', constants.THREAD)
-                
-                # # check_thread_status()
                 
                 print(f"Auto Sync Option Selected: {option}")
+                overlay.destroy()
 
             # Auto Sync Dropdown (No Down Arrow)
             auto_sync_var = tk.StringVar(value="Off")
+            auto_sync_var.set("off")
 
             # Label styled to look like plain text
             auto_sync_label = tk.Label(
@@ -997,34 +889,76 @@ class Dashboard(tk.Frame):
                 font=label_font,
                 justify=tk.LEFT
             )
+            def show_sync_menu(event):
+                # Capture the screen
+                x = self.winfo_rootx()
+                y = self.winfo_rooty()
+                w = self.winfo_width()
+                h = self.winfo_height()
+                print(x, y)
+                
+                # Capture the screen area
+                screen = ImageGrab.grab(bbox=(x, y, x + w, y + h))
+                blurred_screen = screen.filter(ImageFilter.GaussianBlur(5))
+
+                # Create overlay window
+                overlay = tk.Toplevel(self)
+                overlay.geometry(f"{w}x{h}+{x}+{y}")
+                overlay.overrideredirect(True)
+
+                # Display blurred background
+                bg_image = ImageTk.PhotoImage(blurred_screen)
+                bg_label = tk.Label(overlay, image=bg_image)
+                bg_label.image = bg_image
+                bg_label.pack(fill="both", expand=True)
+
+                # Centered menu
+                menu_frame = tk.Frame(overlay, bg="white", bd=2, relief="ridge")
+                menu_frame.place(relx=0.5, rely=0.5, anchor="center")
+
+                tk.Label(menu_frame, text="Auto Sync", font=header_font, bg="white").pack(pady=(10, 5), padx=30)
+
+                options = ["Off", "30 min", "60 min", "90 min", "120 min", "180 min"]
+                
+                s = ttk.Style()                     # Creating style element
+                s.configure('Wild.TRadiobutton',    # First argument is the name of style. Needs to end with: .TRadiobutton
+                        background="white",         # Setting background to our specified color above
+                        foreground='black',
+                        font=label_font) 
+                
+                for option in options:
+                    rb = ttk.Radiobutton(menu_frame, text=option, value=option, variable=auto_sync_var, style = 'Wild.TRadiobutton', command= lambda opt=option, indicatoron=0, overlay=overlay:auto_sync_option_selected(opt, overlay))
+                    rb.pack(anchor="w", padx=(40,20), pady=5, ipadx=20)
+                    
+                # Function to close the overlay when clicking outside
+                def on_click_outside(event):
+                    # Only destroy if click is outside of both the overlay and the menu_frame
+                    if not overlay.winfo_containing(event.x_root, event.y_root) == overlay and \
+                    event.widget not in menu_frame.winfo_children():
+                        overlay.destroy()
+
+                # Bind click outside the menu to close the overlay
+                overlay.bind("<Button-1>", on_click_outside)
+
             # auto_sync_label.pack(pady=(0, 20), padx=10, anchor=tk.W)
             auto_sync_label.pack(padx=(20, 0), pady=(30, 20),side=tk.LEFT, anchor=tk.W)
 
             # Dropdown menu
-            auto_sync_menu = tk.Menu(auto_sync_frame2, tearoff=0, bg="white", fg="black", font=label_font)
-            for option in ["Off",
-                            # "1 min",
-                            "30 min", "60 min", "90 min", "120 min", "180 min"]:
-                auto_sync_menu.add_command(label=option, command=lambda opt=option: auto_sync_option_selected(opt))
+            # auto_sync_menu = tk.Menu(auto_sync_frame2, tearoff=0, bg="white", fg="black", font=label_font)
+            # for option in ["Off",
+            #                 # "1 min",
+            #                 "30 min", "60 min", "90 min", "120 min", "180 min"]:
+            #     auto_sync_menu.add_command(label=option, command=lambda opt=option: auto_sync_option_selected(opt))
 
             # Bind right-click or left-click to show the menu
-            auto_sync_label.bind("<Button-1>", lambda e: auto_sync_menu.post(e.x_root, e.y_root))
+            # auto_sync_label.bind("<Button-1>", lambda e: auto_sync_menu.post(e.x_root, e.y_root))
+            auto_sync_label.bind("<Button-1>", show_sync_menu)
 
             auto_sync_label = tk.Label(auto_sync_frame2, text=">", bg="#004BA8", fg="#7E878C", font=header_font2)
             auto_sync_label.pack(padx=(5, 15), pady=(30, 20),side=tk.RIGHT, anchor=tk.E)
 
 
             lower_left_panel.pack_propagate(False)
-
-        # auto_sync_status = tk.Label(lower_left_panel, text="Off >", bg="#004BA8", fg="white", font=label_font, justify=tk.LEFT)
-        # auto_sync_status.pack(pady=(0, 20), padx=30, anchor=tk.W)
-
-            # Dotted Line above Logout
-        # dotted_line = tk.Canvas(left_panel, bg="#004BA8", highlightthickness=0, height=2)
-        # dotted_line.pack(fill=tk.X, padx=0, pady=(0, 10))
-        # for i in range(2, 270, 10):  # Adjust range and step for dotted effect
-        #     dotted_line.create_line(i, 1, i + 5, 1, fill="white", width=0.4)
-
 
             # User Info Section
             constants.MOBILE_VAR = tk.StringVar(value=constants.MOBILE)
@@ -1057,18 +991,6 @@ class Dashboard(tk.Frame):
             )
             # check_thread_status()
             thread1.start()
-            
-        
-        
-        # start_thread(False, False)
-        # thread1 = multiprocessing.Process(
-        #     target=start_thread,
-        #     args=(False, False),
-        #     daemon=True
-        # )
-        # constants.THREAD = thread1
-        # # check_thread_status()
-        # thread1.start()
 
         
 

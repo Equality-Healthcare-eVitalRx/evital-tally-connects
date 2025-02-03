@@ -185,10 +185,10 @@ def get_tally_companies():
     
     try:
         
-        logging.info(constants.EVITAL_RX_URL+"get_tally_companies " + "API called  ")
+        logging.info(constants.TALLY_URL+"get_tally_companies " + "API called  ")
         response = requests.post(url=constants.TALLY_URL, data=request_params, headers=headers, timeout=3)
-        logging.info(constants.EVITAL_RX_URL+"get_tally_companies " + "API called - Status "+str(response.status_code))
-        logging.info(constants.EVITAL_RX_URL+"get_tally_companies " + "API called - Response "+str(response.content))
+        logging.info(constants.TALLY_URL+"get_tally_companies " + "API called - Status "+str(response.status_code))
+        # logging.info(constants.EVITAL_RX_URL+"get_tally_companies " + "API called - Response "+str(response.content))
         if response.status_code == 200:
             response_content = response.content
             content = response_content.replace(b'&#4;', b'')
@@ -210,14 +210,17 @@ def get_tally_companies():
     except requests.exceptions.Timeout:
         error_message = "Connection timed out. Please try again later."
         messagebox.showerror("Tally Company", error_message)
+        logging.error(error_message)
         sys.exit(1)
         # save_error_message(error_message)
     except requests.exceptions.RequestException as e:
         error_message = str(e)
         messagebox.showerror("Tally Company", "Tally is not running.")
+        logging.error("Tally not running")
         sys.exit(1)
     except:
         messagebox.showerror("Tally Company", "Tally is not running.")
+        logging.error("Tally not running")
         sys.exit(1)
         # save_error_message(error_message)
 
@@ -249,6 +252,7 @@ def map_rx_companies():
         return json.loads(response.content)
     except:
         messagebox.showerror("Map Companies","Internet issues. Please try again later.")
+        logging.error("Internet issues. Please try again later.")
     return 0
     
 def reset_mapping_from_rx():
@@ -271,6 +275,7 @@ def reset_mapping_from_rx():
         return json.loads(response.content)
     except:
         messagebox.showerror("Map Companies","Internet issues. Please try again later.")
+        logging.error("Internet issues. Please try again later.")
     return 0
 
 def get_mapping_details():
@@ -338,6 +343,7 @@ def get_mapping_details():
     
     except:
         messagebox.showerror("Tally Sync","Connection problem. Please try again later.")
+        logging.error("Connection problem. Please try again later.")
         sys.exit(1)
     return 0
 
@@ -416,11 +422,13 @@ def send_init_data_to_evital_rx(request_array, from_date, to_date):
             return status
     except requests.exceptions.Timeout:
         error_message = "Internet issue. Please try again later."
+        logging.error("Internet issue. Please try again later. ")
         # messagebox.showerror("Login Failed", error_message)
         # save_error_message(error_message)
     except requests.exceptions.RequestException as e:
         error_message = str(e)
         error_message = "Internet issue. Please try again later."
+        logging.error("Internet issue. Please try again later. ")
         # messagebox.showerror("Login Failed", error_message)
         # save_error_message(error_message)
     return res
