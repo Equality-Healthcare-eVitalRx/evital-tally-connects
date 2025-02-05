@@ -21,7 +21,7 @@ from lib.import_export_data import *
 def login(mobile_number, password):
     # mobile_number = mobile_entry.get()
     # password = password_entry.get()
-    if len(mobile_number) != 10 and str(mobile_number).isdigit() == False:
+    if len(mobile_number) != 10 or str(mobile_number).isdigit() == False:
         messagebox.showerror("Login Failed", "Invalid Mobile number")
         return 0
     elif len(password)<1:
@@ -37,7 +37,7 @@ def login(mobile_number, password):
         if "status_code" in res.keys() and res['status_code'] in [1,'1']:
             if_chain_pharmacy = res["data"]["pharmacy_details"]["is_chain_pharmacy"]
             # print('➡ login.py:94 if_chain_pharmacy:', if_chain_pharmacy)
-            messagebox.showinfo("Login", "Login Successful")
+            # messagebox.showinfo("Login", "Login Successful")
             # print(res["data"])
             constants.COMPANY_MAPPING = res["data"]["pharmacy_details"]["company_mapping_details"]
             if "accesstoken" in res["data"]:
@@ -81,6 +81,29 @@ def logout():
         json.dump({}, json_file)
     constants.COMPANY_MAPPING = {}
     constants.MAPPING_HISTORY = {}
+    constants.EVITAL_RX_API_KEY = ""
+    constants.LOGIN_RESPONSE = {}
+    constants.IS_LOGIN = False
+    constants.RX_ACCOUNTS = []
+    constants.TALLY_ACCOUNTS = []
+    constants.TALLY_RESPONSE = []
+    constants.COMPANY_MAPPING = []
+    constants.MAPPING_TYPE = ""
+    constants.ACCESS_TOKEN = ""
+    constants.THREAD = None
+    constants.STOP_THREAD = False
+    constants.DISPLAY_SYNC_LOADER = False
+
+    constants.MAPPING_HISTORY = []
+    constants.ONE_SYNC = []
+    constants.LAST_SYNCED = ""
+    constants.MOBILE = ""
+    constants.MOBILE_VAR = None
+    constants.CURRENT_BRANCH_SYNC = None
+    constants.LAST_SYNC_VAR = None
+    constants.REQUIRE_REBOOT = False
+    constants.SYNC_TIMER = 0
+    constants.CURRENT_BRANCH_SYNC_JSON = {}
     # root.destroy()
     
 def get_all_mapping_details():
@@ -135,6 +158,10 @@ def startprocess(one_sync=False):
     
     request_array = []
     init_data_array = []
+    if len(companies) <= 0:
+        messagebox.showerror("Tally Sync", "Please Map Your Company First.")
+        constants.STOP_THREAD = True
+        return 0
     for company in companies:
         if constants.CURRENT_BRANCH_SYNC is not None:
         

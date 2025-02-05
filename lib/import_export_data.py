@@ -248,7 +248,7 @@ def map_rx_companies():
         logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data " + "API called - Status "+str(response.status_code))
         logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data " + "API called - Response "+str(response.content))
         print('➡ lib/import_export_data.py:149 response:', response.content)
-        messagebox.showinfo("Company Mapping", "Comapny mapped successfully.")
+        # messagebox.showinfo("Company Mapping", "Comapny mapped successfully.")
         return json.loads(response.content)
     except:
         messagebox.showerror("Map Companies","Internet issues. Please try again later.")

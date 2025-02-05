@@ -16,7 +16,7 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 splash = Splash(
-    './lib/images/logo-dark2.png',
+    './lib/images/login_panel.PNG',
     binaries=a.binaries,
     datas=a.datas,
     text_pos=None,

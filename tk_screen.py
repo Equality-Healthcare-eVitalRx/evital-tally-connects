@@ -11,6 +11,7 @@ from tkinter import font, ttk
 from tkinter import messagebox
 from PIL import Image, ImageTk, ImageSequence, ImageGrab, ImageFilter
 from tkinter import Tk
+from customtkinter import CTkButton, CTkFont
 from functions import login, logout, get_all_mapping_details, constants, start_background_thread, start_thread, map_rx_companies, startprocess
 # from lib.import_export_data import get_tally_companies, check_if_tally_running
 
@@ -21,6 +22,7 @@ except: # win 8.0 or less
     ctypes.windll.user32.SetProcessDPIAware()
 # import pyglet
 # pyglet.font.add_file('lib/fonts/static/Manrope-Medium.ttf') 
+import ctypes
 
 class MARGINS(ctypes.Structure):
     _fields_ = [("cxLeftWidth", wintypes.INT),
@@ -33,68 +35,41 @@ class App(tk.Tk):
         super().__init__()
         constants.LOAD_COMPLETE = True            
 
-        # Draggable functionality for the window
-        # def start_move(event):
-        #     self.x = event.x
-        #     self.y = event.y
+        # hwnd = ctypes.windll.user32.GetForegroundWindow()
+        # style = ctypes.windll.user32.GetWindowLongW(hwnd, -20)  # GWL_EXSTYLE
+        # style |= 0x00020000  # WS_EX_LAYERED
+        # ctypes.windll.user32.SetWindowLongW(hwnd, -20, style)
 
-        # def stop_move(event):
-        #     self.x = None
-        #     self.y = None
 
-        # def do_move(event):
-        #     # print("-"*50)
-        #     # print("x",self.winfo_pointerx())
-        #     # print("y",self.winfo_pointery())
-        #     # print("new x",self.x)
-        #     # print("new y",self.y)
-            
-        #     # print(self.winfo_geometry())
-            
-        #     x = self.winfo_pointerx() - self.x
-        #     y = self.winfo_pointery() - self.y
-            
-        #     current_x = int(str(self.winfo_geometry()).split('+')[1])
-        #     current_y = int(str(self.winfo_geometry()).split('+')[2])
-        #     if current_x == 0:
-        #         current_x = 1
-        #     if current_y == 0:
-        #         current_y = 1
-        #     # print(current_x, current_y)
-            
-        #     if x / current_x < 1.15 and y / current_y < 1.15:
-            
-        #         self.geometry(f"+{x}+{y}")
-            
-            
-        # def start_move(event):
-        #     """Store the initial mouse position relative to the window (absolute position)."""
-        #     self.x_offset = event.x_root - self.winfo_x()
-        #     self.y_offset = event.y_root - self.winfo_y()
-
-        # def do_move(event):
-        #     """Move the window smoothly based on absolute pointer position."""
-        #     x = event.x_root - self.x_offset
-        #     y = event.y_root - self.y_offset
-        #     self.geometry(f"+{x}+{y}")
-            
-    
         def start_move(event):
-            hwnd = ctypes.windll.user32.GetForegroundWindow()
-            ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 2, ctypes.byref(ctypes.c_int(0)), ctypes.sizeof(ctypes.c_int(0)))
-            
+            # self.x_offset = event.x
+            # self.y_offset = event.y
             self.x_offset = event.x_root - self.winfo_x()
             self.y_offset = event.y_root - self.winfo_y()
-
-        def stop_move(event):
-            hwnd = ctypes.windll.user32.GetForegroundWindow()
-            ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 2, ctypes.byref(ctypes.c_int(2)), ctypes.sizeof(ctypes.c_int(2)))
 
         def do_move(event):
             x = event.x_root - self.x_offset
             y = event.y_root - self.y_offset
-            self.geometry(f"+{x}+{y}")
+            # x = self.winfo_pointerx() - self.x_offset
+            # y = self.winfo_pointery() - self.y_offset
 
+            hwnd = ctypes.windll.user32.GetForegroundWindow()
+            # Move window smoothly without causing redraw issues
+            ctypes.windll.user32.SetWindowPos(hwnd, None, x, y, 0, 0, 0x0001 | 0x0004)
+            # SWP_NOSIZE | SWP_NOZORDER (to prevent resizing and z-order changes)
+
+        def stop_move(event):
+            hwnd = ctypes.windll.user32.GetForegroundWindow()
+            # Re-enable window redraw
+            ctypes.windll.user32.SendMessageW(hwnd, 0x000B, True, 0)   # WM_SETREDRAW = 0x000B
+            ctypes.windll.user32.RedrawWindow(hwnd, None, None, 0x85)  # RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN
+
+        def close_window():
+            """Close the application."""
+            self.destroy()
+
+        # self.bind("<Button-1>", start_move)
+        # self.bind("<B1-Motion>", do_move)
             
         def on_closing():
             self.destroy()
@@ -115,9 +90,9 @@ class App(tk.Tk):
         self.resizable(0,0)
         self.iconbitmap("./lib/images/logo2.ico")
         self.title("Login Screen")
-        # self.bind("<Button-1>", start_move)
-        # self.bind("<ButtonRelease-1>", stop_move)
-        # self.bind("<B1-Motion>", do_move)
+        self.bind("<Button-1>", start_move)
+        self.bind("<ButtonRelease-1>", stop_move)
+        self.bind("<B1-Motion>", do_move)
         
         self.protocol("WM_DELETE_WINDOW", on_closing)
         self.attributes("-toolwindow", False)  # Make it appear in Alt+Tab
@@ -139,19 +114,9 @@ class App(tk.Tk):
         # self.show_frame("Dashboard")
         self.show_frame("LoginScreen")
         
- 
     def add_shadow(self):
         """Applies a drop shadow effect to the window without making it fully white."""
-        import ctypes
-
-        # Reduce flickering
-        # HWND = ctypes.windll.user32.GetParent(self.winfo_id())
-        # style = ctypes.windll.user32.GetWindowLongW(HWND, -20)
-        # ctypes.windll.user32.SetWindowLongW(HWND, -20, style | 0x02000000)  # WS_EX_COMPOSITED
-
-        
         hwnd = ctypes.windll.user32.GetForegroundWindow()
-        # hwnd = ctypes.windll.user32.GetParent(self.winfo_id())
         style = ctypes.windll.user32.GetWindowLongW(hwnd, -20)  # GWL_EXSTYLE
         style |= 0x00020000  # WS_EX_LAYERED (For transparency)
         style |= 0x00010000  # WS_EX_TRANSPARENT (Prevents white screen issue)
@@ -159,8 +124,31 @@ class App(tk.Tk):
 
         # Apply the shadow effect
         ctypes.windll.dwmapi.DwmSetWindowAttribute(
-            hwnd, 1, ctypes.byref(ctypes.c_int(1)), ctypes.sizeof(ctypes.c_int(1))
+            hwnd, 2, ctypes.byref(ctypes.c_int(2)), ctypes.sizeof(ctypes.c_int(2))
         )
+
+ 
+    # def add_shadow(self):
+    #     """Applies a drop shadow effect to the window without making it fully white."""
+    #     import ctypes
+
+    #     # Reduce flickering
+    #     # HWND = ctypes.windll.user32.GetParent(self.winfo_id())
+    #     # style = ctypes.windll.user32.GetWindowLongW(HWND, -20)
+    #     # ctypes.windll.user32.SetWindowLongW(HWND, -20, style | 0x02000000)  # WS_EX_COMPOSITED
+
+        
+    #     hwnd = ctypes.windll.user32.GetForegroundWindow()
+    #     # hwnd = ctypes.windll.user32.GetParent(self.winfo_id())
+    #     style = ctypes.windll.user32.GetWindowLongW(hwnd, -20)  # GWL_EXSTYLE
+    #     style |= 0x00020000  # WS_EX_LAYERED (For transparency)
+    #     style |= 0x00010000  # WS_EX_TRANSPARENT (Prevents white screen issue)
+    #     ctypes.windll.user32.SetWindowLongW(hwnd, -20, style)
+
+    #     # Apply the shadow effect
+    #     ctypes.windll.dwmapi.DwmSetWindowAttribute(
+    #         hwnd, 1, ctypes.byref(ctypes.c_int(1)), ctypes.sizeof(ctypes.c_int(1))
+    #     )
         
     def close_window(self):
         self.destroy()
@@ -228,8 +216,8 @@ class LoginScreen(tk.Frame):
         header_font = font.Font(family="Manrope", size=14, weight="bold")
         header_font1 = font.Font(family="Manrope", size=14)
         header_font2 = font.Font(family="Manrope", size=13)
-
-
+        header_font3 = font.Font(family="Manrope", size=12)
+    
         close_button = tk.Button(title_bar, text='x', font=header_font, command=close_window, bg='white', fg='#044C9D', borderwidth=0, relief=tk.SUNKEN)
         close_button.pack(side=tk.RIGHT, padx=20, pady=15)
 
@@ -238,11 +226,11 @@ class LoginScreen(tk.Frame):
         right_panel.pack_propagate(False)
 
         login_label = tk.Label(right_panel, text="Login with your", bg="white", font=header_font1, justify=tk.LEFT)
-        login_label.pack(pady=(45, 0), padx=50, anchor=tk.W)
+        login_label.pack(pady=(25, 0), padx=50, anchor=tk.W)
         login_label = tk.Label(right_panel, text="eVitalRx account", bg="white", font=header_font, justify=tk.LEFT)
-        login_label.pack(pady=(0, 30), padx=50, anchor=tk.W)
+        login_label.pack(pady=(0, 20), padx=50, anchor=tk.W)
 
-        mobile_label = tk.Label(right_panel, text="Mobile Number", bg="white", fg="#044C9D", font=header_font2)
+        mobile_label = tk.Label(right_panel, text="Mobile Number", bg="white", fg="#044C9D", font=header_font3)
         mobile_label.pack(pady=(20, 0), padx=50, anchor=tk.W)
 
         mobile_entry = tk.Entry(right_panel, bg="white", font=header_font1, bd=0, width=40)
@@ -251,16 +239,20 @@ class LoginScreen(tk.Frame):
         mobile_line.pack(pady=(0, 10), padx=(53,40), anchor=tk.W)
         mobile_entry.propagate(False)
 
-        password_label = tk.Label(right_panel, text="Password", bg="white", fg="#044C9D", font=header_font2, width=40, justify=tk.LEFT, anchor="w")
-        password_label.pack(pady=(20, 0), padx=50, anchor=tk.W)
+        password_label = tk.Label(right_panel, text="Password", bg="white", fg="#044C9D", font=header_font3, width=40, justify=tk.LEFT, anchor="w")
+        password_label.pack(pady=(10, 0), padx=50, anchor=tk.W)
 
         password_entry = tk.Entry(right_panel, bg="white", font=header_font1, bd=0, show="*")
         password_entry.pack(pady=4, padx=53, anchor=tk.W, fill=tk.X)
         password_line = tk.Canvas(right_panel, width=280, height=1, bg="#004BA8", highlightthickness=0)
         password_line.pack(pady=(0, 20), padx=(53, 40), anchor=tk.W)
 
-        login_button = tk.Button(right_panel, text="Login", bg="#0CA1F6", fg="white", font=header_font, relief=tk.FLAT, height=1, width=20, command=check_login)
-        login_button.pack(pady=20, padx=(0, 15))
+        # login_button = tk.Button(right_panel, text="Login", bg="#0CA1F6", fg="white", font=header_font, relief=tk.FLAT, height=1, width=20, command=check_login)
+        # login_button.pack(pady=20, padx=(0, 15))
+        # sync_all_button = CTkButton(top_right_panel, text="Sync all", hover_color='#E7F6FF' , font=CTkFont(family='Manrope', size=16, weight='bold'), text_color='white', fg_color="#0CA1F6", height=42, width=120, corner_radius=5, command=show_sync_frame)
+        # sync_all_button.pack(pady=(10,20), padx=40, anchor=tk.E)
+        login_button = CTkButton(right_panel, text="Login", hover_color='#033D7E', text_color='white', fg_color="#0CA1F6", font=CTkFont(family='Manrope', size=16, weight='bold'), height=42, width=230, corner_radius=4, command=check_login)
+        login_button.pack(pady=20, padx=(10, 15))
 
 
 class Dashboard(tk.Frame):
@@ -276,16 +268,16 @@ class Dashboard(tk.Frame):
         def create_main_content():
 
             constants.STOP_THREAD = True
-            right_panel.configure(background="white")
             for widget in right_panel.winfo_children():
                 widget.destroy()
+            # right_panel.configure(background="white")
                 
             constants.STOP_THREAD = False
 
             title_bar = tk.Frame(right_panel, width=900, bg="#E7F6FF")
             title_bar.pack(fill=tk.X)
             close_button = tk.Button(title_bar, text='x', font=header_font, command=close_window, bg='#E7F6FF', fg='#044C9D', borderwidth=0, relief=tk.SUNKEN)
-            close_button.pack(side=tk.RIGHT, padx=20, pady=(10,5))
+            close_button.pack(side=tk.RIGHT, padx=20, pady=(5,10))
             get_all_mapping_details()
 
             # Upper right panel (contains last sync and button)
@@ -313,8 +305,10 @@ class Dashboard(tk.Frame):
             last_sync_time.pack(pady=(0, 10), padx=30, anchor=tk.W)
 
             
-            sync_all_button = tk.Button(top_right_panel, text="Sync all", bg="#0CA1F6", fg="white", font=label_font2, relief=tk.FLAT, height=1, width=11, command=show_sync_frame)
-            sync_all_button.pack(pady=(15,20), padx=40, anchor=tk.E)
+            # sync_all_button = tk.Button(top_right_panel, text="Sync all", bg="#0CA1F6", fg="white", font=label_font2, relief=tk.FLAT, height=1, width=11, command=show_sync_frame, disabledforeground="white")
+            # sync_all_button.pack(pady=(15,20), padx=40, anchor=tk.E)
+            sync_all_button = CTkButton(top_right_panel, text="Sync all", hover_color='#033D7E' , font=CTkFont(family='Manrope', size=16, weight='bold'), text_color='white', fg_color="#0CA1F6", height=42, width=120, corner_radius=4, command=show_sync_frame)
+            sync_all_button.pack(pady=(5,20), padx=40, anchor=tk.E)
 
             # Lower right panel (contains branch data)
             lower_right_panel = tk.Frame(right_panel, bg="white")
@@ -331,6 +325,11 @@ class Dashboard(tk.Frame):
                 } 
                 for x in constants.MAPPING_HISTORY["results"]
             ]
+            # mapped_comanies = [x for x in branches if x["status"] != "Map Now"]
+            # # if len(mapped_comanies) < 1:
+            # #     sync_all_button.configure(state='disabled')
+            # # else:
+            # #     sync_all_button.configure(state='normal')
             # print('➡ tk_screen.py:336 branches:', branches)
 
             remaining_branch = [
@@ -339,9 +338,15 @@ class Dashboard(tk.Frame):
                 ]
             ]
             custom_padding = 30
+            # print('➡ tk_screen.py:342 custom_padding:', custom_padding)
             if len(branches) > 0:
                 max_branch = max([len(str(x["name"])) for x in  branches])
-                custom_padding = 120 if max_branch < 30 else 30
+                max_branch_time = max([len(str(x["time"])) for x in  branches])
+                
+                # print(max_branch+max_branch_time)
+                custom_padding = 220 - ((max_branch+max_branch_time)) if max_branch + max_branch_time < 34 else ((220 - ((max_branch+max_branch_time) * 3.5 )) if max_branch+max_branch_time < 45 else (220 - ((max_branch+max_branch_time) * 4.5 )))
+                # custom_padding = 180  if max_branch + max_branch_time < 35 else (70 if max_branch_time + max_branch < 50 else 30)
+            # print('➡ tk_screen.py:342 custom_padding:', custom_padding)
             
             branches_label = tk.Label(lower_right_panel, text=str(len(branches))+" Branches", bg="white", fg="#A9A9A9", font=label_font, justify=tk.LEFT)
             branches_label.pack(pady=(30, 5), padx=5, anchor=tk.W)
@@ -412,7 +417,6 @@ class Dashboard(tk.Frame):
                 y = self.winfo_rooty()
                 w = self.winfo_width()
                 h = self.winfo_height()
-                print(x, y)
                 
                 # Capture the screen area
                 screen = ImageGrab.grab(bbox=(x, y, x + w, y + h))
@@ -430,33 +434,92 @@ class Dashboard(tk.Frame):
                 bg_label.pack(fill="both", expand=True)
 
                 # Centered menu
-                menu_frame = tk.Frame(overlay, bg="white", bd=2, relief="ridge")
+                menu_frame = tk.Frame(overlay, bg="white", bd=2, relief="ridge", pady=20)
                 menu_frame.place(relx=0.5, rely=0.5, anchor="center")
 
-                tk.Label(menu_frame, text="Auto Sync", font=header_font, bg="white").pack(pady=(10, 5), padx=30)
-                tk.Label(menu_frame, text="Map Now", font=label_font2, bg="white").pack(pady=(10, 5), padx=30)
+                # print(branch_data)
+                tk.Label(menu_frame, text=branch_data["name"], font=header_font, bg="white").pack(pady=(20, 5), padx=20)
+                tk.Label(menu_frame, text="Map With", font=label_font, bg="white").pack(anchor='w', pady=(5, 10), padx=(80,20))
 
                 options = remaining_branch
+                # options.extend(
+                #     [
+                #         '1errgdrggdgdgdfgdfgdgfdgfdgfdgd             fgdfgfdgdfgdfgdfddgdfgfdgdg',
+                #         '2',
+                #         '3',
+                #         '4',
+                #         '5',
+                #         '6',
+                #         '7',
+                #         '8',
+                #         '9',
+                #         '1',
+                #         '2',
+                #         '3',
+                #         '4',
+                #         '5',
+                #         '6',
+                #         '7',
+                #         '8',
+                #         '9'
+                #     ]
+                # )
+                if len(options) > 10:
+                    canvas2 = tk.Canvas(menu_frame, bg="white", bd=0, highlightthickness=0, relief='ridge')
+                    # scrollbar = ttk.Scrollbar(menu_frame, orient="vertical", command=canvas.yview, style="Custom.Vertical.TScrollbar")
+                    scrollbar2 = ttk.Scrollbar(menu_frame, orient="vertical", command=canvas2.yview)
+                    scrollable_frame2 = tk.Frame(canvas2, bg="white")
+
+                    # Configure the canvas
+                    scrollable_frame2.bind(
+                        "<Configure>",
+                        lambda e: canvas2.configure(scrollregion=canvas2.bbox("all"))
+                    )
+
+                    canvas2.create_window((0, 0), window=scrollable_frame2, anchor="nw")
+                    canvas2.configure(yscrollcommand=scrollbar2.set)
+
+                    # Pack canvas and scrollbar
+                    canvas2.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+                    scrollbar2.pack(side=tk.RIGHT, fill=tk.Y)
+                else:
+                    scrollable_frame2 = menu_frame
+                def on_scroll2(event):
+                    """Enable scrolling inside the frame without dragging the app."""
+                    if len(options) > 10:
+                        if event.delta:  # Windows scrolling
+                            canvas2.yview_scroll(-1 * (event.delta // 120), "units")
+                        elif event.num == 4:  # Linux scroll up
+                            canvas2.yview_scroll(-1, "units")
+                        elif event.num == 5:  # Linux scroll down
+                            canvas2.yview_scroll(1, "units")
                 
                 s = ttk.Style()                     # Creating style element
                 s.configure('Wild.TRadiobutton',    # First argument is the name of style. Needs to end with: .TRadiobutton
                         background="white",         # Setting background to our specified color above
                         foreground='black',
+                        indicatormargin=100,
+                        # padding=(10,5),
                         font=label_font) 
             
                 selected = tk.StringVar(value="")
                 
                 for option in options:
-                    rb = ttk.Radiobutton(menu_frame, text=option, value=option, variable=selected, style = 'Wild.TRadiobutton', command= lambda opt=option, overlay=overlay: map_branch_action(opt, overlay))
-                    rb.pack(anchor="w", padx=(40,20), pady=5, ipadx=20)
+                    rb = ttk.Radiobutton(scrollable_frame2, text=option, value=option, variable=selected, style = 'Wild.TRadiobutton', command= lambda opt=option, overlay=overlay: map_branch_action(opt, overlay))
+                    rb.pack(anchor="w", padx=(80,20), pady=5, fill="x")
                     
                 # Function to close the overlay when clicking outside
                 def on_click_outside(event):
                     # Only destroy if click is outside of both the overlay and the menu_frame
                     if not overlay.winfo_containing(event.x_root, event.y_root) == overlay and \
-                    event.widget not in menu_frame.winfo_children():
+                    (event.widget not in menu_frame.winfo_children() and event.widget not in scrollable_frame2.winfo_children()):
                         overlay.destroy()
+                
 
+                if len(options) > 10:
+                    canvas2.bind_all("<MouseWheel>", on_scroll2)  # Windows
+                    canvas2.bind_all("<Button-4>", on_scroll2)  # Linux Scroll Up
+                    canvas2.bind_all("<Button-5>", on_scroll2)
                 # Bind click outside the menu to close the overlay
                 overlay.bind("<Button-1>", on_click_outside)
 
@@ -659,17 +722,18 @@ class Dashboard(tk.Frame):
             
             
         def map_branch_action(branch_name, overlay, branch={}):
+            print(branch_name)
             company_guid = '' 
             if branch == {}:
                 branch = constants.CURRENT_BRANCH_SYNC_JSON
             for x in constants.TALLY_ACCOUNTS:
                 if x["company_name"] == branch_name:
                     company_guid = x["company_guid"]
-            print('➡ tk_screen.py:599 company_guid:', company_guid)
+            # print('➡ tk_screen.py:599 company_guid:', company_guid)
             constants.COMPANY_MAPPING = [
                         {"chemist_id": branch["chemist_id"], "company_name": branch_name, "company_guid": company_guid, "mapping_type":"single"}
             ]
-            print('➡ tk_screen.py:605 constants.COMPANY_MAPPING:', constants.COMPANY_MAPPING)
+            # print('➡ tk_screen.py:605 constants.COMPANY_MAPPING:', constants.COMPANY_MAPPING)
             map_rx_companies()
             
             self.update()
@@ -683,8 +747,9 @@ class Dashboard(tk.Frame):
             self.after_cancel(animate_gif)
             create_main_content()
         
-        def logout_account():
+        def logout_account(overlay):
             logout()
+            overlay.destroy()
             parent.show_frame("LoginScreen")
                  
         def process_frame(frame, size):
@@ -752,12 +817,14 @@ class Dashboard(tk.Frame):
             thread1.start()
 
 
-            right_panel.config(background="#E7F6FF")
-            title_bar = tk.Frame(right_panel, width=900, bg="#E7F6FF")
+            # right_panel.config(background="#E7F6FF")
+            right_panel2 = tk.Frame(right_panel, width=900, bg="#E7F6FF")
+            right_panel2.pack(fill=tk.X)
+            title_bar = tk.Frame(right_panel2, width=900, bg="#E7F6FF")
             title_bar.pack(fill=tk.X)
             close_button = tk.Button(title_bar, text='x', font=header_font, command=close_window, bg='#E7F6FF', fg='#044C9D', borderwidth=0, relief=tk.SUNKEN)
             close_button.pack(side=tk.RIGHT, padx=20, pady=(10,5))
-            # sync_frame = tk.Frame(right_panel, bg="white")
+            # sync_frame = tk.Frame(right_panel2, bg="white")
             # sync_frame.pack(fill=tk.BOTH, expand=True, pady=0)
 
             # Load GIF and create frames
@@ -776,23 +843,24 @@ class Dashboard(tk.Frame):
                 # root.destroy()
                 # retu
             
-            gif_label = tk.Label(right_panel, bg="#E7F6FF")
+            gif_label = tk.Label(right_panel2, bg="#E7F6FF")
             gif_label.pack(expand=True, anchor=tk.N, pady=(10, 0))
             
             
-            # gif_label = tk.Label(right_panel, bg="white")
+            # gif_label = tk.Label(right_panel2, bg="white")
             # gif_label.pack(expand=True, anchor=tk.N, pady=0)
             
             constants.CURRENT_BRANCH_SYNC = tk.StringVar(value="")
             print('➡ tk_screen.py:731 constants.CURRENT_BRANCH_SYNC:', constants.CURRENT_BRANCH_SYNC)
-            version_label = tk.Label(right_panel, textvariable=constants.CURRENT_BRANCH_SYNC, bg="#E7F6FF", fg="Black", font=header_font2)
+            version_label = tk.Label(right_panel2, textvariable=constants.CURRENT_BRANCH_SYNC, bg="#E7F6FF", fg="Black", font=header_font2)
             version_label.pack(pady=(0, 20), padx=40, anchor=tk.N)
 
             
-            sync_all_button = tk.Button(right_panel, text="Stop", bg="#ED5A4A", fg="white", font=header_font, relief=tk.FLAT, height=1, width=7, command=stop_thread_process)
+            sync_all_button = CTkButton(right_panel2, text="Stop", fg_color="#ED5A4A", text_color="white", hover_color='#ED5A4A', font=CTkFont(family='Manrope', size=16, weight='bold'), height=42, width=110, command=stop_thread_process)
             sync_all_button.pack(pady=(10, 120), padx=40, anchor=tk.N)
             # sync_all_button.config(r)
-
+            
+           
 
             # Start animation
             animate_gif(gif_label, frames)
@@ -826,6 +894,72 @@ class Dashboard(tk.Frame):
             for widget in left_panel.winfo_children():
                 widget.destroy()
             
+            def blur_background():
+                x = self.winfo_rootx()
+                y = self.winfo_rooty()
+                w = self.winfo_width()
+                h = self.winfo_height()
+
+                screen = ImageGrab.grab(bbox=(x, y, x + w, y + h))
+                return screen.filter(ImageFilter.GaussianBlur(5)), x, y, w, h
+            
+            def show_logout_popup(event):
+                x = self.winfo_rootx()
+                y = self.winfo_rooty()
+                w = self.winfo_width()
+                h = self.winfo_height()
+                print(x, y)
+                
+                # Capture the screen area
+                screen = ImageGrab.grab(bbox=(x, y, x + w, y + h))
+                blurred_screen = screen.filter(ImageFilter.GaussianBlur(5))
+
+                # Create overlay window
+                overlay = tk.Toplevel(self)
+                overlay.geometry(f"{w}x{h}+{x}+{y}")
+                overlay.overrideredirect(True)
+
+                # Display blurred background
+                bg_image = ImageTk.PhotoImage(blurred_screen)
+                bg_label = tk.Label(overlay, image=bg_image)
+                bg_label.image = bg_image
+                bg_label.pack(fill="both", expand=True)
+
+                # Centered menu
+                menu_frame = tk.Frame(overlay, bg="white", bd=2, relief="ridge", padx=10, pady=10)
+                menu_frame.place(relx=0.5, rely=0.5, anchor="center")
+
+                tk.Label(menu_frame, text="Are you sure you want to logout?",
+                        font=header_font2, bg="white").pack(pady=(15, 10), padx=20)
+
+                button_frame = tk.Frame(menu_frame, bg="white")
+                button_frame.pack(pady=10)
+                print("2312")
+
+                # YES button - Blue background with white text
+                yes_button = tk.Button(button_frame, text="Yes", width=10, bg="#007BFF", fg="white",
+                                    activebackground="#0056b3", activeforeground="white",
+                                    relief="flat", font=label_font,
+                                    command=lambda x=overlay:logout_account(x))
+                yes_button.pack(side="left", padx=10)
+
+                # NO button - White background with blue border and text
+                no_button = tk.Button(button_frame, text="No", width=10, bg="white", fg="#007BFF",
+                                    activebackground="#e6f2ff", activeforeground="#0056b3",
+                                    highlightbackground="#007BFF", highlightthickness=2,
+                                    bd=2, font=label_font,
+                                    command=lambda x=overlay:x.destroy())
+                no_button.pack(side="left", padx=10)
+
+                # Function to close the overlay when clicking outside
+                def on_click_outside(event):
+                    if not overlay.winfo_containing(event.x_root, event.y_root):
+                        overlay.destroy()
+
+                # Bind click outside the menu to close the overlay
+                overlay.bind("<Button-1>", on_click_outside)
+                
+                
             upper_left_panel = tk.Frame(left_panel, bg="#033D7E", height=150, width=270)
             upper_left_panel.pack(anchor=tk.N, fill=tk.X)
 
@@ -878,7 +1012,7 @@ class Dashboard(tk.Frame):
 
             # Auto Sync Dropdown (No Down Arrow)
             auto_sync_var = tk.StringVar(value="Off")
-            auto_sync_var.set("off")
+            auto_sync_var.set("Off")
 
             # Label styled to look like plain text
             auto_sync_label = tk.Label(
@@ -886,7 +1020,7 @@ class Dashboard(tk.Frame):
                 textvariable=auto_sync_var,
                 bg="#004BA8",
                 fg="#7E878C",
-                font=label_font,
+                font=label_font2,
                 justify=tk.LEFT
             )
             def show_sync_menu(event):
@@ -916,7 +1050,7 @@ class Dashboard(tk.Frame):
                 menu_frame = tk.Frame(overlay, bg="white", bd=2, relief="ridge")
                 menu_frame.place(relx=0.5, rely=0.5, anchor="center")
 
-                tk.Label(menu_frame, text="Auto Sync", font=header_font, bg="white").pack(pady=(10, 5), padx=30)
+                tk.Label(menu_frame, text="Auto Sync", font=header_font, bg="white").pack(pady=(10, 5), padx=40)
 
                 options = ["Off", "30 min", "60 min", "90 min", "120 min", "180 min"]
                 
@@ -963,11 +1097,14 @@ class Dashboard(tk.Frame):
             # User Info Section
             constants.MOBILE_VAR = tk.StringVar(value=constants.MOBILE)
             user_label = tk.Label(left_panel, textvariable=constants.MOBILE_VAR, bg="#004BA8", fg="white", font=header_font2, justify=tk.LEFT)
-            user_label.pack(pady=(185, 5), padx=30, anchor=tk.W)
+            user_label.pack(pady=(190, 2), padx=30, anchor=tk.W)
 
-            logout_label = tk.Button(left_panel, text="Logout >", bg="#004BA8", fg="white",
-                                    highlightbackground='#004BA8', highlightcolor='#004BA8', borderwidth=0,font=label_font2, justify=tk.LEFT, relief=tk.SUNKEN, command=logout_account)
-            logout_label.pack(pady=(0, 20), padx=25, anchor=tk.W)
+            # logout_label = tk.Button(left_panel, text="Logout >", bg="#004BA8", fg="white",
+            #                         highlightbackground='#004BA8', highlightcolor='#004BA8', borderwidth=0,font=label_font2, justify=tk.LEFT, relief=tk.SUNKEN, command=show_logout_popup)
+            # logout_label.pack(pady=(0, 20), padx=25, anchor=tk.W)
+            logout_label = tk.Label(left_panel, text="Logout >", bg="#004BA8", fg="white",font=label_font2, justify=tk.LEFT)
+            logout_label.pack(pady=(0, 15), padx=30, anchor=tk.W)
+            logout_label.bind("<Button-1>", show_logout_popup)
 
             left_panel.pack_propagate(False)
             

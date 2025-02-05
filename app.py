@@ -127,12 +127,12 @@ else:
 if __name__ == "__main__":
     # appObj.update()
     # appObj.update_idletasks()
-    available_fonts = list(font.families())
+    # available_fonts = list(font.families())
 
-    for f in available_fonts:
-        print(f)
+    # for f in available_fonts:
+    #     print(f)
         
-    appObj.option_add("*Font", "Manrope 14 bold")
+    # appObj.option_add("*Font", "Manrope 14 bold")
     appObj.mainloop()
     multiprocessing.freeze_support()
     # login_thread()
