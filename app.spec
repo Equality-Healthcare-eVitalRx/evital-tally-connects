@@ -5,7 +5,7 @@ a = Analysis(
     ['app.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('lib/fonts/static/Manrope-Regular.ttf', 'lib/fonts/static/')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

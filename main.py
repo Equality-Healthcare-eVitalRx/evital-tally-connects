@@ -262,6 +262,11 @@ def main_thread():
                     else:
                         #print("no")
                         init_data_list[key] = json.loads(parsed_data)
+                elif key == "list_of_companies":
+                    request_str = str(value)
+                    parsed_data =  send_request_to_tally(request_str, key)
+                    data_list[key] = json.loads(parsed_data)
+                    
             # #print('➡ main.py:210 data_list:', data_list)
             # #print('➡ main.py:213 init_data_list:', init_data_list)
                     

@@ -4,18 +4,23 @@ import json
 import multiprocessing
 from multiprocessing.dummy import freeze_support
 import multiprocessing.process
+from pathlib import Path
 import threading
 import time
 import tkinter as tk
 from tkinter import font, ttk
 from tkinter import messagebox
-from PIL import Image, ImageTk, ImageSequence, ImageGrab, ImageFilter
+from PIL import Image, ImageTk, ImageSequence, ImageGrab, ImageFilter, ImageDraw
 from tkinter import Tk
 from customtkinter import CTkButton, CTkFont
+import pyglet
 from functions import login, logout, get_all_mapping_details, constants, start_background_thread, start_thread, map_rx_companies, startprocess
 # from lib.import_export_data import get_tally_companies, check_if_tally_running
-
-
+pyglet.options['win32_gdi_font'] = True
+fontpath = Path(__file__).parent / 'lib/fonts/static/Manrope-Regular.ttf'
+# pyglet.font.add_file(str(fontpath))
+print(fontpath)
+pyglet.font.add_file(str(fontpath))
 try: # >= win 8.1
     ctypes.windll.shcore.SetProcessDpiAwareness(2)
 except: # win 8.0 or less
@@ -80,6 +85,15 @@ class App(tk.Tk):
         self.configure(bg="#044C9D")  # Set background to blue
         self.overrideredirect(True)
         
+        hwnd = self.winfo_id()
+        
+        # Ensure the window has a taskbar presence
+        ctypes.windll.user32.SetWindowLongW(hwnd, -8, 0)  # Set parent to None (GWLP_HWNDPARENT = -8)
+        ctypes.windll.user32.SetWindowLongW(hwnd, -20, 
+                                            ctypes.windll.user32.GetWindowLongW(hwnd, -20) & ~0x00000080)  # Remove WS_EX_TOOLWINDOW
+        ctypes.windll.user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, 0x0020)  # Apply changes (SWP_FRAMECHANGED)
+
+        
         user32 = ctypes.windll.user32
         x ,y = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
         x = (x - 900) // 2
@@ -98,7 +112,7 @@ class App(tk.Tk):
         self.attributes("-toolwindow", False)  # Make it appear in Alt+Tab
         self.wm_attributes("-toolwindow", False)  # Make it appear in Alt+Tab
         self.attributes("-fullscreen", False)  # Prevent full-screen mode
-        self.attributes("-transparentcolor", "white") 
+        # self.attributes("-transparentcolor", "white") 
         
         hwnd = ctypes.windll.user32.GetForegroundWindow()
         ctypes.windll.user32.SetWindowLongW(hwnd, -20, 0x00000000)
@@ -107,12 +121,25 @@ class App(tk.Tk):
         # self.update_idletasks()
 
         # hwnd = ctypes.windll.user32.GetParent(self.winfo_id())
-        # Set the window style to make it appear in the taskbar
+        # # Set the window style to make it appear in the taskbar
         # ctypes.windll.user32.SetWindowLongW(hwnd, -8, 0)  # GWLP_HWNDPARENT = -8
 
         self.initialize_screens()
         # self.show_frame("Dashboard")
         self.show_frame("LoginScreen")
+        
+        hwnd = self.winfo_id()
+        
+        # Ensure the window has a taskbar presence
+        ctypes.windll.user32.SetWindowLongW(hwnd, -8, 0)  # Set parent to None (GWLP_HWNDPARENT = -8)
+        ctypes.windll.user32.SetWindowLongW(hwnd, -20, 
+                                            ctypes.windll.user32.GetWindowLongW(hwnd, -20) & ~0x00000080)  # Remove WS_EX_TOOLWINDOW
+        ctypes.windll.user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, 0x0020)  # Apply changes (SWP_FRAMECHANGED)
+
+        user32 = ctypes.windll.user32
+        
+        self.update()
+        self.update_idletasks()
         
     def add_shadow(self):
         """Applies a drop shadow effect to the window without making it fully white."""
@@ -126,6 +153,7 @@ class App(tk.Tk):
         ctypes.windll.dwmapi.DwmSetWindowAttribute(
             hwnd, 2, ctypes.byref(ctypes.c_int(2)), ctypes.sizeof(ctypes.c_int(2))
         )
+        
 
  
     # def add_shadow(self):
@@ -277,7 +305,7 @@ class Dashboard(tk.Frame):
             title_bar = tk.Frame(right_panel, width=900, bg="#E7F6FF")
             title_bar.pack(fill=tk.X)
             close_button = tk.Button(title_bar, text='x', font=header_font, command=close_window, bg='#E7F6FF', fg='#044C9D', borderwidth=0, relief=tk.SUNKEN)
-            close_button.pack(side=tk.RIGHT, padx=20, pady=(5,10))
+            close_button.pack(side=tk.RIGHT, padx=20, pady=(5,8))
             get_all_mapping_details()
 
             # Upper right panel (contains last sync and button)
@@ -438,13 +466,14 @@ class Dashboard(tk.Frame):
                 menu_frame.place(relx=0.5, rely=0.5, anchor="center")
 
                 # print(branch_data)
-                tk.Label(menu_frame, text=branch_data["name"], font=header_font, bg="white").pack(pady=(20, 5), padx=20)
-                tk.Label(menu_frame, text="Map With", font=label_font, bg="white").pack(anchor='w', pady=(5, 10), padx=(80,20))
+                tk.Label(menu_frame, text=branch_data["name"], font=header_font, bg="white").pack(pady=(10, 5), padx=20)
+                # tk.Label(menu_frame, text="Arkham sylum batman joker harley quinn aquamna cyborg flash", font=header_font, bg="white").pack(pady=(20, 5), padx=20)
+                tk.Label(menu_frame, text="Map With", font=label_font2, bg="white").pack(anchor='n',pady=(0, 20), padx=20)
 
                 options = remaining_branch
                 # options.extend(
                 #     [
-                #         '1errgdrggdgdgdfgdfgdgfdgfdgfdgd             fgdfgfdgdfgdfgdfddgdfgfdgdg',
+                #         '1errgdrggdgdgdfgdfgdgfdgfdgfdgd',
                 #         '2',
                 #         '3',
                 #         '4',
@@ -522,7 +551,160 @@ class Dashboard(tk.Frame):
                     canvas2.bind_all("<Button-5>", on_scroll2)
                 # Bind click outside the menu to close the overlay
                 overlay.bind("<Button-1>", on_click_outside)
+            
+            # def show_map_menu(event, branch_data):
+            #     # Capture the screen
+            #     constants.CURRENT_BRANCH_SYNC_JSON = branch_data
+            #     x = self.winfo_rootx()
+            #     y = self.winfo_rooty()
+            #     w = self.winfo_width()
+            #     h = self.winfo_height()
+                
+            #     # Capture the screen area
+            #     screen = ImageGrab.grab(bbox=(x, y, x + w, y + h))
+            #     blurred_screen = screen.filter(ImageFilter.GaussianBlur(10))
 
+            #     # Create overlay window
+            #     overlay = tk.Toplevel(self)
+            #     overlay.geometry(f"{w}x{h}+{x}+{y}")
+            #     overlay.overrideredirect(True)
+
+            #     # Display blurred background
+            #     bg_image = ImageTk.PhotoImage(blurred_screen)
+            #     bg_label = tk.Label(overlay, image=bg_image)
+            #     bg_label.image = bg_image
+            #     bg_label.pack(fill="both", expand=True)
+
+            #     menu_w, menu_h = 500, 250
+            #     menu_x = (w // 2) - (menu_w // 2)  # Center horizontally
+            #     menu_y = (h // 2) - (menu_h // 2)  # Center vertically
+
+            #     # Create a Canvas for rounded border
+            #     radius = 10
+            #     menu_canvas = tk.Canvas(overlay, width=menu_w, height=menu_h, bg="white", highlightthickness=0)
+            #     menu_canvas.place(x=menu_x, y=menu_y)
+                
+            #     round_rectangle(menu_canvas, 0, 0, menu_w, menu_h, radius, fill="white", outline="grey", width=2)
+
+            #     # Frame inside canvas for menu content
+            #     menu_frame = tk.Frame(overlay, bg="white", padx=10)
+            #     menu_frame.place(x=menu_x + 10, y=menu_y + 10)
+
+            #     # print(branch_data)
+            #     tk.Label(menu_frame, text=branch_data["name"], font=header_font, bg="white").pack(pady=(20, 5), padx=20)
+            #     tk.Label(menu_frame, text="Map With", font=label_font, bg="white").pack(anchor='w', pady=(5, 10), padx=(80,20))
+
+            #     options = remaining_branch
+            #     options.extend(
+            #         [
+            #             '1errgdrggdgdgdfgdfgdgfdgfdgfdgd             fgdfgfdgdfgdfgdfddgdfgfdgdg',
+            #             '2',
+            #             '3',
+            #             '4',
+            #             '5',
+            #             '6',
+            #             '7',
+            #             '8',
+            #             '9',
+            #             '1',
+            #             '2',
+            #             '3',
+            #             '4',
+            #             '5',
+            #             '6',
+            #             '7',
+            #             '8',
+            #             '9'
+            #         ]
+            #     )
+            #     if len(options) > 10:
+            #         canvas2 = tk.Canvas(menu_frame, bg="white", bd=0, highlightthickness=0, relief='ridge')
+            #         # scrollbar = ttk.Scrollbar(menu_frame, orient="vertical", command=canvas.yview, style="Custom.Vertical.TScrollbar")
+            #         scrollbar2 = ttk.Scrollbar(menu_frame, orient="vertical", command=canvas2.yview)
+            #         scrollable_frame2 = tk.Frame(canvas2, bg="white")
+
+            #         # Configure the canvas
+            #         scrollable_frame2.bind(
+            #             "<Configure>",
+            #             lambda e: canvas2.configure(scrollregion=canvas2.bbox("all"))
+            #         )
+
+            #         canvas2.create_window((0, 0), window=scrollable_frame2, anchor="nw")
+            #         canvas2.configure(yscrollcommand=scrollbar2.set)
+
+            #         # Pack canvas and scrollbar
+            #         canvas2.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            #         scrollbar2.pack(side=tk.RIGHT, fill=tk.Y)
+            #     else:
+            #         scrollable_frame2 = menu_frame
+            #     def on_scroll2(event):
+            #         """Enable scrolling inside the frame without dragging the app."""
+            #         if len(options) > 10:
+            #             if event.delta:  # Windows scrolling
+            #                 canvas2.yview_scroll(-1 * (event.delta // 120), "units")
+            #             elif event.num == 4:  # Linux scroll up
+            #                 canvas2.yview_scroll(-1, "units")
+            #             elif event.num == 5:  # Linux scroll down
+            #                 canvas2.yview_scroll(1, "units")
+                
+            #     s = ttk.Style()                     # Creating style element
+            #     s.configure('Wild.TRadiobutton',    # First argument is the name of style. Needs to end with: .TRadiobutton
+            #             background="white",         # Setting background to our specified color above
+            #             foreground='black',
+            #             indicatormargin=100,
+            #             # padding=(10,5),
+            #             font=label_font) 
+            
+            #     selected = tk.StringVar(value="")
+                
+            #     for option in options:
+            #         rb = ttk.Radiobutton(scrollable_frame2, text=option, value=option, variable=selected, style = 'Wild.TRadiobutton', command= lambda opt=option, overlay=overlay: map_branch_action(opt, overlay))
+            #         rb.pack(anchor="w", padx=(80,20), pady=5, fill="x")
+                    
+            #     # Function to close the overlay when clicking outside
+            #     def on_click_outside(event):
+            #         # Only destroy if click is outside of both the overlay and the menu_frame
+            #         if not overlay.winfo_containing(event.x_root, event.y_root) == overlay and \
+            #         (event.widget not in menu_frame.winfo_children() and event.widget not in scrollable_frame2.winfo_children()):
+            #             overlay.destroy()
+                
+
+            #     if len(options) > 10:
+            #         canvas2.bind_all("<MouseWheel>", on_scroll2)  # Windows
+            #         canvas2.bind_all("<Button-4>", on_scroll2)  # Linux Scroll Up
+            #         canvas2.bind_all("<Button-5>", on_scroll2)
+            #     # Bind click outside the menu to close the overlay
+            #     overlay.bind("<Button-1>", on_click_outside)
+
+            # def round_rectangle(canvas, x1, y1, x2, y2, radius=25, **kwargs):
+                    
+            #     points = [x1+radius, y1,
+            #             x1+radius, y1,
+            #             x2-radius, y1,
+            #             x2-radius, y1,
+            #             x2, y1,
+            #             x2, y1+radius,
+            #             x2, y1+radius,
+            #             x2, y2-radius,
+            #             x2, y2-radius,
+            #             x2, y2,
+            #             x2-radius, y2,
+            #             x2-radius, y2,
+            #             x1+radius, y2,
+            #             x1+radius, y2,
+            #             x1, y2,
+            #             x1, y2-radius,
+            #             x1, y2-radius,
+            #             x1, y1+radius,
+            #             x1, y1+radius,
+            #             x1, y1]
+
+            #     canvas.create_polygon(points, **kwargs, smooth=True)
+
+            # # my_rectangle = round_rectangle(50, 50, 150, 100, radius=20, fill="blue")
+            # # Attach function to Canvas class
+            # tk.Canvas.round_rectangle = round_rectangle
+            
             
             # Bind scrolling to the canvas
             canvas.bind_all("<MouseWheel>", on_scroll)  # Windows
@@ -901,18 +1083,17 @@ class Dashboard(tk.Frame):
                 h = self.winfo_height()
 
                 screen = ImageGrab.grab(bbox=(x, y, x + w, y + h))
-                return screen.filter(ImageFilter.GaussianBlur(5)), x, y, w, h
+                return screen.filter(ImageFilter.GaussianBlur(4)), x, y, w, h
             
             def show_logout_popup(event):
                 x = self.winfo_rootx()
                 y = self.winfo_rooty()
                 w = self.winfo_width()
                 h = self.winfo_height()
-                print(x, y)
                 
                 # Capture the screen area
                 screen = ImageGrab.grab(bbox=(x, y, x + w, y + h))
-                blurred_screen = screen.filter(ImageFilter.GaussianBlur(5))
+                blurred_screen = screen.filter(ImageFilter.GaussianBlur(4))
 
                 # Create overlay window
                 overlay = tk.Toplevel(self)
@@ -984,7 +1165,7 @@ class Dashboard(tk.Frame):
             auto_sync_frame.pack(pady=(10, 20), padx=0, fill=tk.X)
 
             auto_sync_label = tk.Label(auto_sync_frame, text="Auto Sync", bg="#004BA8", fg="white", font=header_font2)
-            auto_sync_label.pack(padx=(30, 20), pady=(10, 20),side=tk.LEFT, anchor=tk.W)
+            auto_sync_label.pack(padx=(30, 10), pady=(10, 20),side=tk.LEFT, anchor=tk.W)
 
             # auto_sync_status = tk.Label(auto_sync_frame, text="Off >", bg="#004BA8", fg="white", font=header_font2)
             # auto_sync_status.pack(padx=(20, 30), pady=(30, 20),side=tk.RIGHT, anchor=tk.E)
@@ -1023,17 +1204,66 @@ class Dashboard(tk.Frame):
                 font=label_font2,
                 justify=tk.LEFT
             )
+            # def show_sync_menu(event):
+            #     # Capture the screen
+            #     x = self.winfo_rootx()
+            #     y = self.winfo_rooty()
+            #     w = self.winfo_width()
+            #     h = self.winfo_height()
+                
+            #     # Capture the screen area
+            #     screen = ImageGrab.grab(bbox=(x, y, x + w, y + h))
+            #     blurred_screen = screen.filter(ImageFilter.GaussianBlur(5))
+
+            #     # Create overlay window
+            #     overlay = tk.Toplevel(self)
+            #     overlay.geometry(f"{w}x{h}+{x}+{y}")
+            #     overlay.overrideredirect(True)
+
+            #     # Display blurred background
+            #     bg_image = ImageTk.PhotoImage(blurred_screen)
+            #     bg_label = tk.Label(overlay, image=bg_image)
+            #     bg_label.image = bg_image
+            #     bg_label.pack(fill="both", expand=True)
+
+            #     # Centered menu
+            #     menu_frame = tk.Frame(overlay, bg="white", bd=2, relief="ridge")
+            #     menu_frame.place(relx=0.5, rely=0.5, anchor="center")
+
+            #     tk.Label(menu_frame, text="Auto Sync", font=header_font2, bg="white").pack(pady=(10, 5), padx=40)
+
+            #     options = ["Off", "30 min", "60 min", "90 min", "120 min", "180 min"]
+                
+            #     s = ttk.Style()                     # Creating style element
+            #     s.configure('Wild.TRadiobutton',    # First argument is the name of style. Needs to end with: .TRadiobutton
+            #             background="white",         # Setting background to our specified color above
+            #             foreground='black',
+            #             font=label_font2) 
+                
+            #     for option in options:
+            #         rb = ttk.Radiobutton(menu_frame, text=option, value=option, variable=auto_sync_var, style = 'Wild.TRadiobutton', command= lambda opt=option, indicatoron=0, overlay=overlay:auto_sync_option_selected(opt, overlay))
+            #         rb.pack(anchor="w", padx=(40,20), pady=5, ipadx=20)
+                    
+            #     # Function to close the overlay when clicking outside
+            #     def on_click_outside(event):
+            #         # Only destroy if click is outside of both the overlay and the menu_frame
+            #         if not overlay.winfo_containing(event.x_root, event.y_root) == overlay and \
+            #         event.widget not in menu_frame.winfo_children():
+            #             overlay.destroy()
+
+            #     # Bind click outside the menu to close the overlay
+            #     overlay.bind("<Button-1>", on_click_outside)
+
             def show_sync_menu(event):
-                # Capture the screen
+                # Capture only the app window
                 x = self.winfo_rootx()
                 y = self.winfo_rooty()
                 w = self.winfo_width()
                 h = self.winfo_height()
-                print(x, y)
-                
+
                 # Capture the screen area
                 screen = ImageGrab.grab(bbox=(x, y, x + w, y + h))
-                blurred_screen = screen.filter(ImageFilter.GaussianBlur(5))
+                blurred_screen = screen.filter(ImageFilter.GaussianBlur(4))  # Apply blur effect
 
                 # Create overlay window
                 overlay = tk.Toplevel(self)
@@ -1046,34 +1276,97 @@ class Dashboard(tk.Frame):
                 bg_label.image = bg_image
                 bg_label.pack(fill="both", expand=True)
 
-                # Centered menu
-                menu_frame = tk.Frame(overlay, bg="white", bd=2, relief="ridge")
-                menu_frame.place(relx=0.5, rely=0.5, anchor="center")
+                # Centered menu dimensions
+                menu_w, menu_h = 250, 330
+                menu_x = (w // 2) - (menu_w // 2)  # Center horizontally
+                menu_y = (h // 2) - (menu_h // 2)  # Center vertically
 
-                tk.Label(menu_frame, text="Auto Sync", font=header_font, bg="white").pack(pady=(10, 5), padx=40)
+                # Create a Canvas for rounded border
+                radius = 20
+                menu_canvas = tk.Canvas(overlay, width=menu_w, height=menu_h, bg="white", highlightthickness=0)
+                menu_canvas.place(x=menu_x, y=menu_y)
 
+                # Draw a smooth rounded rectangle with borders
+                draw_rounded_rectangle(menu_canvas, 0, 0, menu_w, menu_h, radius, fill="white", border_color="grey", border_width=2)
+                # round_rectangle(menu_canvas, 0, 0, menu_w, menu_h, radius, fill="white", outline="grey", width=2)
+
+                # Frame inside canvas for menu content
+                menu_frame = tk.Frame(overlay, bg="white")
+                menu_frame.place(x=menu_x + 10, y=menu_y + 10)
+
+                tk.Label(menu_frame, text="Auto Sync", font=("Manrope", 12, "bold"), bg="white").pack(pady=(10, 5), padx=40)
+
+                # Options
                 options = ["Off", "30 min", "60 min", "90 min", "120 min", "180 min"]
-                
-                s = ttk.Style()                     # Creating style element
-                s.configure('Wild.TRadiobutton',    # First argument is the name of style. Needs to end with: .TRadiobutton
-                        background="white",         # Setting background to our specified color above
-                        foreground='black',
-                        font=label_font) 
-                
+                s = ttk.Style()
+                s.configure('Wild.TRadiobutton', background="white", foreground='black', font=("Manrope", 11))
+
                 for option in options:
-                    rb = ttk.Radiobutton(menu_frame, text=option, value=option, variable=auto_sync_var, style = 'Wild.TRadiobutton', command= lambda opt=option, indicatoron=0, overlay=overlay:auto_sync_option_selected(opt, overlay))
-                    rb.pack(anchor="w", padx=(40,20), pady=5, ipadx=20)
-                    
-                # Function to close the overlay when clicking outside
+                    pady_custom = (5,20) if option == options[-1] else 5
+                    pady_custom = 5
+                    rb = ttk.Radiobutton(menu_frame, text=option, value=option, variable=auto_sync_var,
+                                        style='Wild.TRadiobutton', command=lambda opt=option: auto_sync_option_selected(opt, overlay))
+                    rb.pack(anchor="w", padx=(40, 20), pady=pady_custom, ipadx=20)
+
+                # Close overlay when clicking outside
                 def on_click_outside(event):
-                    # Only destroy if click is outside of both the overlay and the menu_frame
+            #         # Only destroy if click is outside of both the overlay and the menu_frame
                     if not overlay.winfo_containing(event.x_root, event.y_root) == overlay and \
                     event.widget not in menu_frame.winfo_children():
                         overlay.destroy()
-
-                # Bind click outside the menu to close the overlay
+                
                 overlay.bind("<Button-1>", on_click_outside)
 
+            # Corrected Function for Smooth Rounded Border
+            def draw_rounded_rectangle(canvas, x1, y1, x2, y2, radius, fill, border_color, border_width):
+                """Draws a smooth rounded rectangle without missing corners or random lines."""
+                points = [
+                    (x1 + radius, y1), (x2 - radius, y1), (x2, y1),
+                    (x2, y1 + radius), (x2, y2 - radius), (x2, y2),
+                    (x2 - radius, y2), (x1 + radius, y2), (x1, y2),
+                    (x1, y2 - radius), (x1, y1 + radius), (x1, y1)
+                ]
+                # points = [
+                #     (x1 + radius, y1), (x2 - radius, y1),
+                #     (x2, y1 + radius), (x2, y2 - radius), 
+                #     (x2 - radius, y2), (x1 + radius, y2), 
+                #     (x1, y2 - radius), (x1, y1 + radius), 
+                # ]
+                # print('➡ tk_screen.py:1149 points:', points)
+
+                # Create rounded shape
+                canvas.create_polygon(points, smooth=True, fill=fill, outline=border_color, width=border_width)
+
+            def round_rectangle(canvas, x1, y1, x2, y2, radius=25, **kwargs):
+                    
+                points = [x1+radius, y1,
+                        x1+radius, y1,
+                        x2-radius, y1,
+                        x2-radius, y1,
+                        x2, y1,
+                        x2, y1+radius,
+                        x2, y1+radius,
+                        x2, y2-radius,
+                        x2, y2-radius,
+                        x2, y2,
+                        x2-radius, y2,
+                        x2-radius, y2,
+                        x1+radius, y2,
+                        x1+radius, y2,
+                        x1, y2,
+                        x1, y2-radius,
+                        x1, y2-radius,
+                        x1, y1+radius,
+                        x1, y1+radius,
+                        x1, y1]
+                print('➡ tk_screen.py:1330 points:', points)
+
+                canvas.create_polygon(points, **kwargs, smooth=True)
+
+            # my_rectangle = round_rectangle(50, 50, 150, 100, radius=20, fill="blue")
+            # Attach function to Canvas class
+            tk.Canvas.draw_rounded_rectangle = draw_rounded_rectangle
+            tk.Canvas.round_rectangle = round_rectangle
             # auto_sync_label.pack(pady=(0, 20), padx=10, anchor=tk.W)
             auto_sync_label.pack(padx=(20, 0), pady=(30, 20),side=tk.LEFT, anchor=tk.W)
 
@@ -1089,7 +1382,7 @@ class Dashboard(tk.Frame):
             auto_sync_label.bind("<Button-1>", show_sync_menu)
 
             auto_sync_label = tk.Label(auto_sync_frame2, text=">", bg="#004BA8", fg="#7E878C", font=header_font2)
-            auto_sync_label.pack(padx=(5, 15), pady=(30, 20),side=tk.RIGHT, anchor=tk.E)
+            auto_sync_label.pack(padx=(0, 15), pady=(30, 20),side=tk.RIGHT, anchor=tk.E)
 
 
             lower_left_panel.pack_propagate(False)

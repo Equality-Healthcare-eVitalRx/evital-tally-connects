@@ -18,17 +18,25 @@ try: # >= win 8.1
     ctypes.windll.shcore.SetProcessDpiAwareness(2)
 except: # win 8.0 or less
     ctypes.windll.user32.SetProcessDPIAware()
-## spalsh comment
-# import pyi_splash
-# pyi_splash.update_text('UI Loaded ...')
-# pyi_splash.close()
 
-pyglet.font.add_file('lib/fonts/static/Manrope-Medium.ttf')
-pyglet.font.add_file('lib/fonts/static/Manrope-Bold.ttf')
-pyglet.font.add_file('lib/fonts/static/Manrope-ExtraBold.ttf')
-pyglet.font.add_file('lib/fonts/static/Manrope-Light.ttf')
-pyglet.font.add_file('lib/fonts/static/Manrope-Regular.ttf')
-pyglet.font.add_file('lib/fonts/static/Manrope-SemiBold.ttf')
+
+## spalsh comment
+import pyi_splash
+pyi_splash.update_text('UI Loaded ...')
+pyi_splash.close()
+
+
+pyglet.options['win32_gdi_font'] = True
+# fontpath = Path(__file__).parent / 
+fontpath = './lib/fonts/static/Manrope-Regular.ttf'
+# pyglet.font.add_file(str(fontpath))
+print(fontpath)
+pyglet.font.add_file(str(fontpath))
+# pyglet.font.add_file('./lib/fonts/static/Manrope-Bold.ttf')
+# pyglet.font.add_file('./lib/fonts/static/Manrope-ExtraBold.ttf')
+# pyglet.font.add_file('./lib/fonts/static/Manrope-Light.ttf')
+# pyglet.font.add_file('./lib/fonts/static/Manrope-Regular.ttf')
+# pyglet.font.add_file('./lib/fonts/static/Manrope-SemiBold.ttf')
 # pyglet.font.add_file('lib/fonts/static/Manrope-SemiBold.ttf')
 
 from datetime import datetime

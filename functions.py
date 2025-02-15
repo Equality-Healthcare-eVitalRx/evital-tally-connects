@@ -211,8 +211,13 @@ def startprocess(one_sync=False):
                 else:
                     #print("no")
                     init_data_list[key] = json.loads(parsed_data)
-            if key == 'profit_and_loss':
-                print('➡ functions.py:157 parsed_data:', parsed_data)
+            elif key == "list_of_companies":
+                    request_str = str(value)
+                    parsed_data =  send_request_to_tally(request_str, key)
+                    print('➡ functions.py:217 parsed_data:', parsed_data)
+                    data_list[key] = json.loads(parsed_data)
+            # if key == 'profit_and_loss':
+                # print('➡ functions.py:157 parsed_data:', parsed_data)
                 
         # #print('➡ main.py:210 data_list:', data_list)
         # #print('➡ main.py:213 init_data_list:', init_data_list)

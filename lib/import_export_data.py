@@ -52,7 +52,7 @@ def send_request_to_tally(request_params, request_format = ""):
             else:
                 return data  # Return the value if it's not a dict or list
             
-        if request_format in ["groups_data"]:
+        if request_format in ["groups_data","list_of_companies"]:
             
             raw_data = xmltodict.parse(content, attr_prefix='#')
             cleaned_data = clean_data(raw_data)
