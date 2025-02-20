@@ -288,7 +288,7 @@ def get_mapping_details():
     #     json_request["accesstoken"] = constants.ACCESS_TOKEN
     # if constants.EVITAL_RX_API_KEY != "":
     
-    json_data = json.load(open("./lib/credentials.json", "rb"))
+    # json_data = json.load(open("./lib/app_cache.txt", "rb"))
     # json_data["login_response"]["data"]
    
        

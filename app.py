@@ -7,7 +7,7 @@ import time
 import pyglet
 from main import main_thread
 from login import login_thread
-from functions import get_all_mapping_details, play_loading_animation
+from functions import get_all_mapping_details, play_loading_animation, decrypt_data
 from lib.import_export_data import get_tally_companies
 from lib import constants
 from tk_screen import App
@@ -21,9 +21,9 @@ except: # win 8.0 or less
 
 
 ## spalsh comment
-import pyi_splash
-pyi_splash.update_text('UI Loaded ...')
-pyi_splash.close()
+# import pyi_splash
+# pyi_splash.update_text('UI Loaded ...')
+# pyi_splash.close()
 
 
 pyglet.options['win32_gdi_font'] = True
@@ -62,12 +62,13 @@ get_tally_companies()
 #     thread101.start()
 #     time.sleep(5)
 
+my_file = Path("./lib/app_cache.txt")
+print('➡ app.py:7 my_file:', my_file)
 appObj = App()
-my_file = Path("./lib/credentials.json")
-# print('➡ app.py:7 my_file:', my_file)
 if my_file.is_file():
 
-    json_data = json.load(open("./lib/credentials.json", "rb"))
+    json_data = open("./lib/app_cache.txt", "rb")
+    json_data = decrypt_data(json_data.read())
     if "login_response" in json_data.keys() and json_data["login_response"]["status_code"] in [1,'1'] :
     # and ( 
     #     "company_mapping" in json_data.keys() and len(json_data["company_mapping"]) > 0 

@@ -14,7 +14,7 @@ from PIL import Image, ImageTk, ImageSequence, ImageGrab, ImageFilter, ImageDraw
 from tkinter import Tk
 from customtkinter import CTkButton, CTkFont
 import pyglet
-from functions import login, logout, get_all_mapping_details, constants, start_background_thread, start_thread, map_rx_companies, startprocess
+from functions import login, logout, get_all_mapping_details, constants, start_background_thread, start_thread, map_rx_companies, startprocess, encrypt_data,decrypt_data
 # from lib.import_export_data import get_tally_companies, check_if_tally_running
 pyglet.options['win32_gdi_font'] = True
 fontpath = Path(__file__).parent / 'lib/fonts/static/Manrope-Regular.ttf'
@@ -194,9 +194,30 @@ class App(tk.Tk):
         """Show a frame by name."""
         print("frame called")
         frame = self.frames[frame_name]
+        if frame_name == 'LoginScreen':
+            self.clear_frame_inputs(frame)        
         if hasattr(frame, "update_content"):  # Check if the frame supports dynamic updates
             frame.update_content(**kwargs)
         frame.tkraise()
+        
+                    
+    def clear_frame_inputs(self, frame):
+        """Clear all Entry, Text, and selected values in Checkbuttons/Radiobuttons inside a frame."""
+        for widget in frame.winfo_children():
+            if isinstance(widget, tk.Entry):
+                widget.delete(0, tk.END)  # Clear text entry fields
+            elif isinstance(widget, tk.Text):
+                widget.delete("1.0", tk.END)  # Clear text area
+            elif isinstance(widget, tk.Checkbutton):
+                widget.deselect()  # Uncheck checkbuttons
+            elif isinstance(widget, tk.Radiobutton):
+                widget.deselect()  # Unselect radiobuttons
+            elif isinstance(widget, tk.OptionMenu):
+                widget.set("")  # Reset dropdown selection if applicable
+            elif isinstance(widget, tk.Frame):
+                self.clear_frame_inputs(widget)  # Recursively clear nested frames
+
+
         # if frame_name == "Dashboard":
         #     frame.create_main_content()
 
@@ -215,11 +236,13 @@ class LoginScreen(tk.Frame):
             if res == 1:
                 constants.MOBILE = mobile_entry.get()
                 
-                with open("./lib/credentials.json") as data_file:
-                        data = json.load(data_file)
+                with open("./lib/app_cache.txt") as data_file:
+                        # data = json.load(data_file)
+                        data = decrypt_data(data_file.read())
                 data["mobile"] = constants.MOBILE
-                with open("./lib/credentials.json", "w") as json_file:
-                        json.dump(data, json_file)
+                with open("./lib/app_cache.txt", "w") as json_file:
+                        # json.dump(data, json_file)
+                        json_file.write(encrypt_data(data))
                 if constants.MOBILE_VAR is not None:
                     constants.MOBILE_VAR.set(constants.MOBILE)
                 get_all_mapping_details()
@@ -933,6 +956,7 @@ class Dashboard(tk.Frame):
             logout()
             overlay.destroy()
             parent.show_frame("LoginScreen")
+            [widget.delete(0, tk.END) for widget in parent.winfo_children() if isinstance(widget, tk.Entry)]
                  
         def process_frame(frame, size):
         # Convert the frame to RGBA

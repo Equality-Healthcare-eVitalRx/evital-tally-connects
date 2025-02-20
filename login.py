@@ -7,6 +7,7 @@ from tkinter.ttk import Button, Style
 from PIL import Image, ImageTk
 from tkinter import font
 from ttkthemes import ThemedTk
+from functions import decrypt_data, encrypt_data
 from main import main_thread
 from lib.import_export_data import send_login_request, get_tally_companies, map_rx_companies, check_if_tally_running
 from lib import constants
@@ -165,14 +166,20 @@ def login_thread():
                     mapping_window.destroy()
                     account_window.destroy()
                     data = {}
-                    with open("./lib/credentials.json") as data_file:
-                        data = json.load(data_file)
+                    # with open("./lib/app_cache.txt") as data_file:
+                    #     data = json.load(data_file)
+                    with open("./lib/app_cache.txt") as data_file:
+                        # data = json.load(data_file)
+                        data = decrypt_data(data_file.read())
                     data["company_mapping"] = constants.COMPANY_MAPPING
                     # data["mapping_type"] = "multi"
                     # constants.MAPPING_TYPE = "multi"
 
-                    with open("./lib/credentials.json", "w") as json_file:
-                        json.dump(data, json_file)
+                    # with open("./lib/app_cache.txt", "w") as json_file:
+                    #     json.dump(data, json_file)
+                    with open("./lib/app_cache.txt", "w") as json_file:
+                        # json.dump(data, json_file)
+                        json_file.write(encrypt_data(data))
                     main_thread()
                 else:
                     print(res)
@@ -262,12 +269,22 @@ def login_thread():
             res = map_rx_companies()
             print('➡ login.py:260 res:', res)
             if res not in [0] and ("status_code" in res.keys() and res["status_code"] in [1, "1", '1.0']):
-                with open("./lib/credentials.json") as data_file:
-                    data = json.load(data_file)
+                # with open("./lib/app_cache.txt") as data_file:
+                #     data = json.load(data_file)
+                
+                with open("./lib/app_cache.txt") as data_file:
+                    # data = json.load(data_file)
+                    data = decrypt_data(data_file.read())
+
                 data["company_mapping"] = constants.COMPANY_MAPPING
 
-                with open("./lib/credentials.json", "w") as json_file:
-                    json.dump(data, json_file)
+                # with open("./lib/app_cache.txt", "w") as json_file:
+                #     json.dump(data, json_file)
+                
+                with open("./lib/app_cache.txt", "w") as json_file:
+                    # json.dump(data, json_file)
+                    # json.dump(encrypt_data(data), json_file)
+                    json_file.write(encrypt_data(data))
 
                 single_account_window.destroy()
                 main_thread()  # Proceed with the main logic
@@ -353,8 +370,11 @@ def login_thread():
                     "login_response" : constants.LOGIN_RESPONSE,
                     "company_mapping" : res["data"]["pharmacy_details"]["company_mapping_details"]
                 }
-                with open("./lib/credentials.json", "w") as json_file:
-                    json.dump(data, json_file)
+                # with open("./lib/app_cache.txt", "w") as json_file:
+                #     json.dump(data, json_file)
+                with open("./lib/app_cache.txt", "w") as json_file:
+                    # json.dump(data, json_file)
+                    json_file.write(encrypt_data(data))
                 already_mapped = True if len(res["data"]["pharmacy_details"]["company_mapping_details"]) > 0 else False
                 if already_mapped:
                     # login_window.destroy()

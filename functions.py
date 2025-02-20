@@ -1,6 +1,7 @@
 
 
 
+import base64
 import ctypes
 from datetime import date, datetime
 import json
@@ -13,6 +14,7 @@ from tkinter import Tk, messagebox
 import lib.constants
 import tkinter
 # import image
+from cryptography.fernet import Fernet
 from PIL import Image, ImageSequence, ImageTk
 
 from lib import constants
@@ -51,8 +53,11 @@ def login(mobile_number, password):
                 "login_response" : constants.LOGIN_RESPONSE,
                 "company_mapping" : res["data"]["pharmacy_details"]["company_mapping_details"]
             }
-            with open("./lib/credentials.json", "w") as json_file:
-                json.dump(data, json_file)
+            # with open("./lib/app_cache.txt", "w") as json_file:
+            #     json.dump(data, json_file)
+            with open("./lib/app_cache.txt", "w") as json_file:
+                # json.dump(data, json_file)
+                json_file.write(encrypt_data(data))
             already_mapped = True if len(res["data"]["pharmacy_details"]["company_mapping_details"]) > 0 else False
             
             # get_all_mapping_details()
@@ -77,15 +82,18 @@ def login(mobile_number, password):
             return 0
         
 def logout():
-    with open("./lib/credentials.json", "w") as json_file:
-        json.dump({}, json_file)
+    # with open("./lib/app_cache.txt", "w") as json_file:
+    #     json.dump({}, json_file)
+    with open("./lib/app_cache.txt", "w") as json_file:
+        # json.dump(data, json_file)
+        json_file.write(encrypt_data({}))
     constants.COMPANY_MAPPING = {}
     constants.MAPPING_HISTORY = {}
     constants.EVITAL_RX_API_KEY = ""
     constants.LOGIN_RESPONSE = {}
     constants.IS_LOGIN = False
     constants.RX_ACCOUNTS = []
-    constants.TALLY_ACCOUNTS = []
+    # constants.TALLY_ACCOUNTS = []
     constants.TALLY_RESPONSE = []
     constants.COMPANY_MAPPING = []
     constants.MAPPING_TYPE = ""
@@ -104,6 +112,7 @@ def logout():
     constants.REQUIRE_REBOOT = False
     constants.SYNC_TIMER = 0
     constants.CURRENT_BRANCH_SYNC_JSON = {}
+    
     # root.destroy()
     
 def get_all_mapping_details():
@@ -400,3 +409,22 @@ def play_loading_animation():
     multiprocessing.freeze_support()
   
     root.mainloop()
+    
+def encrypt_data(data):
+    key = constants.ENCRYPTION_KEY
+    f = Fernet(key)
+    data = json.dumps(data)
+    encrypted_data = f.encrypt(data.encode())
+    return base64.b64encode(encrypted_data).decode()  # Convert to Base64 string
+
+# Decrypt data
+def decrypt_data(encrypted_base64):
+    key = constants.ENCRYPTION_KEY
+    f = Fernet(key)
+    encrypted_data = base64.b64decode(encrypted_base64)  # Decode from Base64
+    try:
+        
+        decrypted_data = f.decrypt(encrypted_data).decode()
+    except:
+        decrypted_data = "{}"
+    return json.loads(decrypted_data)

@@ -3,6 +3,7 @@ import json
 from multiprocessing import freeze_support
 import threading
 from tkinter import *
+from functions import encrypt_data
 from lib import constants
 from tkinter import messagebox
 from lib.import_export_data import send_request_to_tally,send_data_to_evitalrx,reset_mapping_from_rx,check_if_tally_running,send_init_data_to_evital_rx
@@ -142,15 +143,21 @@ def main_thread():
 
     
     def logout():
-        with open("./lib/credentials.json", "w") as json_file:
-            json.dump({}, json_file)
+        # with open("./lib/app_cache.txt", "w") as json_file:
+        #     json.dump({}, json_file)
+        with open("./lib/app_cache.txt", "w") as json_file:
+            # json.dump({}, json_file)
+            json_file.write(encrypt_data({}))
         constants.COMPANY_MAPPING = {}
         root.destroy()
         
     def reset_mapping():
         response = reset_mapping_from_rx()
-        with open("./lib/credentials.json", "w") as json_file:
-            json.dump({}, json_file)
+        # with open("./lib/app_cache.txt", "w") as json_file:
+        #     json.dump({}, json_file)
+        with open("./lib/app_cache.txt", "w") as json_file:
+            # json.dump({}, json_file)
+            json_file.write(encrypt_data({}))
         constants.COMPANY_MAPPING = {}
         root.destroy()
         
