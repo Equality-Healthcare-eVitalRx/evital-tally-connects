@@ -10,11 +10,13 @@ import time
 import tkinter as tk
 from tkinter import font, ttk
 from tkinter import messagebox
+from tkinter import scrolledtext
 from PIL import Image, ImageTk, ImageSequence, ImageGrab, ImageFilter, ImageDraw
 from tkinter import Tk
 from customtkinter import CTkButton, CTkFont
 import pyglet
-from functions import login, logout, get_all_mapping_details, constants, start_background_thread, start_thread, map_rx_companies, startprocess, encrypt_data,decrypt_data
+import keyboard
+from functions import login, logout, get_all_mapping_details, constants, start_background_thread, start_thread, map_rx_companies, startprocess, encrypt_data,decrypt_data, LogManagerObj
 # from lib.import_export_data import get_tally_companies, check_if_tally_running
 pyglet.options['win32_gdi_font'] = True
 fontpath = Path(__file__).parent / 'lib/fonts/static/Manrope-Regular.ttf'
@@ -38,8 +40,8 @@ class MARGINS(ctypes.Structure):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        constants.LOAD_COMPLETE = True            
-
+        # self.log_viewer = LogViewerApp(self)
+        constants.LOAD_COMPLETE = True         
         # hwnd = ctypes.windll.user32.GetForegroundWindow()
         # style = ctypes.windll.user32.GetWindowLongW(hwnd, -20)  # GWL_EXSTYLE
         # style |= 0x00020000  # WS_EX_LAYERED
@@ -1446,10 +1448,137 @@ class Dashboard(tk.Frame):
             # check_thread_status()
             thread1.start()
 
-        
 
+class LogViewerApp:
+    def __init__(self, main_app=None):
+        self.log_manager = LogManagerObj
+        self.root = None
+        self.main_app = main_app
+        
+        # Register the hotkey to show the viewer
+        keyboard.add_hotkey('shift+l', self.show_log_viewer)
+        
+        # Start a thread to handle the log clearing
+        # self.log_manager.clear_thread.start()
     
-            
+    def show_log_viewer(self):
+        """Show the log viewer window when hotkey is pressed"""
+        if self.root is not None and self.root.winfo_exists():
+            # If window exists, just focus it
+            self.root.lift()
+            self.root.focus_force()
+            return
+        
+        # Create a new window
+        self.root = tk.Toplevel() if self.main_app else tk.Tk()
+        self.root.title("Log Manager")
+        self.root.geometry("800x600")
+        
+        # Set up the widgets
+        self.create_widgets()
+        
+        # Handle window close event
+        self.root.protocol("WM_DELETE_WINDOW", self.hide_log_viewer)
+    
+    def hide_log_viewer(self):
+        """Hide the log viewer window"""
+        if self.root:
+            self.root.withdraw()
+    
+    def create_widgets(self):
+        # Create notebook with tabs
+        notebook = ttk.Notebook(self.root)
+        notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Create decrypt logs tab
+        decrypt_frame = ttk.Frame(notebook)
+        notebook.add(decrypt_frame, text="View Decrypted Logs")
+        
+        # Create management tab
+        manage_frame = ttk.Frame(notebook)
+        notebook.add(manage_frame, text="Log Management")
+        
+        # Configure decrypt logs tab
+        self.setup_decrypt_tab(decrypt_frame)
+        
+        # Configure management tab
+        self.setup_management_tab(manage_frame)
+    
+    def setup_decrypt_tab(self, parent):
+        # Log text area
+        frame = ttk.Frame(parent)
+        frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Buttons
+        btn_frame = ttk.Frame(frame)
+        btn_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        refresh_btn = ttk.Button(btn_frame, text="Refresh Logs", command=self.refresh_logs)
+        refresh_btn.pack(side=tk.LEFT, padx=5)
+        
+        # Log text area
+        self.log_text = scrolledtext.ScrolledText(frame, wrap=tk.WORD)
+        self.log_text.pack(fill=tk.BOTH, expand=True)
+        
+        # Initial load of logs
+        self.refresh_logs()
+    
+    def setup_management_tab(self, parent):
+        frame = ttk.Frame(parent)
+        frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Clear logs button
+        clear_btn = ttk.Button(frame, text="Clear Logs Now", command=self.clear_logs)
+        clear_btn.pack(pady=10)
+        
+        # Last cleared info
+        self.last_cleared_label = ttk.Label(frame, text="")
+        self.last_cleared_label.pack(pady=10)
+        self.update_last_cleared_info()
+        
+        # Add a log entry frame
+        entry_frame = ttk.LabelFrame(frame, text="Add Log Entry")
+        entry_frame.pack(fill=tk.X, pady=20, padx=10)
+        
+        self.log_entry = ttk.Entry(entry_frame, width=50)
+        self.log_entry.pack(side=tk.LEFT, padx=5, pady=10, fill=tk.X, expand=True)
+        
+        add_btn = ttk.Button(entry_frame, text="Add Log", command=self.add_log)
+        add_btn.pack(side=tk.RIGHT, padx=5, pady=10)
+    
+    def refresh_logs(self):
+        self.log_text.delete(1.0, tk.END)
+        logs = self.log_manager.read_logs()
+        for log in logs:
+            self.log_text.insert(tk.END, f"{log}\n")
+    
+    def clear_logs(self):
+        if messagebox.askyesno("Confirmation", "Are you sure you want to clear all logs?"):
+            if self.log_manager.clear_logs():
+                messagebox.showinfo("Success", "Logs cleared successfully")
+                self.refresh_logs()
+                self.update_last_cleared_info()
+            else:
+                messagebox.showerror("Error", "Failed to clear logs")
+    
+    def add_log(self):
+        message = self.log_entry.get()
+        if not message:
+            messagebox.showwarning("Warning", "Please enter a log message")
+            return
+        
+        if self.log_manager.write_log(message):
+            self.log_entry.delete(0, tk.END)
+            self.refresh_logs()
+            messagebox.showinfo("Success", "Log added successfully")
+        else:
+            messagebox.showerror("Error", "Failed to add log")
+    
+    def update_last_cleared_info(self):
+        last_date = self.log_manager.get_last_clear_date_formatted()
+        self.last_cleared_label.config(text=f"Logs last cleared on: {last_date}")
+    
+# LogViewerApp()
 # Run the application
 if __name__ == "__main__":
     app = App()

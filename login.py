@@ -7,7 +7,7 @@ from tkinter.ttk import Button, Style
 from PIL import Image, ImageTk
 from tkinter import font
 from ttkthemes import ThemedTk
-from functions import decrypt_data, encrypt_data
+from functions import decrypt_data, encrypt_data, LogManagerObj
 from main import main_thread
 from lib.import_export_data import send_login_request, get_tally_companies, map_rx_companies, check_if_tally_running
 from lib import constants
@@ -22,7 +22,8 @@ def login_thread():
         tally_status = check_if_tally_running()
         if tally_status == False:
             messagebox.showerror("Tally is offline", "Make sure tally is running.")
-            logging.error("Tally is offline on mapping")
+            # logging.error("Tally is offline on mapping")
+            LogManagerObj.write_log("Tally is offline on mapping")
             return 0
         get_tally_companies()
         account_window.destroy()
@@ -157,7 +158,8 @@ def login_thread():
                 for y in constants.TALLY_ACCOUNTS if y["company_name"] == combobox.get()
             ]
             print('➡ login.py:56 COMPANY_MAPPING:', constants.COMPANY_MAPPING)
-            logging.info("commpany mapping : "+str(constants.COMPANY_MAPPING))
+            # logging.info("company mapping : "+str(constants.COMPANY_MAPPING))
+            LogManagerObj.write_log("company mapping : "+str(constants.COMPANY_MAPPING))
             if len(constants.COMPANY_MAPPING)<1:
                 messagebox.showinfo("Map Tally Companies", "Please select atleast one company")
             else:   
@@ -351,7 +353,8 @@ def login_thread():
         # For demonstration, just check for specific mobile number and password
             res = send_login_request(mobile_number, password)
             print('➡ login.py:89 res:', res)
-            logging.info(res)
+            # logging.info(res)
+            LogManagerObj.write_log(res)
             
             if "status_code" in res.keys() and res['status_code'] in [1,'1']:
                 if_chain_pharmacy = res["data"]["pharmacy_details"]["is_chain_pharmacy"]

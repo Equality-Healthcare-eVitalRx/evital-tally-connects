@@ -19,8 +19,8 @@ EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}:4000/"
 
 # EVITAL_RX_HOST = "192.168.1.29"
 # EVITAL_RX_HOST = "0f9d-2405-201-2000-a0d0-b81f-b3cc-cee8-c796.ngrok-free.app"
-EVITAL_RX_HOST = "d72e-122-176-221-102.ngrok-free.app"
-EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}/"
+# EVITAL_RX_HOST = "e8c3-122-176-221-102.ngrok-free.app"
+# EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}/"
 # EVITAL_RX_API_KEY = "masteraYQ8DVYzLP559sGJeWty4wXHaw"
 
 # EVITAL_RX_URL = "https://dev-api.evitalrx.in:3050/"

@@ -15,7 +15,8 @@ def send_request_to_tally(request_params, request_format = ""):
         response = requests.post(url=constants.TALLY_URL, data=request_params, headers=headers, timeout=constants.REQUEST_TIMEOUT)
         response_content = response.content
         
-        logging.info("Tally Data Fetched")
+        # logging.info("Tally Data Fetched")
+        # l("Tally Data Fetched")
         content = response_content.replace(b'&#4;', b'')
         if request_format == "profit_and_loss":
             content = content.replace(b'<BSNAME>', b'')
@@ -68,12 +69,12 @@ def send_request_to_tally(request_params, request_format = ""):
         return parsed_data
     
     except requests.exceptions.Timeout:
-        logging.error("API timeout - send_request_to_tally")
+        # logging.error("API timeout - send_request_to_tally")
         error_message = "Make sure tally is running."
         messagebox.showerror("Sync Failed", error_message)
         # save_error_message(error_message)
     except requests.exceptions.RequestException as e:
-        logging.error("Tally Exception - "+str(e))
+        # logging.error("Tally Exception - "+str(e))
         error_message = str(e)
         error_message = "Make sure tally is running."
         messagebox.showerror("Sync Failed", error_message)
@@ -136,10 +137,10 @@ def send_login_request(mobile_no, password):
         "status_message" : "Couldn't send request."
     }
     try:
-        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/tally_app/login " + "API called ")
+        # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/tally_app/login " + "API called ")
         response = requests.post(url=constants.EVITAL_RX_URL+"v2/master/tally_data/tally_app/login", data=json.dumps(json_request), headers=headers, timeout=constants.REQUEST_TIMEOUT)
-        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/tally_app/login " + "API called - Status "+str(response.status_code))
-        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/tally_app/login " + "API called - Response "+str(response.content))
+        # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/tally_app/login " + "API called - Status "+str(response.status_code))
+        # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/tally_app/login " + "API called - Response "+str(response.content))
         print('➡ lib/import_export_data.py:78 response:', response)
         if response.status_code == 200:
             login_response = json.loads(response.content)
@@ -185,9 +186,9 @@ def get_tally_companies():
     
     try:
         
-        logging.info(constants.TALLY_URL+"get_tally_companies " + "API called  ")
+        # logging.info(constants.TALLY_URL+"/get_tally_companies " + "API called  ")
         response = requests.post(url=constants.TALLY_URL, data=request_params, headers=headers, timeout=3)
-        logging.info(constants.TALLY_URL+"get_tally_companies " + "API called - Status "+str(response.status_code))
+        # logging.info(constants.TALLY_URL+"/get_tally_companies " + "API called - Status "+str(response.status_code))
         # logging.info(constants.EVITAL_RX_URL+"get_tally_companies " + "API called - Response "+str(response.content))
         if response.status_code == 200:
             response_content = response.content
@@ -210,17 +211,17 @@ def get_tally_companies():
     except requests.exceptions.Timeout:
         error_message = "Connection timed out. Please try again later."
         messagebox.showerror("Tally Company", error_message)
-        logging.error(error_message)
+        # logging.error(error_message)
         sys.exit(1)
         # save_error_message(error_message)
     except requests.exceptions.RequestException as e:
         error_message = str(e)
         messagebox.showerror("Tally Company", "Tally is not running.")
-        logging.error("Tally not running")
+        # logging.error("Tally not running")
         sys.exit(1)
     except:
         messagebox.showerror("Tally Company", "Tally is not running.")
-        logging.error("Tally not running")
+        # logging.error("Tally not running")
         sys.exit(1)
         # save_error_message(error_message)
 
@@ -243,16 +244,16 @@ def map_rx_companies():
     # if len(constants.COMPANY_MAPPING)>0:
          
     try:
-        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data " + "API called ")
+        # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data " + "API called ")
         response = requests.post(url=constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data", data=json.dumps(json_request), headers=headers, timeout=constants.REQUEST_TIMEOUT)
-        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data " + "API called - Status "+str(response.status_code))
-        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data " + "API called - Response "+str(response.content))
+        # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data " + "API called - Status "+str(response.status_code))
+        # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data " + "API called - Response "+str(response.content))
         print('➡ lib/import_export_data.py:149 response:', response.content)
         # messagebox.showinfo("Company Mapping", "Comapny mapped successfully.")
         return json.loads(response.content)
     except:
         messagebox.showerror("Map Companies","Internet issues. Please try again later.")
-        logging.error("Internet issues. Please try again later.")
+        # logging.error("Internet issues. Please try again later.")
     return 0
     
 def reset_mapping_from_rx():
@@ -266,16 +267,16 @@ def reset_mapping_from_rx():
     if constants.EVITAL_RX_API_KEY != "":
         json_request["apikey"] = constants.EVITAL_RX_API_KEY
     try:
-        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/reset_application_mappings " + "API called  ")
+        # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/reset_application_mappings " + "API called  ")
         response = requests.post(url=constants.EVITAL_RX_URL+"v2/master/tally_data/v2/reset_application_mappings", data=json.dumps(json_request), headers=headers, timeout=constants.REQUEST_TIMEOUT)
-        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/reset_application_mappings " + "API called - Status "+str(response.status_code))
-        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/reset_application_mappings " + "API called - Response "+str(response.content))
+        # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/reset_application_mappings " + "API called - Status "+str(response.status_code))
+        # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/reset_application_mappings " + "API called - Response "+str(response.content))
         #print('➡ lib/import_export_data.py:149 response:', response.content)
         messagebox.showinfo("Mapping Reset","Tally companies mapping reset successfully.")
         return json.loads(response.content)
     except:
         messagebox.showerror("Map Companies","Internet issues. Please try again later.")
-        logging.error("Internet issues. Please try again later.")
+        # logging.error("Internet issues. Please try again later.")
     return 0
 
 def get_mapping_details():
@@ -343,7 +344,7 @@ def get_mapping_details():
     
     except:
         messagebox.showerror("Tally Sync","Connection problem. Please try again later.")
-        logging.error("Connection problem. Please try again later.")
+        # logging.error("Connection problem. Please try again later.")
         sys.exit(1)
     return 0
 
@@ -361,7 +362,7 @@ def check_if_tally_running():
         response = requests.post(url=constants.TALLY_URL, data="", headers=headers, timeout=3)
         print('➡ lib/import_export_data.py:271 response:', response)
         response_content = response.content
-        logging.info(constants.EVITAL_RX_URL+"check_if_tally_running " + "API called - Status "+str(response.status_code))
+        # logging.info(constants.EVITAL_RX_URL+"check_if_tally_running " + "API called - Status "+str(response.status_code))
         
         content = response_content.replace(b'&#4;', b'')
         raw_data = xmltodict.parse(content)
@@ -406,10 +407,10 @@ def send_init_data_to_evital_rx(request_array, from_date, to_date):
         # with open("./lib/data2.json", "w") as json_file:
         #     json.dump(json_request, json_file)
     try:
-        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_ledgers_and_groups " + "API called - ")
+        # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_ledgers_and_groups " + "API called - ")
         response = requests.post(url=constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_ledgers_and_groups", data=json.dumps(json_request), headers=headers, timeout=constants.REQUEST_TIMEOUT)
-        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_ledgers_and_groups " + "API called - Status "+str(response.status_code))
-        logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_ledgers_and_groups " + "API called - Response "+str(response.content))
+        # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_ledgers_and_groups " + "API called - Status "+str(response.status_code))
+        # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_ledgers_and_groups " + "API called - Response "+str(response.content))
         #print('➡ lib/import_export_data.py:27 response:', response)
         if response.status_code == 200:
             # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_ledgers_and_groups " + "API called - Status "+str(response.status_code))
@@ -422,13 +423,13 @@ def send_init_data_to_evital_rx(request_array, from_date, to_date):
             return status
     except requests.exceptions.Timeout:
         error_message = "Internet issue. Please try again later."
-        logging.error("Internet issue. Please try again later. ")
+        # logging.error("Internet issue. Please try again later. ")
         # messagebox.showerror("Login Failed", error_message)
         # save_error_message(error_message)
     except requests.exceptions.RequestException as e:
         error_message = str(e)
         error_message = "Internet issue. Please try again later."
-        logging.error("Internet issue. Please try again later. ")
+        # logging.error("Internet issue. Please try again later. ")
         # messagebox.showerror("Login Failed", error_message)
         # save_error_message(error_message)
     return res

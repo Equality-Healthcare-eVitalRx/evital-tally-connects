@@ -7,13 +7,14 @@ import time
 import pyglet
 from main import main_thread
 from login import login_thread
-from functions import get_all_mapping_details, play_loading_animation, decrypt_data
+from functions import get_all_mapping_details, play_loading_animation, decrypt_data, LogManagerObj
 from lib.import_export_data import get_tally_companies
 from lib import constants
 from tk_screen import App
 import logging
 import ctypes, tkinter
 from tkinter import font
+
 try: # >= win 8.1
     ctypes.windll.shcore.SetProcessDpiAwareness(2)
 except: # win 8.0 or less
@@ -21,9 +22,9 @@ except: # win 8.0 or less
 
 
 ## spalsh comment
-# import pyi_splash
-# pyi_splash.update_text('UI Loaded ...')
-# pyi_splash.close()
+import pyi_splash
+pyi_splash.update_text('UI Loaded ...')
+pyi_splash.close()
 
 
 pyglet.options['win32_gdi_font'] = True
@@ -40,13 +41,15 @@ pyglet.font.add_file(str(fontpath))
 # pyglet.font.add_file('lib/fonts/static/Manrope-SemiBold.ttf')
 
 from datetime import datetime
-log_filename = f"./lib/app_logs.txt"
-logging.basicConfig(
-    filename=log_filename,
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-)
-logging.info("Application started.")
+
+LogManagerObj.write_log("Application started")
+# log_filename = f"./lib/app_logs.txt"
+# logging.basicConfig(
+#     filename=log_filename,
+#     level=logging.INFO,
+#     format="\n%(asctime)s  -  %(levelname)s  -  %(message)s",
+# )
+# logging.info("Application started.")
 
 get_tally_companies()
 
@@ -74,7 +77,8 @@ if my_file.is_file():
     #     "company_mapping" in json_data.keys() and len(json_data["company_mapping"]) > 0 
     # )
     # :
-        logging.info("Previous Login Found.")
+        # logging.info("Previous Login Found.")
+        LogManagerObj.write_log("Previous Login Found.")
         # constants.RX_ACCOUNTS = list([{key:value for key,value in json_data["login_response"]["data"]["pharmacy_details"]["logged_in_pharmacy"].items()}])
         # if "child_pharmacies" in json_data["login_response"]["data"]["pharmacy_details"].keys() and json_data["login_response"]["data"]["pharmacy_details"]["logged_in_pharmacy"]["is_HO"]:
         #     constants.RX_ACCOUNTS += [x for x in json_data["login_response"]["data"]["pharmacy_details"]["child_pharmacies"]]
@@ -130,7 +134,8 @@ if my_file.is_file():
     # print('➡ app.py:9 json_data:', json_data)
 else:
     print("no file")
-    logging.info("Login Details Not found.")
+    # logging.info("Login Details Not found.")
+    LogManagerObj.write_log("Login Details Not found.")
     appObj.show_frame("LoginScreen")
     
 if __name__ == "__main__":
