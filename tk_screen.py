@@ -195,12 +195,28 @@ class App(tk.Tk):
     def show_frame(self, frame_name, **kwargs):
         """Show a frame by name."""
         print("frame called")
+        if frame_name in self.frames:
+            self.frames[frame_name].destroy()
+            del self.frames[frame_name]
+        
+        if frame_name == "LoginScreen":
+            self.frames[frame_name] = LoginScreen(self, self)
+        elif frame_name == "Dashboard":
+            self.frames[frame_name] = Dashboard(self, self)
+            
+        # if frame_name == 'LoginScreen':
+        #     self.clear_frame_inputs(frame)        
+        # if hasattr(frame, "update_content"):  # Check if the frame supports dynamic updates
+        #     frame.update_content(**kwargs)
         frame = self.frames[frame_name]
-        if frame_name == 'LoginScreen':
-            self.clear_frame_inputs(frame)        
-        if hasattr(frame, "update_content"):  # Check if the frame supports dynamic updates
-            frame.update_content(**kwargs)
         frame.tkraise()
+        frame.update_idletasks() 
+        
+        frame.grid(row=0, column=0, sticky="nsew")
+
+        # Raise the new frame to the front
+        frame.tkraise()
+        frame.update_idletasks()  # Force UI update
         
                     
     def clear_frame_inputs(self, frame):
@@ -370,10 +386,10 @@ class Dashboard(tk.Frame):
 
             branches = [] if constants.EVITAL_RX_API_KEY == "" else [
                 {
-                    "name":x["evitalrx_branch_name"], 
+                    "name":x["branch_name"], 
                     "status":"Map Now" if x["tally_company_name"] =="" else str("Mapped as ")+str(x["tally_company_name"]), 
                     "time" : "No Sync" if x["last_synced"]=="" else x["last_synced"],
-                    "chemist_id" : x["chemist_id"],
+                    "chemist_id" : x["entity_id"],
                     "company_guid" : x["tally_company_guid"]
                 } 
                 for x in constants.MAPPING_HISTORY["results"]
@@ -400,7 +416,7 @@ class Dashboard(tk.Frame):
                 custom_padding = 220 - ((max_branch+max_branch_time)) if max_branch + max_branch_time < 34 else ((220 - ((max_branch+max_branch_time) * 3.5 )) if max_branch+max_branch_time < 45 else (220 - ((max_branch+max_branch_time) * 4.5 )))
                 # custom_padding = 180  if max_branch + max_branch_time < 35 else (70 if max_branch_time + max_branch < 50 else 30)
             # print('➡ tk_screen.py:342 custom_padding:', custom_padding)
-            
+            custom_padding = custom_padding if custom_padding > 0 else 0
             branches_label = tk.Label(lower_right_panel, text=str(len(branches))+" Branches", bg="white", fg="#A9A9A9", font=label_font, justify=tk.LEFT)
             branches_label.pack(pady=(30, 5), padx=5, anchor=tk.W)
             

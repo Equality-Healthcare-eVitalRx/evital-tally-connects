@@ -208,7 +208,7 @@ def main_thread():
         # show_animation()
         
         #print('➡ main.py:97 constants.LOGIN_RESPONSE:', constants.LOGIN_RESPONSE)
-        if constants.MAPPING_TYPE == "single" and constants.LOGIN_RESPONSE["data"]["pharmacy_details"]["is_chain_pharmacy"] and constants.LOGIN_RESPONSE["data"]["pharmacy_details"]["logged_in_pharmacy"]["is_HO"]:
+        if constants.MAPPING_TYPE == "single" and constants.LOGIN_RESPONSE["data"]["business_details"]["is_chain_business"] and constants.LOGIN_RESPONSE["data"]["business_details"]["logged_in_business"]["is_HO"]:
             #print("Sdsdgf")
             #print('➡ main.py:99 constants.COMPANY_MAPPING:', constants.COMPANY_MAPPING)
             #print('➡ main.py:101 constants.RX_ACCOUNTS:', constants.RX_ACCOUNTS)

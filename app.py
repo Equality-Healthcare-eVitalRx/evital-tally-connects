@@ -22,9 +22,9 @@ except: # win 8.0 or less
 
 
 ## spalsh comment
-import pyi_splash
-pyi_splash.update_text('UI Loaded ...')
-pyi_splash.close()
+# import pyi_splash
+# pyi_splash.update_text('UI Loaded ...')
+# pyi_splash.close()
 
 
 pyglet.options['win32_gdi_font'] = True
@@ -79,14 +79,14 @@ if my_file.is_file():
     # :
         # logging.info("Previous Login Found.")
         LogManagerObj.write_log("Previous Login Found.")
-        # constants.RX_ACCOUNTS = list([{key:value for key,value in json_data["login_response"]["data"]["pharmacy_details"]["logged_in_pharmacy"].items()}])
-        # if "child_pharmacies" in json_data["login_response"]["data"]["pharmacy_details"].keys() and json_data["login_response"]["data"]["pharmacy_details"]["logged_in_pharmacy"]["is_HO"]:
-        #     constants.RX_ACCOUNTS += [x for x in json_data["login_response"]["data"]["pharmacy_details"]["child_pharmacies"]]
+        # constants.RX_ACCOUNTS = list([{key:value for key,value in json_data["login_response"]["data"]["pharmacy_details"]["logged_in_business"].items()}])
+        # if "child_businesses" in json_data["login_response"]["data"]["pharmacy_details"].keys() and json_data["login_response"]["data"]["pharmacy_details"]["logged_in_business"]["is_HO"]:
+        #     constants.RX_ACCOUNTS += [x for x in json_data["login_response"]["data"]["pharmacy_details"]["child_businesses"]]
         # if "HO_pharmacy" in json_data["login_response"]["data"]["pharmacy_details"].keys():
         #     constants.RX_ACCOUNTS += list([{key:value for key,value in json_data["login_response"]["data"]["pharmacy_details"]["HO_pharmacy"].items()}])            
-        # if "is_HO" in json_data["login_response"]["data"]["pharmacy_details"]["logged_in_pharmacy"].keys():
+        # if "is_HO" in json_data["login_response"]["data"]["pharmacy_details"]["logged_in_business"].keys():
         #     # constants.COMPANY_MAPPING = x for key, value in json_data["company_mapping"].items() if 
-        #     ho_id = json_data["login_response"]["data"]["pharmacy_details"]["logged_in_pharmacy"]["id"]
+        #     ho_id = json_data["login_response"]["data"]["pharmacy_details"]["logged_in_business"]["id"]
         #     is_ho_present = False
             # constants.COMPANY_MAPPING = json_data["company_mapping"]
             # for x in json_data["company_mapping"]:

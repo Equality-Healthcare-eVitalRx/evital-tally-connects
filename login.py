@@ -38,7 +38,7 @@ def login_thread():
         label_instruction.bind('<Configure>', lambda e: label_instruction.config(wraplength=label_instruction.winfo_width()))
         label_instruction.pack(pady=30)
 
-        accounts = [x["pharmacy_name"] for x in constants.RX_ACCOUNTS]  # Example accounts
+        accounts = [x["entity_business_name"] for x in constants.RX_ACCOUNTS]  # Example accounts
         categories = [x["company_name"] for x in constants.TALLY_ACCOUNTS]  # Example categories
 
         mapping_entries = []
@@ -154,7 +154,7 @@ def login_thread():
             constants.COMPANY_MAPPING = [
                 {"chemist_id": x["id"], "company_name": combobox.get(), "company_guid": y["company_guid"], "mapping_type":"multiple"}
                 for account, combobox in mapping_entries
-                for x in constants.RX_ACCOUNTS if x["pharmacy_name"] == account
+                for x in constants.RX_ACCOUNTS if x["entity_business_name"] == account
                 for y in constants.TALLY_ACCOUNTS if y["company_name"] == combobox.get()
             ]
             print('➡ login.py:56 COMPANY_MAPPING:', constants.COMPANY_MAPPING)
@@ -242,11 +242,11 @@ def login_thread():
             # messagebox.showinfo("Selected COmpany", f"You selected: {selected_account}")
             # Save the selected account to a file
             data = {}
-            if constants.LOGIN_RESPONSE["data"]["pharmacy_details"]["is_chain_pharmacy"]:
-                # if constants.LOGIN_RESPONSE["data"]["pharmacy_details"]["logged_in_pharmacy"]["is_HO"]:
+            if constants.LOGIN_RESPONSE["data"]["business_details"]["is_chain_business"]:
+                # if constants.LOGIN_RESPONSE["data"]["business_details"]["logged_in_business"]["is_HO"]:
                 constants.COMPANY_MAPPING = [
                     {"chemist_id": x["id"] , "company_name": combobox_account.get(), "company_guid": y["company_guid"], "mapping_type":"single"}
-                    for x in constants.RX_ACCOUNTS if x["pharmacy_name"] == constants.LOGIN_RESPONSE["data"]["pharmacy_details"]["logged_in_pharmacy"]["pharmacy_name"]
+                    for x in constants.RX_ACCOUNTS if x["entity_business_name"] == constants.LOGIN_RESPONSE["data"]["business_details"]["logged_in_business"]["entity_business_name"]
                     for y in constants.TALLY_ACCOUNTS if y["company_name"] == combobox_account.get()
                 ]
                 # else:
@@ -254,7 +254,7 @@ def login_thread():
                 #     print(constants.TALLY_ACCOUNTS)
                 #     constants.COMPANY_MAPPING = [
                 #         {"chemist_id": x["id"] , "company_name": combobox_account.get(), "company_guid": y["company_guid"]}
-                #         for x in constants.RX_ACCOUNTS if x["pharmacy_name"] == constants.LOGIN_RESPONSE["data"]["pharmacy_details"]["logged_in_pharmacy"]["pharmacy_name"]
+                #         for x in constants.RX_ACCOUNTS if x["entity_business_name"] == constants.LOGIN_RESPONSE["data"]["business_details"]["logged_in_business"]["entity_business_name"]
                 #         for y in constants.TALLY_ACCOUNTS if y["company_name"] == combobox_account.get()
                 #     ]
                 #     print('➡ login.py:136 COMPANY_MAPPING:', constants.COMPANY_MAPPING)
@@ -357,11 +357,11 @@ def login_thread():
             LogManagerObj.write_log(res)
             
             if "status_code" in res.keys() and res['status_code'] in [1,'1']:
-                if_chain_pharmacy = res["data"]["pharmacy_details"]["is_chain_pharmacy"]
+                if_chain_pharmacy = res["data"]["business_details"]["is_chain_business"]
                 # print('➡ login.py:94 if_chain_pharmacy:', if_chain_pharmacy)
                 messagebox.showinfo("Login", "Login Successful")
                 # print(res["data"])
-                constants.COMPANY_MAPPING = res["data"]["pharmacy_details"]["company_mapping_details"]
+                constants.COMPANY_MAPPING = res["data"]["business_details"]["company_mapping_details"]
                 if "accesstoken" in res["data"]:
                     constants.ACCESS_TOKEN = res["data"]["accesstoken"]
                 if "apikey" in res["data"]:
@@ -371,14 +371,14 @@ def login_thread():
                 
                 data = {
                     "login_response" : constants.LOGIN_RESPONSE,
-                    "company_mapping" : res["data"]["pharmacy_details"]["company_mapping_details"]
+                    "company_mapping" : res["data"]["business_details"]["company_mapping_details"]
                 }
                 # with open("./lib/app_cache.txt", "w") as json_file:
                 #     json.dump(data, json_file)
                 with open("./lib/app_cache.txt", "w") as json_file:
                     # json.dump(data, json_file)
                     json_file.write(encrypt_data(data))
-                already_mapped = True if len(res["data"]["pharmacy_details"]["company_mapping_details"]) > 0 else False
+                already_mapped = True if len(res["data"]["business_details"]["company_mapping_details"]) > 0 else False
                 if already_mapped:
                     # login_window.destroy()
                     main_thread()
@@ -386,7 +386,7 @@ def login_thread():
                     if if_chain_pharmacy:
                         # print()
                         # if if_chain_pharmacy:
-                        if_ho = res["data"]["pharmacy_details"]["logged_in_pharmacy"]["is_HO"]
+                        if_ho = res["data"]["business_details"]["logged_in_business"]["is_HO"]
                         if if_ho:
                             ask_account_type()
                         else:

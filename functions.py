@@ -38,11 +38,11 @@ def login(mobile_number, password):
         # logging.info(res)
         
         if "status_code" in res.keys() and res['status_code'] in [1,'1']:
-            if_chain_pharmacy = res["data"]["pharmacy_details"]["is_chain_pharmacy"]
+            if_chain_pharmacy = res["data"]["business_details"]["is_chain_business"]
             # print('➡ login.py:94 if_chain_pharmacy:', if_chain_pharmacy)
             # messagebox.showinfo("Login", "Login Successful")
             # print(res["data"])
-            constants.COMPANY_MAPPING = res["data"]["pharmacy_details"]["company_mapping_details"]
+            constants.COMPANY_MAPPING = res["data"]["business_details"]["company_mapping_details"]
             if "accesstoken" in res["data"]:
                 constants.ACCESS_TOKEN = res["data"]["accesstoken"]
             if "apikey" in res["data"]:
@@ -52,14 +52,14 @@ def login(mobile_number, password):
             
             data = {
                 "login_response" : constants.LOGIN_RESPONSE,
-                "company_mapping" : res["data"]["pharmacy_details"]["company_mapping_details"]
+                "company_mapping" : res["data"]["business_details"]["company_mapping_details"]
             }
             # with open("./lib/app_cache.txt", "w") as json_file:
             #     json.dump(data, json_file)
             with open("./lib/app_cache.txt", "w") as json_file:
                 # json.dump(data, json_file)
                 json_file.write(encrypt_data(data))
-            already_mapped = True if len(res["data"]["pharmacy_details"]["company_mapping_details"]) > 0 else False
+            already_mapped = True if len(res["data"]["business_details"]["company_mapping_details"]) > 0 else False
             
             # get_all_mapping_details()
             # if already_mapped:
@@ -69,7 +69,7 @@ def login(mobile_number, password):
             #     if if_chain_pharmacy:
             #         # print()
             #         # if if_chain_pharmacy:
-            #         if_ho = res["data"]["pharmacy_details"]["logged_in_pharmacy"]["is_HO"]
+            #         if_ho = res["data"]["business_details"]["logged_in_business"]["is_HO"]
             #         if if_ho:
             #             ask_account_type()
             #         else:
@@ -113,7 +113,6 @@ def logout():
     constants.REQUIRE_REBOOT = False
     constants.SYNC_TIMER = 0
     constants.CURRENT_BRANCH_SYNC_JSON = {}
-    
     # root.destroy()
     
 def get_all_mapping_details():
@@ -134,7 +133,7 @@ def startprocess(one_sync=False):
     # show_animation()
     
     #print('➡ main.py:97 constants.LOGIN_RESPONSE:', constants.LOGIN_RESPONSE)
-    # if constants.MAPPING_TYPE == "single" and constants.LOGIN_RESPONSE["data"]["pharmacy_details"]["is_chain_pharmacy"] and constants.LOGIN_RESPONSE["data"]["pharmacy_details"]["logged_in_pharmacy"]["is_HO"]:
+    # if constants.MAPPING_TYPE == "single" and constants.LOGIN_RESPONSE["data"]["business_details"]["is_chain_business"] and constants.LOGIN_RESPONSE["data"]["business_details"]["logged_in_business"]["is_HO"]:
     #     #print("Sdsdgf")
     #     #print('➡ main.py:99 constants.COMPANY_MAPPING:', constants.COMPANY_MAPPING)
     #     #print('➡ main.py:101 constants.RX_ACCOUNTS:', constants.RX_ACCOUNTS)
@@ -152,7 +151,7 @@ def startprocess(one_sync=False):
     # print(constants.MAPPING_HISTORY)
     if not one_sync:
         companies = [
-            {"chemist_id" : x["chemist_id"], "company_name":x["tally_company_name"], "company_guid":x["tally_company_guid"], "branch_name":x["evitalrx_branch_name"]}
+            {"chemist_id" : x["entity_id"], "company_name":x["tally_company_name"], "company_guid":x["tally_company_guid"], "branch_name":x["branch_name"]}
             for x in constants.MAPPING_HISTORY["results"] if x["is_mapped"] in ['true', True, 'True']
         ]
     else:
