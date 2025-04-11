@@ -1,173 +1,59 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
 
-# import xmltodict
+class PortUpdateWindow(tk.Tk):
+    def __init__(self, current_port=5000):
+        super().__init__()
+        self.title("Change Port")
+        self.geometry("400x180")
+        self.configure(bg="white")
+        self.resizable(False, False)
 
+        self.current_port = current_port
+        self.new_port = tk.StringVar()
 
-# file_dir = "C:\\Users\\Evita\\Downloads\\Untitled (10)"
+        # Center the window
+        self.eval('tk::PlaceWindow . center')
 
-# with open(file_dir, "r" ) as file:
-#     # print(file.read())
-#     data = xmltodict.parse(file.read().encode('utf-8'))
-    
-    
-import requests
-request_params = """<ENVELOPE>
-    <HEADER>
-        <VERSION>1</VERSION>
-        <TALLYREQUEST>EXPORT</TALLYREQUEST>
-        <TYPE>DATA</TYPE>
-        <ID>CA_LEDGER</ID>
-    </HEADER>
-    <BODY>
-        <DESC>
-            <STATICVARIABLES>
-                <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>
-                <SVCURRENTCOMPANY>EvitalRx Smit</SVCURRENTCOMPANY>
-                <SVFROMDATE>20230401</SVFROMDATE>
-                <SVTODATE>20240331</SVTODATE>
-            </STATICVARIABLES>
-            <TDL>
-                <TDLMESSAGE>
-                    <REPORT ISMODIFY="NO" ISFIXED="NO" ISINITIALIZE="NO" ISOPTION="NO"ISINTERNAL="NO" NAME="CA_LEDGER">
-                        <FORM>CA_LEDGER</FORM>
-                    </REPORT>
-                    <FORM ISMODIFY="NO" ISFIXED="NO" ISINITIALIZE="NO" ISOPTION="NO" ISINTERNAL="NO"NAME="CA_LEDGER">
-                        <PART>CA_LEDGER</PART>
-                        <XMLTAG>LEDGERS</XMLTAG>
-                    </FORM>
-                    <PART ISMODIFY="NO" ISFIXED="NO" ISINITIALIZE="NO" ISOPTION="NO" ISINTERNAL="NO"NAME="CA_LEDGER">
-                        <LINE>CA_LEDGER</LINE>
-                        <REPEAT>CA_LEDGER:CA_LEDGERCOLLECTION</REPEAT>
-                        <SCROLLED>Vertical</SCROLLED>
-                    </PART>
-                    <LINE ISMODIFY="NO" ISFIXED="NO" ISINITIALIZE="NO" ISOPTION="NO" ISINTERNAL="NO"NAME="CA_LEDGER">
-                        <FIELDS>CA_NAME,CA_PARENT,CA_OPENINGBALANCE,CA_CLOSINGBALANCE</FIELDS>
-                        <XMLTAG>LEDGER</XMLTAG>
-                    </LINE>
-                    <FIELD ISMODIFY="NO" ISFIXED="NO" ISINITIALIZE="NO" ISOPTION="NO"ISINTERNAL="NO" NAME="CA_NAME">
-                        <SET>$NAME</SET>
-                        <XMLTAG>NAME</XMLTAG>
-                    </FIELD>
-                    <FIELD ISMODIFY="NO" ISFIXED="NO" ISINITIALIZE="NO" ISOPTION="NO"ISINTERNAL="NO" NAME="CA_PARENT">
-                        <SET>$PARENT</SET>
-                        <XMLTAG>PARENT</XMLTAG>
-                    </FIELD>
-                    <FIELD ISMODIFY="NO" ISFIXED="NO" ISINITIALIZE="NO" ISOPTION="NO"ISINTERNAL="NO" NAME="CA_OPENINGBALANCE">
-                        <TYPE>Amount</TYPE>
-                        <SET>$OPENINGBALANCE</SET>
-                        <XMLTAG>OPENINGBALANCE</XMLTAG>
-                    </FIELD>
-                    <FIELD ISMODIFY="NO" ISFIXED="NO" ISINITIALIZE="NO" ISOPTION="NO"ISINTERNAL="NO" NAME="CA_CLOSINGBALANCE">
-                        <TYPE>Amount</TYPE>
-                        <SET>$CLOSINGBALANCE</SET>
-                        <XMLTAG>CLOSINGBALANCE</XMLTAG>
-                    </FIELD>
-                    <COLLECTION ISMODIFY="NO" ISFIXED="NO" ISINITIALIZE="NO" ISOPTION="NO"ISINTERNAL="NO" NAME="CA_LEDGERCOLLECTION">
-                        <TYPE>Ledger</TYPE>
-                        <NATIVEMETHOD>Name</NATIVEMETHOD>
-                        <NATIVEMETHOD>Parent</NATIVEMETHOD>
-                        <NATIVEMETHOD>OpeningBalance</NATIVEMETHOD>
-                        <NATIVEMETHOD>ClosingBalance</NATIVEMETHOD>
-                    </COLLECTION>
-                </TDLMESSAGE>
-            </TDL>
-        </DESC>
-    </BODY>
-</ENVELOPE>"""
+        # Header Label
+        label = tk.Label(self, text="Enter new port for the application:", font=("Arial", 12), bg="white")
+        label.pack(pady=(20, 10))
 
-headers = {'Content-Type': 'application/xml'}
-response = requests.post(url="http://localhost:9000", data=request_params, headers=headers, timeout=5)
-response_content = response.content
+        # Port Entry
+        entry_frame = tk.Frame(self, bg="white")
+        entry_frame.pack()
+        self.port_entry = tk.Entry(entry_frame, textvariable=self.new_port, font=("Arial", 12), width=10, justify="center", bd=2, relief="solid")
+        self.port_entry.pack(pady=5)
 
-content = response_content.replace(b'&#4;', b'')
+        # Buttons
+        button_frame = tk.Frame(self, bg="white")
+        button_frame.pack(pady=15)
 
-# print(content)
-import re
-# content = re.sub(r'\s*type\s*=\s*["\'][^"\']*["\']', '', content.decode('utf-8'), flags=re.IGNORECASE)
-# content = content.encode('utf-8')
-print('➡ lib/test.py:55 content:', content)
+        update_btn = tk.Button(button_frame, text="Update", command=self.update_port, font=("Arial", 12, "bold"), 
+                               bg="#007BFF", fg="white", width=10, height=2, borderwidth=0, activebackground="#0056b3")
+        update_btn.pack(side="left", padx=10)
 
-import xmltodict
-import json
+        cancel_btn = tk.Button(button_frame, text="Cancel", command=self.destroy, font=("Arial", 12, "bold"), 
+                               bg="white", fg="black", width=10, height=2, borderwidth=2, relief="solid", activebackground="#E5E5E5")
+        cancel_btn.pack(side="left", padx=10)
 
-raw_data = xmltodict.parse(content, attr_prefix='#')
-parsed_data = json.dumps(raw_data) 
-print('➡ lib/test.py:125 parsed_data:', parsed_data)
+    def update_port(self):
+        """Validates and updates the port"""
+        port = self.new_port.get().strip()
 
-# parsed_data = raw_data 
-# print('➡ lib/test.py:61 parsed_data:', parsed_data)
-
-# def clean_data(data):
-#     if isinstance(data, dict):
-#         clean_dict = {}
-#         for key, value in data.items():
-#             if key == "#type":  # Ignore #type
-#                 continue
-#             elif key == "#text":  # Replace parent key's value with #text
-#                 return clean_data(value)
-#             elif key.startswith("#"):  # Ignore other #attributes except #name
-#                 continue
-#             else:
-#                 # Recursively clean nested dictionaries or lists
-#                 clean_dict[key] = clean_data(value)
+        if not port.isdigit():
+            messagebox.showerror("Invalid Input", "Port must be a number!")
+            return
         
-#         # Set default values for CLOSINGBALANCE and OPENINGBALANCE if they are missing or empty
-#         if "CLOSINGBALANCE" in clean_dict and not clean_dict["CLOSINGBALANCE"]:
-#             clean_dict["CLOSINGBALANCE"] = "0"
-#         if "OPENINGBALANCE" in clean_dict and not clean_dict["OPENINGBALANCE"]:
-#             clean_dict["OPENINGBALANCE"] = "0"
-        
-#         return clean_dict
-#     elif isinstance(data, list):
-#         return [clean_data(item) for item in data]
-#     else:
-#         return data  # Return the value if it's not a dict or list
+        port = int(port)
+        if port < 1024 or port > 65535:
+            messagebox.showerror("Invalid Port", "Port must be between 1024 and 65535!")
+            return
 
-# # Clean the parsed data
-# cleaned_data = clean_data(parsed_data)
+        messagebox.showinfo("Success", f"Port updated to {port}!")
+        self.destroy()
 
-# # Convert the cleaned dictionary back to JSON
-# output_json = json.dumps(cleaned_data, indent=4)
-
-# # Print the cleaned JSON
-# print(output_json)
-# with open("C:\\comp\\local\\Softwares\\py-extract-tally\\data.json", "w") as file:    
-#     json.dump(cleaned_data,file)
-
- 
-import xml.etree.ElementTree as ET
-import json
-
-# XML data as a string
-# xml_data = """
-# <root>
-#     <item>
-#         <name>Item 1</name>
-#         <price>10.50</price>
-#     </item>
-#     <item>
-#         <name>Item 2</name>
-#         <price>20.75</price>
-#     </item>
-# </root>
-# """
-
-# # Parse the XML
-# root = ET.fromstring(content)
-
-# # Function to convert XML to dictionary
-# def xml_to_dict(element):
-#     result = {}
-#     for child in element:
-#         if len(child):
-#             result[child.tag] = xml_to_dict(child)
-#         else:
-#             result[child.tag] = child.text
-#     return result
-
-# # Convert the entire XML tree
-# dict_data = {root.tag: [xml_to_dict(item) for item in root]}
-
-# # Convert dictionary to JSON
-# json_data = json.dumps(dict_data, indent=4)
-
-# print(json_data)
+# Run the UI
+if __name__ == "__main__":
+    app = PortUpdateWindow(current_port=5000)
+    app.mainloop()

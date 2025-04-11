@@ -5,7 +5,7 @@ a = Analysis(
     ['app.py'],
     pathex=[],
     binaries=[],
-    datas=[('lib/fonts/static/Manrope-Regular.ttf', 'lib/fonts/static/')],
+    datas=[('lib/fonts/static/Manrope-Regular.ttf', 'lib/fonts/static/'), ('lib/fonts/breeze/breeze.tcl', 'lib/fonts/breeze'), ('lib/fonts/breeze/breeze/*.png', 'lib/fonts/breeze/breeze')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

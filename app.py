@@ -22,9 +22,9 @@ except: # win 8.0 or less
 
 
 ## spalsh comment
-# import pyi_splash
-# pyi_splash.update_text('UI Loaded ...')
-# pyi_splash.close()
+import pyi_splash
+pyi_splash.update_text('UI Loaded ...')
+pyi_splash.close()
 
 
 pyglet.options['win32_gdi_font'] = True
@@ -72,6 +72,7 @@ if my_file.is_file():
 
     json_data = open("./lib/app_cache.txt", "rb")
     json_data = decrypt_data(json_data.read())
+    print('➡ app.py:75 json_data:', json_data)
     if "login_response" in json_data.keys() and json_data["login_response"]["status_code"] in [1,'1'] :
     # and ( 
     #     "company_mapping" in json_data.keys() and len(json_data["company_mapping"]) > 0 
@@ -107,6 +108,7 @@ if my_file.is_file():
         constants.LOGIN_RESPONSE = json_data["login_response"]
         if "mobile" in json_data.keys():
             constants.MOBILE = json_data["mobile"]
+            constants.TALLY_PORT = json_data.get("tally_port", 9000)
             constants.MOBILE_VAR.set(constants.MOBILE)
         if "accesstoken" in json_data["login_response"]["data"]:
             constants.ACCESS_TOKEN = json_data["login_response"]["data"]["accesstoken"]

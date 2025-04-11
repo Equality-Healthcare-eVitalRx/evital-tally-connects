@@ -21,7 +21,7 @@ from PIL import Image, ImageSequence, ImageTk
 from lib import constants
 from lib.import_export_data import *
 
-def login(mobile_number, password):
+def login(mobile_number, password, entity="chemist"):
     # mobile_number = mobile_entry.get()
     # password = password_entry.get()
     if len(mobile_number) != 10 or str(mobile_number).isdigit() == False:
@@ -33,7 +33,7 @@ def login(mobile_number, password):
     else:
     # Implement your login logic here
     # For demonstration, just check for specific mobile number and password
-        res = send_login_request(mobile_number, password)
+        res = send_login_request(mobile_number, password, entity)
         # print('➡ login.py:89 res:', res)
         # logging.info(res)
         
@@ -107,6 +107,7 @@ def logout():
     constants.ONE_SYNC = []
     constants.LAST_SYNCED = ""
     constants.MOBILE = ""
+    constants.TALLY_PORT = 9000
     constants.MOBILE_VAR = None
     constants.CURRENT_BRANCH_SYNC = None
     constants.LAST_SYNC_VAR = None

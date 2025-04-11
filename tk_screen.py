@@ -21,6 +21,7 @@ from functions import login, logout, get_all_mapping_details, constants, start_b
 pyglet.options['win32_gdi_font'] = True
 fontpath = Path(__file__).parent / 'lib/fonts/static/Manrope-Regular.ttf'
 # pyglet.font.add_file(str(fontpath))
+themepath = Path(__file__).parent / "lib/fonts/breeze/breeze.tcl"
 print(fontpath)
 pyglet.font.add_file(str(fontpath))
 try: # >= win 8.1
@@ -245,19 +246,30 @@ class LoginScreen(tk.Frame):
         self.controller = controller
         parent.title = "Login"
 
+        header_font = font.Font(family="Manrope", size=14, weight="bold")
+        header_font1 = font.Font(family="Manrope", size=14)
+        header_font2 = font.Font(family="Manrope", size=13)
+        header_font2b = font.Font(family="Manrope", size=13, weight="bold")
+        header_font3 = font.Font(family="Manrope", size=12)
+        header_font4 = font.Font(family="Manrope", size=11)
+        header_font4b = font.Font(family="Manrope", size=11, weight="bold")
+
         def close_window():
             self.destroy()
             parent.destroy()
         
         def check_login():
-            res = login(mobile_entry.get(), password_entry.get())
+            entity = "chemist" if str(selected_entity.get()) == "eVitalRx" else "distributor"
+            res = login(mobile_entry.get(), password_entry.get(), entity)
             if res == 1:
+                show_port_popup()
                 constants.MOBILE = mobile_entry.get()
                 
                 with open("./lib/app_cache.txt") as data_file:
                         # data = json.load(data_file)
                         data = decrypt_data(data_file.read())
                 data["mobile"] = constants.MOBILE
+                data["tally_port"] = constants.TALLY_PORT
                 with open("./lib/app_cache.txt", "w") as json_file:
                         # json.dump(data, json_file)
                         json_file.write(encrypt_data(data))
@@ -265,6 +277,91 @@ class LoginScreen(tk.Frame):
                     constants.MOBILE_VAR.set(constants.MOBILE)
                 get_all_mapping_details()
                 parent.show_frame("Dashboard")
+                
+        def update_tally_port(overlay, port):
+            constants.TALLY_PORT = port
+            overlay.destroy()
+            [widget.delete(0, tk.END) for widget in parent.winfo_children() if isinstance(widget, tk.Entry)]
+            
+            
+        def show_port_popup():
+            x = self.winfo_rootx()
+            y = self.winfo_rooty()
+            w = self.winfo_width()
+            h = self.winfo_height()
+            
+            def validate(action, index, value_if_allowed,
+                prior_value, text, validation_type, trigger_type, widget_name):
+                if value_if_allowed == "":
+                    return True
+                if value_if_allowed:
+                    try:
+                        float(value_if_allowed)
+                        return True
+                    except ValueError:
+                        return False
+                else:
+                    return False
+            
+            vcmd = (self.register(validate),
+                        '%d', '%i', '%P', '%s', '%S', '%v', '%V', '%W')
+            
+            # Capture the screen area
+            screen = ImageGrab.grab(bbox=(x, y, x + w, y + h))
+            blurred_screen = screen.filter(ImageFilter.GaussianBlur(4))
+
+            # Create overlay window
+            overlay = tk.Toplevel(self)
+            overlay.geometry(f"{w}x{h}+{x}+{y}")
+            overlay.overrideredirect(True)
+
+            # Display blurred background
+            bg_image = ImageTk.PhotoImage(blurred_screen)
+            bg_label = tk.Label(overlay, image=bg_image)
+            bg_label.image = bg_image
+            bg_label.pack(fill="both", expand=True)
+
+            # Centered menu
+            menu_frame = tk.Frame(overlay, bg="white", bd=2, relief="ridge", padx=10, pady=10)
+            menu_frame.place(relx=0.5, rely=0.5, anchor="center")
+
+            tk.Label(menu_frame, text="Enter port of TallyERP",
+                    font=header_font2, bg="white").pack(pady=(20, 20), padx=40)
+
+
+            button_frame = tk.Frame(menu_frame, bg="white")
+            button_frame.pack(pady=(7,15))
+            
+            
+            tally_port_var = tk.StringVar(value=constants.TALLY_PORT)
+            
+            # Port Entry
+            port_entry = tk.Entry(button_frame, textvariable=tally_port_var, font=header_font3, validate='key', validatecommand=vcmd, width=13, justify="center", bd=1, relief="solid")
+            port_entry.pack(pady=(0, 10), padx=(10, 20), side='left')
+            port_entry.pack_propagate(False)
+            
+            # YES button - Blue background with white text
+            yes_button = tk.Button(button_frame, text="Update", width=8, bg="#007BFF", fg="white",
+                                activebackground="#0056b3", activeforeground="white",
+                                relief="flat", font=header_font4,
+                                command=lambda x=overlay,y=tally_port_var.get():update_tally_port(x,y))
+            yes_button.pack(pady=(0, 10), side="left", padx=10)
+
+            # # NO button - White background with blue border and text
+            # no_button = tk.Button(button_frame, text="Cancel", width=10, bg="white", fg="#007BFF",
+            #                     activebackground="#e6f2ff", activeforeground="#0056b3",
+            #                     highlightbackground="#007BFF", highlightthickness=2,
+            #                     bd=2, font=header_font3,
+            #                     command=lambda x=overlay:x.destroy())
+            # no_button.pack(side="left", padx=10)
+
+            # Function to close the overlay when clicking outside
+            def on_click_outside(event):
+                if not overlay.winfo_containing(event.x_root, event.y_root):
+                    overlay.destroy()
+
+            # Bind click outside the menu to close the overlay
+            overlay.bind("<Button-1>", on_click_outside)
             
 
         # Left panel
@@ -281,11 +378,7 @@ class LoginScreen(tk.Frame):
 
         title_bar = tk.Frame(self, width=900, bg="white")
         title_bar.pack(fill=tk.X)
-        
-        header_font = font.Font(family="Manrope", size=14, weight="bold")
-        header_font1 = font.Font(family="Manrope", size=14)
-        header_font2 = font.Font(family="Manrope", size=13)
-        header_font3 = font.Font(family="Manrope", size=12)
+
     
         close_button = tk.Button(title_bar, text='x', font=header_font, command=close_window, bg='white', fg='#044C9D', borderwidth=0, relief=tk.SUNKEN)
         close_button.pack(side=tk.RIGHT, padx=20, pady=15)
@@ -294,15 +387,114 @@ class LoginScreen(tk.Frame):
         right_panel.pack(side=tk.RIGHT, fill=tk.Y)
         right_panel.pack_propagate(False)
 
-        login_label = tk.Label(right_panel, text="Login with your", bg="white", font=header_font1, justify=tk.LEFT)
+        login_label = tk.Label(right_panel, text="Login with", bg="white", font=header_font2b, justify=tk.LEFT)
         login_label.pack(pady=(25, 0), padx=50, anchor=tk.W)
-        login_label = tk.Label(right_panel, text="eVitalRx account", bg="white", font=header_font, justify=tk.LEFT)
-        login_label.pack(pady=(0, 20), padx=50, anchor=tk.W)
+        # login_label = tk.Label(right_panel, text="eVitalRx account", bg="white", font=header_font, justify=tk.LEFT)
+        # login_label.pack(pady=(0, 20), padx=50, anchor=tk.W)
+        # entity_selection_frame = tk.Frame(right_panel, bg="white", height=50, width=100)
+        entity_selection_frame = tk.Frame(right_panel, bg="white")
+        entity_selection_frame.pack(pady=(5, 20), padx=50, anchor=tk.W)
+        
+        entity_button_theme = ttk.Style()
+        if "breeze" not in entity_button_theme.theme_names():
+            self.tk.call('source',themepath)
+    
+        entity_button_theme.configure("TLabel", foreground="black")         # Label text color
+        entity_button_theme.configure("TButton", foreground="black")        # Button text color
+        entity_button_theme.configure("TRadiobutton", foreground="black")   # Radiobutton text color
+        entity_button_theme.configure("TCheckbutton", foreground="black")   # Checkbutton text color
+        
+        entity_button_theme.configure('breeze.TRadiobutton',# First argument is the name of style. Needs to end with: .TRadiobutton
+        background = "white",focuscolor="white", highlightthickness=0, borderwidth=0)         # You can define colors like this also
+        # entity_button_theme.configure("background", "white")
+        entity_button_theme.theme_use("breeze")
+        
+        selected_color = "#044C9D"  # Blue color for selected text
+        default_color = "black"
 
+        def update_color():
+            if selected_entity.get() == "eVitalRx":
+                label1.config(fg=selected_color, font=header_font4b)
+                label2.config(fg=default_color, font=header_font4b)
+            else:
+                label1.config(fg=default_color, font=header_font4b)
+                label2.config(fg=selected_color, font=header_font4b)
+        
+        selected_entity = tk.StringVar(value="eVitalRx")
+        
+        rb1 = ttk.Radiobutton(entity_selection_frame, style="breeze.TRadiobutton", variable=selected_entity, value="eVitalRx",command=update_color)
+        rb1.pack(side="left")
+
+        label1 = tk.Label(entity_selection_frame, text="eVitalRx", font=header_font4b, fg=selected_color, background='white')
+        label1.pack(side="left")
+
+        rb2 = ttk.Radiobutton(entity_selection_frame, style="breeze.TRadiobutton", variable=selected_entity, value="eVitalSupply",command=update_color)
+        rb2.pack(side="left", padx=(30, 0))
+
+        label2 = tk.Label(entity_selection_frame, text="eVitalSupply", font=header_font4b, fg=default_color, background='white')
+        label2.pack(side="left")
+        
+        # rx_entity_radio = tk.Radiobutton(entity_selection_frame, text="eVitalRx", font=header_font1, justify=tk.LEFT).pack()
+        # supply_entity_radio = tk.Radiobutton(entity_selection_frame, text="eVitalSupply", font=header_font1, justify=tk.RIGHT).pack()
+
+
+        ## swap label 
+        # options = ["eVitalRx", "eVitalSupply"]
+        # selected_option = tk.StringVar(value=options[0])  # Default selected
+
+        # # Start animations
+        # # self.after(500, drop_text)  # Start dropping animation
+
+        # # Function to show menu on label click
+        # def change_entity_label(event):
+        #     # dropdown_menu.post(event.x_root, event.y_root)
+        #     selected_index= options.index(selected_option.get())
+        #     selected_option.set(options[~selected_index])
+        #     # self.after(1, flip_text) 
+        #     # self.after(1, drop_text) 
+        #     # self.after(1, animate_label) 
+
+       
+        # # Create a label (acts like a dropdown)
+        # entity_selection_label = tk.Label(entity_selection_frame, textvariable=selected_option, font=header_font3b, fg="#044C9D", bg="white", cursor="hand2")
+        # entity_selection_label.pack()
+        # entity_selection_label.bind("<Button-1>", change_entity_label)  # Click label to show menu
+        # # entity_selection_frame.pack_propagate(0)
+        
+        # def __init__(self, master1):
+        #     self.panel2 = tk.Frame(master1)
+        #     self.panel2.grid()
+        #     self.button2 = tk.Button(self.panel2, text = "Quit", command = self.panel2.quit)
+        #     self.button2.grid()
+        #     vcmd = (master1.register(self.validate),
+        #             '%d', '%i', '%P', '%s', '%S', '%v', '%V', '%W')
+        #     self.text1 = tk.Entry(self.panel2, validate = 'key', validatecommand = vcmd)
+        #     self.text1.grid()
+        #     self.text1.focus()
+
+        def validate(action, index, value_if_allowed,
+                        prior_value, text, validation_type, trigger_type, widget_name):
+            if value_if_allowed == "":
+                return True
+            if value_if_allowed:
+                if len(str(value_if_allowed)) > 10:
+                    return False
+                try:
+                    float(value_if_allowed)
+                    return True
+                except ValueError:
+                    return False
+            else:
+                return False
+        
+        vcmd = (self.register(validate),
+                    '%d', '%i', '%P', '%s', '%S', '%v', '%V', '%W')
+            
+        
         mobile_label = tk.Label(right_panel, text="Mobile Number", bg="white", fg="#044C9D", font=header_font3)
         mobile_label.pack(pady=(20, 0), padx=50, anchor=tk.W)
 
-        mobile_entry = tk.Entry(right_panel, bg="white", font=header_font1, bd=0, width=40)
+        mobile_entry = tk.Entry(right_panel, bg="white", font=header_font2, bd=0, width=40, validate='key' , validatecommand=vcmd)
         mobile_entry.pack(pady=4, padx=53, anchor=tk.W)
         mobile_line = tk.Canvas(right_panel, width=280, height=1, bg="#004BA8", highlightthickness=0)
         mobile_line.pack(pady=(0, 10), padx=(53,40), anchor=tk.W)
@@ -311,10 +503,15 @@ class LoginScreen(tk.Frame):
         password_label = tk.Label(right_panel, text="Password", bg="white", fg="#044C9D", font=header_font3, width=40, justify=tk.LEFT, anchor="w")
         password_label.pack(pady=(10, 0), padx=50, anchor=tk.W)
 
-        password_entry = tk.Entry(right_panel, bg="white", font=header_font1, bd=0, show="*")
+        password_entry = tk.Entry(right_panel, bg="white", font=header_font2, bd=0, show="*")
         password_entry.pack(pady=4, padx=53, anchor=tk.W, fill=tk.X)
         password_line = tk.Canvas(right_panel, width=280, height=1, bg="#004BA8", highlightthickness=0)
         password_line.pack(pady=(0, 20), padx=(53, 40), anchor=tk.W)
+        
+        def func(event):
+            # print("You hit return.")
+            check_login()
+        # password_entry.bind('<Return>', func)
 
         # login_button = tk.Button(right_panel, text="Login", bg="#0CA1F6", fg="white", font=header_font, relief=tk.FLAT, height=1, width=20, command=check_login)
         # login_button.pack(pady=20, padx=(0, 15))
@@ -322,6 +519,10 @@ class LoginScreen(tk.Frame):
         # sync_all_button.pack(pady=(10,20), padx=40, anchor=tk.E)
         login_button = CTkButton(right_panel, text="Login", hover_color='#033D7E', text_color='white', fg_color="#0CA1F6", font=CTkFont(family='Manrope', size=16, weight='bold'), height=42, width=230, corner_radius=4, command=check_login)
         login_button.pack(pady=20, padx=(10, 15))
+        
+        # self.pack_propagate(0)
+        # self.update_idletasks()
+        # self.update()
 
 
 class Dashboard(tk.Frame):
@@ -337,8 +538,11 @@ class Dashboard(tk.Frame):
         def create_main_content():
 
             constants.STOP_THREAD = True
-            for widget in right_panel.winfo_children():
-                widget.destroy()
+            if right_panel.winfo_exists():  # Ensures widget exists before calling winfo_children()
+                for widget in right_panel.winfo_children():
+                    widget.destroy()
+            else:
+                return 0
             # right_panel.configure(background="white")
                 
             constants.STOP_THREAD = False
@@ -348,6 +552,12 @@ class Dashboard(tk.Frame):
             close_button = tk.Button(title_bar, text='x', font=header_font, command=close_window, bg='#E7F6FF', fg='#044C9D', borderwidth=0, relief=tk.SUNKEN)
             close_button.pack(side=tk.RIGHT, padx=20, pady=(5,8))
             get_all_mapping_details()
+            
+            style = ttk.Style()
+            style.configure("TLabel", foreground="black")         # Label text color
+            style.configure("TButton", foreground="black")        # Button text color
+            style.configure("TRadiobutton", foreground="black")   # Radiobutton text color
+            style.configure("TCheckbutton", foreground="black")   # Checkbutton text color
 
             # Upper right panel (contains last sync and button)
             upper_right_panel = tk.Frame(right_panel, bg="#E7F6FF")
@@ -367,7 +577,7 @@ class Dashboard(tk.Frame):
             last_sync_label = tk.Label(top_left_panel, text="Last Sync", bg="#E7F6FF", fg="#7E878C", font=label_font2, justify=tk.LEFT)
             last_sync_label.pack(pady=(10, 0), padx=30, anchor=tk.W)
             
-            if len(constants.MAPPING_HISTORY) > 0 and 'login_entity_last_synced' in constants.MAPPING_HISTORY.keys() and constants.MAPPING_HISTORY["login_entity_last_synced"] != "":
+            if constants.MAPPING_HISTORY is not None and len(constants.MAPPING_HISTORY) > 0 and 'login_entity_last_synced' in constants.MAPPING_HISTORY.keys() and constants.MAPPING_HISTORY["login_entity_last_synced"] != "":
                 constants.LAST_SYNC_VAR.set(constants.MAPPING_HISTORY["login_entity_last_synced"])
 
             last_sync_time = tk.Label(top_left_panel, textvariable=constants.LAST_SYNC_VAR, bg="#E7F6FF", fg="#004BA8", font=label_font2, justify=tk.LEFT)
@@ -384,7 +594,7 @@ class Dashboard(tk.Frame):
             lower_right_panel.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=30, pady=(10, 0))
             
 
-            branches = [] if constants.EVITAL_RX_API_KEY == "" else [
+            branches = [] if constants.EVITAL_RX_API_KEY == "" or constants.MAPPING_HISTORY is None else [
                 {
                     "name":x["branch_name"], 
                     "status":"Map Now" if x["tally_company_name"] =="" else str("Mapped as ")+str(x["tally_company_name"]), 
@@ -967,8 +1177,11 @@ class Dashboard(tk.Frame):
             
         def re_create_main_content():
             constants.STOP_THREAD = True
-            self.after_cancel(animate_gif)
+            # self.after(0, safe_after_cancel)
             create_main_content()
+        
+        def safe_after_cancel():
+            self.after_cancel(animate_gif)
         
         def logout_account(overlay):
             logout()
@@ -1095,6 +1308,7 @@ class Dashboard(tk.Frame):
                 # print("sleep")
                 time.sleep(0.1)
             re_create_main_content()
+            # self.after(0, re_create_main_content)
                 
         
 
@@ -1401,7 +1615,7 @@ class Dashboard(tk.Frame):
                         x1, y1+radius,
                         x1, y1+radius,
                         x1, y1]
-                print('➡ tk_screen.py:1330 points:', points)
+                # print('➡ tk_screen.py:1330 points:', points)
 
                 canvas.create_polygon(points, **kwargs, smooth=True)
 

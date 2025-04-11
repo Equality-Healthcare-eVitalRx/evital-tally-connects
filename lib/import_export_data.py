@@ -12,7 +12,7 @@ import logging
 def send_request_to_tally(request_params, request_format = ""):
     headers = {'Content-Type': 'application/xml'}
     try:
-        response = requests.post(url=constants.TALLY_URL, data=request_params, headers=headers, timeout=constants.REQUEST_TIMEOUT)
+        response = requests.post(url=constants.TALLY_URL+str(constants.TALLY_PORT), data=request_params, headers=headers, timeout=constants.REQUEST_TIMEOUT)
         response_content = response.content
         
         # logging.info("Tally Data Fetched")
@@ -126,12 +126,14 @@ def send_data_to_evitalrx(request_params):
         # save_error_message(error_message)
     return res
 
-def send_login_request(mobile_no, password):
+def send_login_request(mobile_no, password, entity="chemist"):
     headers = {'Content-Type': 'application/json'}
     json_request = {
         "mobile" : mobile_no,
-        "password" : password
+        "password" : password,
+        "login_entity" : entity
     }
+    print('➡ lib/import_export_data.py:136 json_request:', json_request)
     response_dict = {
         "status_code" : 0,
         "status_message" : "Couldn't send request."
@@ -187,7 +189,7 @@ def get_tally_companies():
     try:
         
         # logging.info(constants.TALLY_URL+"/get_tally_companies " + "API called  ")
-        response = requests.post(url=constants.TALLY_URL, data=request_params, headers=headers, timeout=3)
+        response = requests.post(url=constants.TALLY_URL+str(constants.TALLY_PORT), data=request_params, headers=headers, timeout=3)
         # logging.info(constants.TALLY_URL+"/get_tally_companies " + "API called - Status "+str(response.status_code))
         # logging.info(constants.EVITAL_RX_URL+"get_tally_companies " + "API called - Response "+str(response.content))
         if response.status_code == 200:
@@ -359,7 +361,7 @@ def get_last_synced_date():
 def check_if_tally_running():
     headers = {'Content-Type': 'application/xml'}
     try:
-        response = requests.post(url=constants.TALLY_URL, data="", headers=headers, timeout=3)
+        response = requests.post(url=constants.TALLY_URL+str(constants.TALLY_PORT), data="", headers=headers, timeout=3)
         print('➡ lib/import_export_data.py:271 response:', response)
         response_content = response.content
         # logging.info(constants.EVITAL_RX_URL+"check_if_tally_running " + "API called - Status "+str(response.status_code))
