@@ -138,12 +138,15 @@ def send_login_request(mobile_no, password, entity="chemist"):
         "status_code" : 0,
         "status_message" : "Couldn't send request."
     }
+    error_message = "Invalid mobile number or password."
     try:
         # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/tally_app/login " + "API called ")
+        print(constants.EVITAL_RX_URL+"v2/master/tally_data/v3/login",)
         response = requests.post(url=constants.EVITAL_RX_URL+"v2/master/tally_data/v3/login", data=json.dumps(json_request), headers=headers, timeout=constants.REQUEST_TIMEOUT)
         # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/tally_app/login " + "API called - Status "+str(response.status_code))
         # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/tally_app/login " + "API called - Response "+str(response.content))
         print('➡ lib/import_export_data.py:78 response:', response)
+        print('➡ lib/import_export_data.py:78 response:', response.content)
         if response.status_code == 200:
             login_response = json.loads(response.content)
             if login_response["status_code"] == "1" or login_response["status_code"] == 1:
@@ -160,7 +163,7 @@ def send_login_request(mobile_no, password, entity="chemist"):
                 #print('➡ lib/import_export_data.py:56 RX_ACCOUNTS:', constants.RX_ACCOUNTS)
                 #print('➡ lib/import_export_data.py:55 LOGIN_RESPONSE:', constants.LOGIN_RESPONSE)
                 return login_response
-            error_message = "Invalid mobile number or password."
+            error_message = login_response.get("status_message", "Invalid mobile number or password.")
             messagebox.showerror("Login Failed", error_message)
         else:
             error_message = "Connection issue, Please try again."
