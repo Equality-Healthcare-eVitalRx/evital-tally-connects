@@ -100,7 +100,7 @@ def send_data_to_evitalrx(request_params):
     if constants.EVITAL_RX_API_KEY != "":
         json_request["apikey"] = constants.EVITAL_RX_API_KEY
     # #print('➡ lib/import_export_data.py:27 json_request:', json_request)
-    #print(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data")
+    print(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_reports_data")
     try:
         #print('➡ lib/import_export_data.py:27 response:', response)
         logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v3/import_reports_data " + "API called")
@@ -416,25 +416,87 @@ def send_init_data_to_evital_rx(request_array, from_date, to_date):
         response = requests.post(url=constants.EVITAL_RX_URL+"v2/master/tally_data/v3/import_ledgers_and_groups", data=json.dumps(json_request), headers=headers, timeout=constants.REQUEST_TIMEOUT)
         # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_ledgers_and_groups " + "API called - Status "+str(response.status_code))
         # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_ledgers_and_groups " + "API called - Response "+str(response.content))
-        #print('➡ lib/import_export_data.py:27 response:', response)
+        print('➡ lib/import_export_data.py:27 response:', response)
+        print('➡ lib/import_export_data.py:27 response:', response.content)
         if response.status_code == 200:
             # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v2/import_ledgers_and_groups " + "API called - Status "+str(response.status_code))
             # json.dumps()
             # #print(response.content)
             status = json.loads(response.content)
+            
             # if status["status_code"] not in [1,'1']:
             #     messagebox.showerror("Sync Failed", status["status_message"])
                 #print("complete")
             return status
     except requests.exceptions.Timeout:
+        traceback.print_exc()
         error_message = "Internet issue. Please try again later."
         # logging.error("Internet issue. Please try again later. ")
         # messagebox.showerror("Login Failed", error_message)
         # save_error_message(error_message)
     except requests.exceptions.RequestException as e:
+        traceback.print_exc()
         error_message = str(e)
         error_message = "Internet issue. Please try again later."
         # logging.error("Internet issue. Please try again later. ")
         # messagebox.showerror("Login Failed", error_message)
         # save_error_message(error_message)
     return res
+
+def get_data_from_evitalrx(start, end, api_key, type_):
+    primary_mapping = {
+        "Accounts":         "accounts",
+        "Sales":            "sales",
+        "Credit Note":      "sales_return",
+        "Purchase":         "purchase",
+        "Debit Note":       "purchase_return",
+        "Wholesale":        "wholesale",
+        "Wholesale Return": "wholesale_return",
+        "Payment": "payment",
+        "Receipt": "receipt",
+        "Contra":  "contra",
+    }
+    
+    primary_mapping_val = primary_mapping.get(type_, "")
+    type_ = str(type_).lower()
+    url = constants.EVITAL_RX_URL + "/v2/master/reports/" + type_
+    
+    if type_ == "accounts":
+        payload = {
+            "apikey": api_key,
+            "opening_balance_date": start,
+            "is_tally": "true",
+            "xml_import": "true"
+        }
+        print("typpe found")
+    elif primary_mapping_val in ["accounts", "sales", "sales_return", "purchase", "purchase_return", "wholesale", "wholesale_return"]:
+        url = constants.EVITAL_RX_URL + "/v2/master/reports/transactions"
+        payload = {
+            "apikey": api_key,
+            "start_date": start,
+            "end_date": end,
+            "type": primary_mapping_val,
+            "is_tally": "true",
+            "xml_import": "true"
+        }
+    elif type_ in ["payment", "receipt", "contra"]:
+        payload = {
+            "apikey": api_key,
+            "start_date": start,
+            "end_date": end,
+            "is_tally": "true",
+            "xml_import": "true"
+        }
+
+    try:
+        response = requests.post(url=url, data=payload, timeout=constants.REQUEST_TIMEOUT)
+    except Exception as e:
+        traceback.format_exc()
+        return {"error": str(e)}
+    # print(response.text)
+    if response.status_code == 200:
+        return {api_key: response.json()}
+    else:
+        return {"error": f"Status code {response.status_code}"}
+    
+    

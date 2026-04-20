@@ -21,15 +21,16 @@ EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}:4000/"
 
 # EVITAL_RX_HOST = "192.168.1.29"
 # EVITAL_RX_HOST = "0f9d-2405-201-2000-a0d0-b81f-b3cc-cee8-c796.ngrok-free.app"
-# EVITAL_RX_HOST = "995d-2401-4900-1f3f-bab6-f5d5-1404-2b83-f9fb.ngrok-free.app"
+# EVITAL_RX_HOST = "6f2e-122-179-161-37.ngrok-free.app"
 # EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}/"
 # EVITAL_RX_API_KEY = "masteraYQ8DVYzLP559sGJeWty4wXHaw"
 
+## staging 
 # EVITAL_RX_URL = "https://dev-api.evitalrx.in:3050/"
 
 # # live
-EVITAL_RX_HOST = "api.evitalrx.in"
-EVITAL_RX_URL = f"https://{EVITAL_RX_HOST}:4050/"
+# EVITAL_RX_HOST = "api.evitalrx.in"
+# EVITAL_RX_URL = f"https://{EVITAL_RX_HOST}:4050/"
 
 EVITAL_RX_API_KEY = ""
 ENCRYPTION_KEY = 'kphEig0_Dtx3iq2-Ok19KP0MTtVnXxO0gMlJ4ggAzPE='
@@ -344,3 +345,15 @@ REQUEST_FORMATS = {
     </BODY>
 </ENVELOPE>"""
 }
+SYNC_STAGE = 0
+SYNC_BTN_TEXT = "Next"
+LAST_SYNC_HEADER_VAR = ""
+SYNC_START_DATE = ""
+SYNC_END_DATE = ""
+
+EXPORT_MODULES = {
+    "Masters": ["Ledgers"],
+    "Primary Vouchers": ["Sales", "Credit Note", "Purchase", "Debit Note", "Wholesale", "Wholesale Return"],
+    "Payment Vouchers": ["Receipt", "Payment", "Contra"],
+}
+SELECTED_MODULES = []

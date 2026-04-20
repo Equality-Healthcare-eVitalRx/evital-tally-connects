@@ -20,6 +20,7 @@ from PIL import Image, ImageSequence, ImageTk
 
 from lib import constants
 from lib.import_export_data import *
+from lib.tally_service import TallyService
 
 def login(mobile_number, password, entity="chemist"):
     # mobile_number = mobile_entry.get()
@@ -128,7 +129,11 @@ def get_all_mapping_details():
     
 def startprocess(one_sync=False):
     constants.DISPLAY_SYNC_LOADER = True
+    # start = self.start_date.get_date().strftime("%Y-%m-%d")
+    # end   = self.end_date.get_date().strftime("%Y-%m-%d")
+    # company = self.company_var.get()
     time.sleep(1)
+    tallyObj = TallyService()
     # animation_thread = threading.Thread(target=show_animation, daemon=True)
     # animation_thread.start()
     # show_animation()
@@ -154,17 +159,46 @@ def startprocess(one_sync=False):
         companies = [
             {"chemist_id" : x["entity_id"], "company_name":x["tally_company_name"], "company_guid":x["tally_company_guid"], "branch_name":x["branch_name"]}
             for x in constants.MAPPING_HISTORY["results"] if x["is_mapped"] in ['true', True, 'True']
+            if x["tally_company_name"] == constants.COMPANY_NAME
         ]
     else:
         companies = constants.ONE_SYNC
-    # #print('➡ main.py:102 companies:', companies)
-    # #print(dfgdg)
-    #print(select_software_dropdown.get())
-    current_time = datetime.now()
-    current_year = current_time.year if current_time.month > 3 else current_time.year - 1
-    from_date = date(current_year,int(4),1)
+        
+
     
-    to_date = date(current_year+1,3,31)
+    # current_time = datetime.now()
+    # current_year = current_time.year if current_time.month > 3 else current_time.year - 1
+    # from_date = date(current_year,int(4),1)
+    
+    # to_date = date(current_year+1,3,31)    
+    
+    from_date = datetime.strptime(constants.SYNC_START_DATE.get(), "%m/%d/%y")
+    to_date = datetime.strptime(constants.SYNC_END_DATE.get(), "%m/%d/%y")
+    print(constants.COMPANY_MAPPING)
+    print(constants.EVITAL_RX_API_KEY)
+    if "Ledgers" in constants.SELECTED_MODULES:
+        ledgers_selected = True
+        data = get_data_from_evitalrx(from_date.strftime("%Y-%m-%d"), to_date.strftime("%Y-%m-%d"), constants.EVITAL_RX_API_KEY, "Accounts")
+        print(type(data))
+        vouchers = extract_vouchers(data, ledgers_selected)
+        if not vouchers:
+            print("⚠️ No Ledger records found across all keys.")
+        else:
+            print(f"🚀 Found {len(vouchers)} Ledger records. Importing...")
+            tallyObj.push_batch(vouchers, report_name="All Masters", company_name=constants.COMPANY_NAME)
+        constants.SELECTED_MODULES.remove("Ledgers")
+    for x in constants.SELECTED_MODULES:
+        ledgers_selected = False
+        data = get_data_from_evitalrx(from_date.strftime("%Y-%m-%d"), to_date.strftime("%Y-%m-%d"), constants.EVITAL_RX_API_KEY, x)
+        print(type(data))
+        vouchers = extract_vouchers(data, ledgers_selected)
+        if not vouchers:
+            print(f"⚠️ No {x} records found across all keys.")
+        else:
+            print(f"🚀 Found {len(vouchers)} {x} records. Importing...")
+            tallyObj.push_batch(vouchers, company_name=constants.COMPANY_NAME, fetch_voucher_numbers=True)
+    # return 0
+
     
     request_array = []
     init_data_array = []
@@ -449,6 +483,35 @@ def cipher_text(text, s):
         else:
             result += chr((ord(char) + s - 97) % 26 + 97)
     return result
+
+def extract_vouchers(multi_key_response: dict, ledgers_selected: bool) -> list:
+    """
+    Accepts the multi-key response dict  { api_key: response, ... }
+    and returns a flat, deduplicated list of XML voucher strings across
+    all keys, with optional ledger-XML filtering applied.
+    """
+    seen = set()
+    vouchers = []
+
+    for api_key, response in multi_key_response.items():
+        # Skip failed keys
+        if "error" in response:
+            # self.log_msg(f"  ⚠️  Key {api_key} failed: {response['error']}")
+            continue
+
+        print(response)
+        data = response.get("data") or {}
+        xmls = data.get("voucher_xmls") or data.get("import_xmls") or []
+
+        for xml in xmls:
+            if not ledgers_selected and "<LEDGER " in xml:
+                continue                    # filter out ledger XMLs when not requested
+            if xml not in seen:
+                seen.add(xml)
+                vouchers.append(xml)
+
+    return vouchers
+
 
 class LogManager:
     def __init__(self, log_file="./lib/app_logs.txt"):
