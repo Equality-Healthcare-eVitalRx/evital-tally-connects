@@ -124,7 +124,7 @@ def get_all_mapping_details():
         # if constants.LAST_SYNC_VAR is not None:
         #     last_time = [str()]
         #     constants.LAST_SYNC_VAR.set()
-    print('➡ functions.py:85 res:', res)
+    # print('➡ functions.py:85 res:', res)
     
     
 def startprocess(one_sync=False):
@@ -172,11 +172,13 @@ def startprocess(one_sync=False):
     
     # to_date = date(current_year+1,3,31)    
     
-    from_date = datetime.strptime(constants.SYNC_START_DATE.get(), "%m/%d/%y")
-    to_date = datetime.strptime(constants.SYNC_END_DATE.get(), "%m/%d/%y")
-    print(constants.COMPANY_MAPPING)
-    print(constants.EVITAL_RX_API_KEY)
+    from_date = datetime.strptime(constants.SYNC_START_DATE.get(), "%d-%m-%y")
+    to_date = datetime.strptime(constants.SYNC_END_DATE.get(), "%d-%m-%y")
+    # print(constants.COMPANY_MAPPING)
+    # print(constants.EVITAL_RX_API_KEY)
     if "Ledgers" in constants.SELECTED_MODULES:
+        if constants.CURRENT_BRANCH_SYNC is not None:
+            constants.CURRENT_BRANCH_SYNC.set("Syncing Ledgers")
         ledgers_selected = True
         data = get_data_from_evitalrx(from_date.strftime("%Y-%m-%d"), to_date.strftime("%Y-%m-%d"), constants.EVITAL_RX_API_KEY, "Accounts")
         print(type(data))
@@ -188,6 +190,8 @@ def startprocess(one_sync=False):
             tallyObj.push_batch(vouchers, report_name="All Masters", company_name=constants.COMPANY_NAME)
         constants.SELECTED_MODULES.remove("Ledgers")
     for x in constants.SELECTED_MODULES:
+        if constants.CURRENT_BRANCH_SYNC is not None:
+            constants.CURRENT_BRANCH_SYNC.set(f"Syncing {x}")
         ledgers_selected = False
         data = get_data_from_evitalrx(from_date.strftime("%Y-%m-%d"), to_date.strftime("%Y-%m-%d"), constants.EVITAL_RX_API_KEY, x)
         print(type(data))
@@ -197,6 +201,31 @@ def startprocess(one_sync=False):
         else:
             print(f"🚀 Found {len(vouchers)} {x} records. Importing...")
             tallyObj.push_batch(vouchers, company_name=constants.COMPANY_NAME, fetch_voucher_numbers=True)
+    
+    if constants.CURRENT_BRANCH_SYNC is not None:
+        constants.CURRENT_BRANCH_SYNC.set("Exporting Reconciliation Data")
+    txt_data = tallyObj.export_voucher_register(
+        from_date=from_date.strftime("%Y-%m-%d"),
+        to_date=to_date.strftime("%Y-%m-%d"),
+        company_name=constants.COMPANY_NAME
+    )
+
+    # ── Call ERP reconciliation API ────────────────────────────
+    print("🔄 Organizing reconciliation data..")
+
+    results = send_reconciliation(
+        file_content=txt_data,
+        start_date=from_date.strftime("%Y-%m-%d"),
+        end_date=to_date.strftime("%Y-%m-%d"),
+        api_keys=[constants.EVITAL_RX_API_KEY]
+    )
+
+    for api_key, res in results.items():
+        if "error" in res:
+            print(f"❌ Reconciliation failed: {res['error']}")
+        else:
+            print(f"✅ Reconciliation successful.")
+
     # return 0
 
     
@@ -210,7 +239,7 @@ def startprocess(one_sync=False):
         if constants.CURRENT_BRANCH_SYNC is not None:
         
             constants.CURRENT_BRANCH_SYNC.set(
-                company["branch_name"]
+                "Exporting Balance Sheet"
             )
         #print('➡ main.py:141 company:', company)
         data_list = {
@@ -227,11 +256,11 @@ def startprocess(one_sync=False):
         }
         
         for key, value in constants.REQUEST_FORMATS.items():
-            if constants.CURRENT_BRANCH_SYNC is not None:
+            # if constants.CURRENT_BRANCH_SYNC is not None:
             
-                constants.CURRENT_BRANCH_SYNC.set(
-                    company["branch_name"]
-                )
+            #     constants.CURRENT_BRANCH_SYNC.set(
+            #         company["branch_name"]
+            #     )
             #print('➡ main.py:141 company:', company)
             print('➡ func.py:208 key:', key)
             
@@ -311,6 +340,12 @@ def startprocess(one_sync=False):
     
     # message_label.config(text=str(res["status_message"]).replace("_", " ").title())
     constants.DISPLAY_SYNC_LOADER = False
+    
+    constants.LAST_SYNC_HEADER_VAR = ""
+    constants.SYNC_START_DATE = ""
+    constants.SYNC_END_DATE = ""
+    constants.SELECTED_MODULES = []
+
 
     constants.LAST_SYNCED = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if one_sync:
@@ -499,7 +534,7 @@ def extract_vouchers(multi_key_response: dict, ledgers_selected: bool) -> list:
             # self.log_msg(f"  ⚠️  Key {api_key} failed: {response['error']}")
             continue
 
-        print(response)
+        # print(response)
         data = response.get("data") or {}
         xmls = data.get("voucher_xmls") or data.get("import_xmls") or []
 

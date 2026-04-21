@@ -1,3 +1,4 @@
+import io
 import sys
 from lib import constants
 import requests
@@ -133,7 +134,7 @@ def send_login_request(mobile_no, password, entity="chemist"):
         "password" : password,
         "login_entity" : entity
     }
-    print('➡ lib/import_export_data.py:136 json_request:', json_request)
+    # print('➡ lib/import_export_data.py:136 json_request:', json_request)
     response_dict = {
         "status_code" : 0,
         "status_message" : "Couldn't send request."
@@ -141,12 +142,12 @@ def send_login_request(mobile_no, password, entity="chemist"):
     error_message = "Invalid mobile number or password."
     try:
         # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/tally_app/login " + "API called ")
-        print(constants.EVITAL_RX_URL+"v2/master/tally_data/v3/login",)
+        # print(constants.EVITAL_RX_URL+"v2/master/tally_data/v3/login",)
         response = requests.post(url=constants.EVITAL_RX_URL+"v2/master/tally_data/v3/login", data=json.dumps(json_request), headers=headers, timeout=constants.REQUEST_TIMEOUT)
         # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/tally_app/login " + "API called - Status "+str(response.status_code))
         # logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/tally_app/login " + "API called - Response "+str(response.content))
-        print('➡ lib/import_export_data.py:78 response:', response)
-        print('➡ lib/import_export_data.py:78 response:', response.content)
+        # print('➡ lib/import_export_data.py:78 response:', response)
+        # print('➡ lib/import_export_data.py:78 response:', response.content)
         if response.status_code == 200:
             login_response = json.loads(response.content)
             if login_response["status_code"] == "1" or login_response["status_code"] == 1:
@@ -311,7 +312,7 @@ def get_mapping_details():
         logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v3/get_mapping_details " + "API called - Status "+str(response.status_code))
         logging.info(constants.EVITAL_RX_URL+"v2/master/tally_data/v3/get_mapping_details " + "API called - Response "+str(response.content))
         #print('➡ lib/import_export_data.py:149 response:', response.content)
-        
+        print(response.content, "mapping rs")
         response_josn = json.loads(response.content)
         # print('➡ lib/import_export_data.py:284 response_josn:', response_josn)
         # print('➡ lib/import_export_data.py:284 response_josn:', type(response_josn))
@@ -348,6 +349,7 @@ def get_mapping_details():
         return json.loads(response.content)
     
     except:
+        traceback.print_exc()
         messagebox.showerror("Tally Sync","Connection problem. Please try again later.")
         # logging.error("Connection problem. Please try again later.")
         sys.exit(1)
@@ -468,7 +470,7 @@ def get_data_from_evitalrx(start, end, api_key, type_):
             "is_tally": "true",
             "xml_import": "true"
         }
-        print("typpe found")
+        # print("typpe found")
     elif primary_mapping_val in ["accounts", "sales", "sales_return", "purchase", "purchase_return", "wholesale", "wholesale_return"]:
         url = constants.EVITAL_RX_URL + "/v2/master/reports/transactions"
         payload = {
@@ -498,5 +500,44 @@ def get_data_from_evitalrx(start, end, api_key, type_):
         return {api_key: response.json()}
     else:
         return {"error": f"Status code {response.status_code}"}
+    
+def send_reconciliation(file_content: str, start_date: str, end_date: str, api_keys=[]) -> dict:
+        def build_payload(api_key):
+            return {
+                "apikey": api_key,
+                "start_date": start_date,
+                "end_date": end_date
+            }
+
+        results = {}
+
+        for api_key in api_keys:
+            print(f"\n🔑 Reconciliation for API key: {api_key}")
+
+            url = constants.EVITAL_RX_URL + "/v2/master/reports/reconciliation"
+
+            try:
+                # 🔴 IN-MEMORY FILE (no disk)
+                file_obj = io.BytesIO(file_content.encode("utf-8"))
+
+                files = {
+                    "file": ("tally_recon.txt", file_obj, "text/plain")
+                }
+
+                data = build_payload(api_key)
+
+                res = requests.post(url, data=data, files=files)
+
+                if res.status_code != 200:
+                    raise Exception(res.text)
+
+                results[api_key] = res.json()
+                print(f"✅ Reconciliation success for {api_key}")
+
+            except Exception as e:
+                print(f"❌ Reconciliation failed for {api_key}: {e}")
+                results[api_key] = {"error": str(e)}
+
+        return results
     
     

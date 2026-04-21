@@ -1,5 +1,6 @@
 import ctypes
 from ctypes import wintypes
+from datetime import datetime, timedelta
 import json
 import multiprocessing
 from multiprocessing.dummy import freeze_support
@@ -85,7 +86,7 @@ class App(tk.Tk):
         
         self.frames = {}
         
-        self.geometry("900x600")
+        self.geometry("950x650")
         self.configure(bg="#044C9D")  # Set background to blue
         self.overrideredirect(True)
         
@@ -384,17 +385,17 @@ class LoginScreen(tk.Frame):
         close_button = tk.Button(title_bar, text='x', font=header_font, command=close_window, bg='white', fg='#044C9D', borderwidth=0, relief=tk.SUNKEN)
         close_button.pack(side=tk.RIGHT, padx=20, pady=15)
 
-        right_panel = tk.Frame(self, bg="white", width=400 , height=470)
+        right_panel = tk.Frame(self, bg="white", width=450 , height=590)
         right_panel.pack(side=tk.RIGHT, fill=tk.Y)
         right_panel.pack_propagate(False)
 
         login_label = tk.Label(right_panel, text="Login with", bg="white", font=header_font2b, justify=tk.LEFT)
-        login_label.pack(pady=(25, 0), padx=50, anchor=tk.W)
+        login_label.pack(pady=(25, 0), padx=55, anchor=tk.W)
         # login_label = tk.Label(right_panel, text="eVitalRx account", bg="white", font=header_font, justify=tk.LEFT)
         # login_label.pack(pady=(0, 20), padx=50, anchor=tk.W)
         # entity_selection_frame = tk.Frame(right_panel, bg="white", height=50, width=100)
         entity_selection_frame = tk.Frame(right_panel, bg="white")
-        entity_selection_frame.pack(pady=(5, 20), padx=50, anchor=tk.W)
+        entity_selection_frame.pack(pady=(5, 20), padx=55, anchor=tk.W)
         
         entity_button_theme = ttk.Style()
         if "breeze" not in entity_button_theme.theme_names():
@@ -493,21 +494,21 @@ class LoginScreen(tk.Frame):
             
         
         mobile_label = tk.Label(right_panel, text="Mobile Number", bg="white", fg="#044C9D", font=header_font3)
-        mobile_label.pack(pady=(20, 0), padx=50, anchor=tk.W)
+        mobile_label.pack(pady=(20, 0), padx=55, anchor=tk.W)
 
         mobile_entry = tk.Entry(right_panel, bg="white", font=header_font2, bd=0, width=40, validate='key' , validatecommand=vcmd)
-        mobile_entry.pack(pady=4, padx=53, anchor=tk.W)
+        mobile_entry.pack(pady=4, padx=60, anchor=tk.W)
         mobile_line = tk.Canvas(right_panel, width=280, height=1, bg="#004BA8", highlightthickness=0)
-        mobile_line.pack(pady=(0, 10), padx=(53,40), anchor=tk.W)
+        mobile_line.pack(pady=(0, 10), padx=(60,35), anchor=tk.W)
         mobile_entry.propagate(False)
 
         password_label = tk.Label(right_panel, text="Password", bg="white", fg="#044C9D", font=header_font3, width=40, justify=tk.LEFT, anchor="w")
-        password_label.pack(pady=(10, 0), padx=50, anchor=tk.W)
+        password_label.pack(pady=(10, 0), padx=55, anchor=tk.W)
 
         password_entry = tk.Entry(right_panel, bg="white", font=header_font2, bd=0, show="*")
-        password_entry.pack(pady=4, padx=53, anchor=tk.W, fill=tk.X)
+        password_entry.pack(pady=4, padx=60, anchor=tk.W, fill=tk.X)
         password_line = tk.Canvas(right_panel, width=280, height=1, bg="#004BA8", highlightthickness=0)
-        password_line.pack(pady=(0, 20), padx=(53, 40), anchor=tk.W)
+        password_line.pack(pady=(0, 20), padx=(60, 35), anchor=tk.W)
         
         def func(event):
             # print("You hit return.")
@@ -519,7 +520,7 @@ class LoginScreen(tk.Frame):
         # sync_all_button = CTkButton(top_right_panel, text="Sync all", hover_color='#E7F6FF' , font=CTkFont(family='Manrope', size=16, weight='bold'), text_color='white', fg_color="#0CA1F6", height=42, width=120, corner_radius=5, command=show_sync_frame)
         # sync_all_button.pack(pady=(10,20), padx=40, anchor=tk.E)
         login_button = CTkButton(right_panel, text="Login", hover_color='#033D7E', text_color='white', fg_color="#0CA1F6", font=CTkFont(family='Manrope', size=16, weight='bold'), height=42, width=230, corner_radius=4, command=check_login)
-        login_button.pack(pady=20, padx=(10, 15))
+        login_button.pack(pady=20, padx=(10, 50))
         
         # self.pack_propagate(0)
         # self.update_idletasks()
@@ -546,7 +547,6 @@ class Dashboard(tk.Frame):
             else:
                 return 0
             # right_panel.configure(background="white")
-                
             constants.STOP_THREAD = False
 
             title_bar = tk.Frame(right_panel, width=900, bg="#E7F6FF")
@@ -554,6 +554,20 @@ class Dashboard(tk.Frame):
             close_button = tk.Button(title_bar, text='x', font=header_font, command=close_window, bg='#E7F6FF', fg='#044C9D', borderwidth=0, relief=tk.SUNKEN)
             close_button.pack(side=tk.RIGHT, padx=20, pady=(5,8))
             get_all_mapping_details()
+            all_mapped = False
+            print(constants.MAPPING_HISTORY)
+            mapres = constants.MAPPING_HISTORY["results"] if isinstance(constants.MAPPING_HISTORY, dict) and "results" in constants.MAPPING_HISTORY.keys() else []
+            lnx = len(mapres)
+            
+            if lnx > 0:
+                mapdedx = [x for x in mapres if x["is_mapped"] in ['true', True, 'True']]
+                all_mapped = len(mapdedx) == lnx
+                
+            if constants.EVITAL_RX_API_KEY != "" and all_mapped:
+                constants.SYNC_STAGE = 1
+                
+            print(constants.MAPPING_HISTORY, "mapping history in dashboard")
+            # print(constants.COMPANY_MAPPING, "company mapping in dashboard")
             
             style = ttk.Style()
             style.configure("TLabel", foreground="black")         # Label text color
@@ -583,7 +597,7 @@ class Dashboard(tk.Frame):
             if constants.SYNC_STAGE == 1 and constants.MAPPING_HISTORY is not None and len(constants.MAPPING_HISTORY) > 0 and 'login_entity_last_synced' in constants.MAPPING_HISTORY.keys() and constants.MAPPING_HISTORY["login_entity_last_synced"] != "":
                 constants.LAST_SYNC_VAR.set(constants.MAPPING_HISTORY["login_entity_last_synced"])
 
-            print(constants.MAPPING_HISTORY, "history")
+            # print(constants.MAPPING_HISTORY, "history")
             last_sync_time = tk.Label(top_left_panel, textvariable=constants.LAST_SYNC_VAR, bg="#E7F6FF", fg="#004BA8", font=label_font2, justify=tk.LEFT)
             last_sync_time.pack(pady=(0, 10), padx=30, anchor=tk.W)
 
@@ -621,14 +635,14 @@ class Dashboard(tk.Frame):
                         str(y["status"]).replace('Mapped as ','') for y in branches
                     ]
                 ]
-                custom_padding = 30
+                custom_padding = 100
                 # print('➡ tk_screen.py:342 custom_padding:', custom_padding)
                 if len(branches) > 0:
                     max_branch = max([len(str(x["name"])) for x in  branches])
                     max_branch_time = max([len(str(x["time"])) for x in  branches])
                     
                     # print(max_branch+max_branch_time)
-                    custom_padding = 220 - ((max_branch+max_branch_time)) if max_branch + max_branch_time < 34 else ((220 - ((max_branch+max_branch_time) * 3.5 )) if max_branch+max_branch_time < 45 else (220 - ((max_branch+max_branch_time) * 4.5 )))
+                    custom_padding = 280 - ((max_branch+max_branch_time)) if max_branch + max_branch_time < 34 else ((280 - ((max_branch+max_branch_time) * 3.5 )) if max_branch+max_branch_time < 45 else (280 - ((max_branch+max_branch_time) * 4.5 )))
                     # custom_padding = 180  if max_branch + max_branch_time < 35 else (70 if max_branch_time + max_branch < 50 else 30)
                 # print('➡ tk_screen.py:342 custom_padding:', custom_padding)
                 custom_padding = custom_padding if custom_padding > 0 else 0
@@ -688,7 +702,7 @@ class Dashboard(tk.Frame):
                 def toggle_rotation(event, branch_data, canvas2, size, image_tk, angle=0):
                     # print('➡ tk_screen.py:528 toggle_rotation:')
                     # print(event)
-                    print(branch_data)
+                    # print(branch_data)
                     sync_single_branch(branch_data)
                     if not constants.STOP_THREAD:
                         threading.Thread(target=rotate_image, args=(canvas2, size, image_tk, angle), daemon=True).start()
@@ -994,13 +1008,13 @@ class Dashboard(tk.Frame):
                     if "Map Now" in branch["status"]:
                         def test_menu(branch_data, event):
                             constants.CURRENT_BRANCH_SYNC_JSON = branch_data
-                            print('➡ tk_screen.py:403 constants.CURRENT_BRANCH_SYNC_JSON:', constants.CURRENT_BRANCH_SYNC_JSON)
+                            # print('➡ tk_screen.py:403 constants.CURRENT_BRANCH_SYNC_JSON:', constants.CURRENT_BRANCH_SYNC_JSON)
                         
                             # Get the clicked widget's position on the screen
                             x = event.widget.winfo_rootx()
                             y = event.widget.winfo_rooty() + event.widget.winfo_height()
 
-                            print(f"Placing menu at ({x}, {y})")  # Debugging info
+                            # print(f"Placing menu at ({x}, {y})")  # Debugging info
 
                             # Ensure menu does not go outside the application window
                             if x < 0: x = 0
@@ -1060,46 +1074,46 @@ class Dashboard(tk.Frame):
                             justify=tk.RIGHT
                         )
                         branch_time.pack(anchor=tk.E, padx=(10,0), side=tk.LEFT)
-                    branch_image_path = ".\\lib\\images\\sync_btn.png"
-                    branch_image_path2 = ".\\lib\\images\\sync_btn2.png"
+                    # branch_image_path = ".\\lib\\images\\sync_btn.png"
+                    # branch_image_path2 = ".\\lib\\images\\sync_btn2.png"
                     
-                    try:
-                        branch_image = Image.open(branch_image_path).convert("RGBA")
-                        branch_image = branch_image.resize((20, 20), Image.Resampling.LANCZOS)  # Resize for better visibility
-                        branch_image_tk = ImageTk.PhotoImage(branch_image)
-                                # Load the original image
-                        # self.original_image = Image.open("lib\images\sync_btn.png").convert("RGBA")
+                    # try:
+                    #     branch_image = Image.open(branch_image_path).convert("RGBA")
+                    #     branch_image = branch_image.resize((20, 20), Image.Resampling.LANCZOS)  # Resize for better visibility
+                    #     branch_image_tk = ImageTk.PhotoImage(branch_image)
+                    #             # Load the original image
+                    #     # self.original_image = Image.open("lib\images\sync_btn.png").convert("RGBA")
                         
-                    except Exception as e:
-                        print(f"Error loading image: {e}")
-                        branch_image_tk = None
-                    try:
-                        branch_image2 = Image.open(branch_image_path2)
-                        branch_image2 = branch_image2.resize((20, 20), Image.Resampling.LANCZOS)  # Resize for better visibility
-                        branch_image_tk2 = ImageTk.PhotoImage(branch_image2)
-                    except Exception as e:
-                        print(f"Error loading image: {e}")
-                        branch_image_tk2 = None
+                    # except Exception as e:
+                    #     print(f"Error loading image: {e}")
+                    #     branch_image_tk = None
+                    # try:
+                    #     branch_image2 = Image.open(branch_image_path2)
+                    #     branch_image2 = branch_image2.resize((20, 20), Image.Resampling.LANCZOS)  # Resize for better visibility
+                    #     branch_image_tk2 = ImageTk.PhotoImage(branch_image2)
+                    # except Exception as e:
+                    #     print(f"Error loading image: {e}")
+                    #     branch_image_tk2 = None
 
-                    if branch_image:
-                        if "Map Now" not in branch["status"]:
+                    # if branch_image:
+                    #     if "Map Now" not in branch["status"]:
                         
-                            size = int(max(branch_image.size) * 1.5)  # Add padding for smooth rotation
+                    #         size = int(max(branch_image.size) * 1.5)  # Add padding for smooth rotation
 
-                            # Create canvas
-                            canvas2 = tk.Canvas(branch_right_frame, width=size, height=size, bg="white", highlightthickness=0)
-                            canvas2.pack(anchor=tk.E, padx=(10,0), side=tk.LEFT)
+                    #         # Create canvas
+                    #         canvas2 = tk.Canvas(branch_right_frame, width=size, height=size, bg="white", highlightthickness=0)
+                    #         canvas2.pack(anchor=tk.E, padx=(10,0), side=tk.LEFT)
 
-                            # Center coordinates
-                            center_x = size // 2
-                            center_y = size // 2
+                    #         # Center coordinates
+                    #         center_x = size // 2
+                    #         center_y = size // 2
 
-                            # Display the image
-                            image_tk = ImageTk.PhotoImage(branch_image)
-                            image_id = canvas2.create_image(center_x, center_y, image=image_tk)
+                    #         # Display the image
+                    #         image_tk = ImageTk.PhotoImage(branch_image)
+                    #         image_id = canvas2.create_image(center_x, center_y, image=image_tk)
 
-                            # Bind click event to the image
-                            canvas2.tag_bind(image_id, "<Button-1>", lambda event,branch_data=branch, x=canvas2, size=size,image_tk=image_tk, angle=0: toggle_rotation(event,branch_data, x, size, image_tk, angle))
+                    #         # Bind click event to the image
+                    #         canvas2.tag_bind(image_id, "<Button-1>", lambda event,branch_data=branch, x=canvas2, size=size,image_tk=image_tk, angle=0: toggle_rotation(event,branch_data, x, size, image_tk, angle))
 
                         
                         # else:
@@ -1114,19 +1128,20 @@ class Dashboard(tk.Frame):
                         #     )
                         #     branch_image_button.image = branch_image_tk2
                         #     branch_image_button.pack(anchor=tk.E, padx=(10,0), side=tk.LEFT)
-                    else:
-                        branch_image_label = tk.Label(
-                            branch_right_frame,
-                            text="[IMG]",
-                            bg="white",
-                            fg="black",
-                            font=label_font,
-                            justify=tk.RIGHT
-                        )
-                        branch_image_label.pack(anchor=tk.E, padx=(10, 0), side=tk.LEFT)
+                    # else:
+                    #     branch_image_label = tk.Label(
+                    #         branch_right_frame,
+                    #         text="[IMG]",
+                    #         bg="white",
+                    #         fg="black",
+                    #         font=label_font,
+                    #         justify=tk.RIGHT
+                    #     )
+                    #     branch_image_label.pack(anchor=tk.E, padx=(10, 0), side=tk.LEFT)
                         
             elif constants.SYNC_STAGE == 1:
                 print("new ui call")
+                print(constants.COMPANY_MAPPING)
 
                 # ================= TOP PANEL =================
                 top_panel = tk.Frame(lower_right_panel, bg="white")
@@ -1147,9 +1162,9 @@ class Dashboard(tk.Frame):
                 company_var = tk.StringVar(value=list(company_options.values())[0] if company_options else "")
                 constants.COMPANY_NAME = company_var.get()
                 
-                company_dropdown = tk.OptionMenu(company_row, company_var, *company_options.values())
-                company_dropdown.config(width=15)
-                company_dropdown.pack(side=tk.LEFT, padx=(0, 10))
+                # company_dropdown = tk.OptionMenu(company_row, company_var, *company_options.values())
+                # company_dropdown.config(width=15)
+                # company_dropdown.pack(side=tk.LEFT, padx=(0, 10))
                 
                 def update_dropdown(*args):
                     company_dropdown['menu'].delete(0, 'end')
@@ -1163,7 +1178,52 @@ class Dashboard(tk.Frame):
                     constants.COMPANY_NAME = company_var.get()
                 
                 # company_dropdown["menu"].config(bg="white", fg="black", font=label_font)
-                company_dropdown.config(bg="white", fg="black", font=label_font, highlightthickness=1, highlightbackground="#ccc")
+                # company_dropdown.config(bg="white", fg="black", font=label_font, highlightthickness=1, highlightbackground="#ccc")
+                dropdown_wrapper = tk.Frame(company_row, bg="#0CA1F6")
+                dropdown_wrapper.pack(side=tk.LEFT, padx=(0, 10))
+
+                company_dropdown = tk.OptionMenu(dropdown_wrapper, company_var, *company_options.values())
+                company_dropdown.config(
+                    bg="#0CA1F6",
+                    fg="white",
+                    activebackground="#0CA1F6",
+                    activeforeground="white",
+                    font=("Segoe UI", 10),
+                    bd=0,
+                    highlightthickness=0,
+                    relief="flat",
+                    cursor="hand2",
+                    indicatoron=False
+                )
+                company_dropdown.pack(side=tk.LEFT, padx=(10, 0), pady=2)
+                # sync_all_button = CTkButton(top_right_panel, text=constants.SYNC_BTN_TEXT, hover_color='#033D7E' , font=CTkFont(family='Manrope', size=16, weight='bold'), text_color='white', fg_color="#0CA1F6", height=42, width=120, corner_radius=4, command=show_sync_frame)
+                # sync_all_button.pack(pady=(5,20), padx=40, anchor=tk.E)
+
+                arrow = tk.Label(
+                    dropdown_wrapper,
+                    text="▼",
+                    bg="#0CA1F6",
+                    fg="white",
+                    font=("Segoe UI", 8)
+                )
+                arrow.pack(side=tk.RIGHT, padx=8)
+                def on_enter(e):
+                    dropdown_wrapper.config(bg="#0CA1F6")
+                    company_dropdown.config(bg="#0CA1F6")
+                    arrow.config(bg="#0CA1F6")
+
+                def on_leave(e):
+                    dropdown_wrapper.config(bg="#0CA1F6")
+                    company_dropdown.config(bg="#0CA1F6")
+                    arrow.config(bg="#0CA1F6")
+                    
+
+                dropdown_wrapper.bind("<Enter>", on_enter)
+                dropdown_wrapper.bind("<Leave>", on_leave)
+                company_dropdown.bind("<Enter>", on_enter)
+                company_dropdown.bind("<Leave>", on_leave)
+                arrow.bind("<Enter>", on_enter)
+                arrow.bind("<Leave>", on_leave)
                 # update_dropdown()
                 company_var.trace_add("write", update_company)
                 
@@ -1178,6 +1238,39 @@ class Dashboard(tk.Frame):
                 # tk.Button(company_row, text="⟳", relief="flat", bg="#f0f0f0").pack(side=tk.LEFT, padx=5)
 
 
+                DATE_FORMAT = "%d-%m-%y"  # adjust if your DateEntry format differs
+
+                def validate_dates(*args):
+                    try:
+                        start_str = constants.SYNC_START_DATE.get()
+                        end_str = constants.SYNC_END_DATE.get()
+
+                        if not start_str or not end_str:
+                            return
+
+                        start_date = datetime.strptime(start_str, DATE_FORMAT)
+                        end_date = datetime.strptime(end_str, DATE_FORMAT)
+
+                        # Rule 1: End date should not be before start date
+                        if end_date < start_date:
+                            messagebox.showerror("Invalid Date", "End date cannot be before start date.")
+                            constants.SYNC_END_DATE.set(start_str)
+                            return
+
+                        # Rule 2: Max 30 days range
+                        if (end_date - start_date).days > 30:
+                            messagebox.showerror("Invalid Range", "You can select a maximum of 30 days only.")
+                            
+                            # Auto-correct end date to +30 days from start
+                            corrected_date = start_date + timedelta(days=30)
+                            constants.SYNC_END_DATE.set(corrected_date.strftime(DATE_FORMAT))
+                            return
+
+                        print(f"Valid Range: {start_date} → {end_date}")
+
+                    except Exception as e:
+                        print("Date validation error:", e)
+
                 # ---- RIGHT: SYNC PERIOD ----
                 right_top = tk.Frame(top_panel, bg="white")
                 right_top.pack(side=tk.RIGHT)
@@ -1191,13 +1284,25 @@ class Dashboard(tk.Frame):
                 constants.SYNC_START_DATE = tk.StringVar()
                 constants.SYNC_END_DATE = tk.StringVar()
 
-                start_date_var = DateEntry(date_row, width=10, textvariable=constants.SYNC_START_DATE)
+                start_date_var = DateEntry(date_row, width=10, textvariable=constants.SYNC_START_DATE,  date_pattern="dd-mm-yy")
                 start_date_var.pack(side=tk.LEFT, padx=(0,5))
 
                 tk.Label(date_row, text="to", bg="white").pack(side=tk.LEFT)
 
-                end_date_var = DateEntry(date_row, width=10, textvariable=constants.SYNC_END_DATE)
+                end_date_var = DateEntry(date_row, width=10, textvariable=constants.SYNC_END_DATE,  date_pattern="dd-mm-yy")
                 end_date_var.pack(side=tk.LEFT, padx=(5,10))
+                
+                start_date_var.bind("<<DateEntrySelected>>", validate_dates)
+                end_date_var.bind("<<DateEntrySelected>>", validate_dates)
+                def on_start_change(event):
+                    try:
+                        start_date = datetime.strptime(constants.SYNC_START_DATE.get(), DATE_FORMAT)
+                        max_date = start_date + timedelta(days=30)
+                        end_date_var.config(mindate=start_date, maxdate=max_date)
+                    except:
+                        pass
+
+                start_date_var.bind("<<DateEntrySelected>>", on_start_change)
                 
                 def update_dates(*args):
                     print(f"Start Date: {constants.SYNC_START_DATE.get()}")
@@ -1434,6 +1539,12 @@ class Dashboard(tk.Frame):
             check_if_require_reboot()
         
         def show_sync_frame(one_sync = False):
+            if constants.SELECTED_MODULES == []:
+                messagebox.showerror("Sync Issue", "Please select at least one module to sync.")
+                return 0
+            if "Ledgers" in constants.SELECTED_MODULES and len(constants.SELECTED_MODULES) == 1:
+                messagebox.showerror("Sync Issue", "Please select at least one more module along with Ledgers for sync.")
+                return 0
             if constants.SYNC_STAGE == 0:
                 for widget in right_panel.winfo_children():
                     widget.destroy()
@@ -1613,8 +1724,7 @@ class Dashboard(tk.Frame):
                 # Bind click outside the menu to close the overlay
                 overlay.bind("<Button-1>", on_click_outside)
                 
-                
-            upper_left_panel = tk.Frame(left_panel, bg="#033D7E", height=150, width=270)
+            upper_left_panel = tk.Frame(left_panel, bg="#033D7E", height=150, width=250)
             upper_left_panel.pack(anchor=tk.N, fill=tk.X)
 
             # Tally Sync Utility header
@@ -1627,7 +1737,7 @@ class Dashboard(tk.Frame):
             version_label.pack(pady=(0, 20), padx=30, anchor=tk.W)
             upper_left_panel.pack_propagate(False)
 
-            lower_left_panel = tk.Frame(left_panel, bg="#004BA8", height=150, width=270)
+            lower_left_panel = tk.Frame(left_panel, bg="#004BA8", height=150, width=250)
             lower_left_panel.pack(anchor=tk.W)
             # Auto Sync Section
             # auto_sync_label = tk.Label(lower_left_panel, text="Auto Sync", bg="#004BA8", fg="white", font=label_font, justify=tk.LEFT)
@@ -1863,7 +1973,7 @@ class Dashboard(tk.Frame):
             # User Info Section
             constants.MOBILE_VAR = tk.StringVar(value=constants.MOBILE)
             user_label = tk.Label(left_panel, textvariable=constants.MOBILE_VAR, bg="#004BA8", fg="white", font=header_font2, justify=tk.LEFT)
-            user_label.pack(pady=(190, 2), padx=30, anchor=tk.W)
+            user_label.pack(pady=(210, 2), padx=30, anchor=tk.W)
 
             # logout_label = tk.Button(left_panel, text="Logout >", bg="#004BA8", fg="white",
             #                         highlightbackground='#004BA8', highlightcolor='#004BA8', borderwidth=0,font=label_font2, justify=tk.LEFT, relief=tk.SUNKEN, command=show_logout_popup)

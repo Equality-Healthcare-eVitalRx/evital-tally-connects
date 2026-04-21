@@ -21,12 +21,12 @@ EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}:4000/"
 
 # EVITAL_RX_HOST = "192.168.1.29"
 # EVITAL_RX_HOST = "0f9d-2405-201-2000-a0d0-b81f-b3cc-cee8-c796.ngrok-free.app"
-# EVITAL_RX_HOST = "6f2e-122-179-161-37.ngrok-free.app"
+# EVITAL_RX_HOST = "9bbe-122-179-161-37.ngrok-free.app/"
 # EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}/"
 # EVITAL_RX_API_KEY = "masteraYQ8DVYzLP559sGJeWty4wXHaw"
 
 ## staging 
-# EVITAL_RX_URL = "https://dev-api.evitalrx.in:3050/"
+EVITAL_RX_URL = "https://dev-api.evitalrx.in:3050/"
 
 # # live
 # EVITAL_RX_HOST = "api.evitalrx.in"
