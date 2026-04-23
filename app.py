@@ -5,9 +5,7 @@ from pathlib import Path
 import time
 
 import pyglet
-from main import main_thread
-from login import login_thread
-from functions import get_all_mapping_details, play_loading_animation, decrypt_data, LogManagerObj
+from functions import decrypt_data, LogManagerObj
 from lib.import_export_data import get_tally_companies
 from lib import constants
 from tk_screen import App

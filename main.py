@@ -327,5 +327,5 @@ def main_thread():
 # atexit.register(stop_background_thread)
     atexit.register(stop_background_thread)
 
-    root.mainloop()
+    # root.mainloop()
 # main_thread()
