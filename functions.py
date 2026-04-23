@@ -332,12 +332,14 @@ def startprocess(one_sync=False):
     print('➡ main.py:168 constants.DISPLAY_SYNC_LOADER:', constants.DISPLAY_SYNC_LOADER)
     
     if not ('status_code' in res.keys() and res["status_code"] != 1):
+        print("error", res)
         messagebox.showerror("Tally Sync", "Unable to sync data.")
     elif not ('status_code' in init_response.keys() and init_response["status_code"] != 1):
+        print("error", init_response)
         messagebox.showerror("Sync Issue", "Unable to sync data.")
     # elif constants.THREAD is None:
     #     messagebox.showinfo("Tally Data Export",str(res["status_message"]).replace("_", " "))
-    
+    constants.ANIMATION_AFTER_ID = None
     # message_label.config(text=str(res["status_message"]).replace("_", " ").title())
     constants.DISPLAY_SYNC_LOADER = False
     
@@ -345,13 +347,15 @@ def startprocess(one_sync=False):
     constants.SYNC_START_DATE = ""
     constants.SYNC_END_DATE = ""
     constants.SELECTED_MODULES = []
+    constants.STOP_THREAD = True
 
 
     constants.LAST_SYNCED = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if one_sync:
         constants.STOP_THREAD = True
-    else:
-        constants.REQUIRE_REBOOT = True
+    print("stopped")
+    # else:
+    #     constants.REQUIRE_REBOOT = True
         
     # if parent is not None:
     #     parent.__init__(parent.parent, parent.controller)
@@ -406,13 +410,19 @@ def play_loading_animation():
     start_time = time.time()
     
     def animate_gif(self, sync_label, frames, index=0):
+        if not sync_label.winfo_exists():
+            return  # STOP if widget is gone
         
         current_time = time.time()
         if current_time - start_time >= 3:
             print("stop")
             constants.LOAD_COMPLETE = True
             self.after_cancel(animate_gif)
-            self.destroy()
+            self.withdraw()
+            try:
+                self.destroy()  # Properly destroy the window
+            except:
+                pass
             return 0
         
         # time.sleep(0.5)
@@ -420,7 +430,7 @@ def play_loading_animation():
         frame = frames[index]
         sync_label.configure(image=frame)
         next_index = (index + 3) % len(frames)
-        self.after(300, animate_gif, self, sync_label, frames, next_index)
+        self.after(100, animate_gif, self, sync_label, frames, next_index)
 
         
     
@@ -443,7 +453,7 @@ def play_loading_animation():
         frame = frame.resize(size, Image.Resampling.LANCZOS)
         return frame
     
-    root = Tk()
+    root = tk.Toplevel()
     root.overrideredirect(True)
     
     user32 = ctypes.windll.user32
@@ -484,7 +494,7 @@ def play_loading_animation():
 
     multiprocessing.freeze_support()
   
-    root.mainloop()
+    # root.mainloop()
     
 def encrypt_data(data):
     key = constants.ENCRYPTION_KEY

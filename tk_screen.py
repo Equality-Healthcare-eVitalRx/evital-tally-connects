@@ -43,6 +43,9 @@ class MARGINS(ctypes.Structure):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
+        # Store reference to root window for thread-safe operations
+        constants.ROOT_WINDOW = self
+        constants.ANIMATION_AFTER_ID = None
         # self.log_viewer = LogViewerApp(self)
         constants.LOAD_COMPLETE = True         
         # hwnd = ctypes.windll.user32.GetForegroundWindow()
@@ -531,21 +534,35 @@ class Dashboard(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent, bg="#004BA8")
         for widget in self.winfo_children():
-            widget.destroy()
+            if widget.winfo_exists():
+                widget.destroy()
         self.controller = controller
         self.parent = parent
         parent.title = "Tally Sync"
         self.checkbox_vars = {}
 
+        # def refresh_dashboard(self):
+        #     self.withdraw()  # hide window
+
+        #     # destroy or update UI
+        #     for widget in self.main_frame.winfo_children():
+        #         widget.destroy()
+
+        #     self.build_dashboard()
+
+        #     self.deiconify()  # show again
              
         def create_main_content():
+            # parent.withdraw()  # hide window during refresh to prevent flickering
 
             constants.STOP_THREAD = True
             if right_panel.winfo_exists():  # Ensures widget exists before calling winfo_children()
                 for widget in right_panel.winfo_children():
-                    widget.destroy()
+                    if widget.winfo_exists():
+                        widget.destroy()
             else:
                 return 0
+            parent.deiconify()  # show again after refresh
             # right_panel.configure(background="white")
             constants.STOP_THREAD = False
 
@@ -565,6 +582,8 @@ class Dashboard(tk.Frame):
                 
             if constants.EVITAL_RX_API_KEY != "" and all_mapped:
                 constants.SYNC_STAGE = 1
+                constants.SYNC_BTN_TEXT = "Sync All"
+                print("stage 1")
                 
             print(constants.MAPPING_HISTORY, "mapping history in dashboard")
             # print(constants.COMPANY_MAPPING, "company mapping in dashboard")
@@ -1488,7 +1507,13 @@ class Dashboard(tk.Frame):
             
         def re_create_main_content():
             constants.STOP_THREAD = True
-            # self.after(0, safe_after_cancel)
+            # Cancel any pending animation callbacks
+            # if hasattr(constants, 'ANIMATION_AFTER_ID') and constants.ANIMATION_AFTER_ID is not None:
+            #     try:
+            #         self.after_cancel(constants.ANIMATION_AFTER_ID)
+            #         constants.ANIMATION_AFTER_ID = None
+            #     except:
+            #         pass
             create_main_content()
         
         def safe_after_cancel():
@@ -1519,17 +1544,50 @@ class Dashboard(tk.Frame):
             frame = frame.resize(size, Image.Resampling.LANCZOS)
             return frame
             
+        # def animate_gif(self, sync_label, frames, index=0):
+        #     if not sync_label.winfo_exists():
+        #         return  # STOP if widget is gone
+            
+        #     current_time = time.time()
+        #     if current_time - start_time >= 3:
+        #         print("stop")
+        #         constants.LOAD_COMPLETE = True
+        #         self.after_cancel(animate_gif)
+        #         self.withdraw()
+        #         return 0
+            
         def animate_gif(sync_label, frames, index=0):
-            frame = frames[index]
-            sync_label.configure(image=frame)
-            next_index = (index + 3) % len(frames)
-            if not constants.STOP_THREAD:
-                self.after(100, animate_gif, sync_label, frames, next_index)
+            # Check if we should stop animation
+            if constants.STOP_THREAD or not sync_label.winfo_exists():
+                for widget in right_panel.winfo_children():
+                    if widget.winfo_exists():
+                        widget.destroy()
+                return  # STOP if thread stopped or widget is gone
+            
+            try:
+                frame = frames[index]
+                sync_label.configure(image=frame)
+                next_index = (index + 3) % len(frames)
+                # Store the after_id so we can cancel it later if needed
+                constants.ANIMATION_AFTER_ID = self.after(100, animate_gif, sync_label, frames, next_index)
+            except tk.TclError:
+            
+                # Widget was destroyed, stop animation
+                return
 
         def check_thread_status():
             while not constants.STOP_THREAD:
+                if constants.STOP_THREAD:
+                    print("Thread stopped, exiting status check.")
+                    parent.withdraw()
+                    self.after_cancel(constants.ANIMATION_AFTER_ID)
+                    constants.ANIMATION_AFTER_ID = None
+                    for widget in right_panel.winfo_children():
+                        if widget.winfo_exists():
+                            widget.destroy()
                 time.sleep(0.1)
             re_create_main_content()
+            parent.deiconify()
 
         def check_if_require_reboot():
             while not constants.REQUIRE_REBOOT:
@@ -1547,15 +1605,21 @@ class Dashboard(tk.Frame):
                 return 0
             if constants.SYNC_STAGE == 0:
                 for widget in right_panel.winfo_children():
-                    widget.destroy()
+                    if widget.winfo_exists():
+                        widget.destroy()
+
                 constants.SYNC_BTN_TEXT = "Sync All"
                 constants.SYNC_STAGE += 1
                 print("sync increased")
-                re_create_main_content()
+                # re_create_main_content()
+                self.after(100, re_create_main_content)
             
             elif constants.SYNC_STAGE == 1:
                 
                 def stop_thread_process():
+                    # for widget in right_panel.winfo_children():
+                    #     if widget.winfo_exists():
+                    #         widget.destroy()
                     messagebox.showerror("Tally Sync", "Sync Stopped Abnormally !!")
                     re_create_main_content()
                 # print('➡ tk_screen.py:565 one_sync:', one_sync)
@@ -1570,7 +1634,8 @@ class Dashboard(tk.Frame):
                 thread1.start()
                 
                 for widget in right_panel.winfo_children():
-                    widget.destroy()
+                    if widget.winfo_exists():
+                        widget.destroy()
                     
                 # print()
                 thread1 = threading.Thread(
@@ -1658,7 +1723,8 @@ class Dashboard(tk.Frame):
             # Left Panel
             # left_panel.configure(background="#004BA8")
             for widget in left_panel.winfo_children():
-                widget.destroy()
+                if widget.winfo_exists():
+                    widget.destroy()
             
             def blur_background():
                 x = self.winfo_rootx()
