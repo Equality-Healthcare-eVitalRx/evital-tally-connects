@@ -357,3 +357,6 @@ EXPORT_MODULES = {
     "Payment Vouchers": ["Receipt", "Payment", "Contra"],
 }
 SELECTED_MODULES = []
+
+ROOT_WINDOW = None  # For thread-safe operations
+ANIMATION_AFTER_ID = None
