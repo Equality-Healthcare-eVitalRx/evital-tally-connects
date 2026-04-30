@@ -1,0 +1,33 @@
+[project]
+name = "py-extract-tally"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "altgraph==0.17.4",
+    "babel==2.15.0",
+    "certifi==2024.7.4",
+    "cffi==1.17.1",
+    "charset-normalizer==3.3.2",
+    "cryptography==44.0.1",
+    "customtkinter==5.2.2",
+    "darkdetect==0.8.0",
+    "fonttools==4.55.8",
+    "idna==3.7",
+    "keyboard==0.13.5",
+    "packaging==24.1",
+    "pefile==2023.2.7",
+    "pillow==10.4.0",
+    "pycparser==2.22",
+    "pyglet==2.1.2",
+    "pyinstaller==6.9.0",
+    "pyinstaller-hooks-contrib==2024.7",
+    "pywin32-ctypes==0.2.2",
+    "requests==2.32.3",
+    "tkcalendar==1.6.1",
+    "ttkbootstrap>=1.20.2",
+    "ttkthemes==3.2.2",
+    "urllib3==2.2.2",
+    "xmltodict==0.13.0",
+]

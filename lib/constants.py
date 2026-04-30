@@ -3,30 +3,22 @@
 # }
 
 HOST = "localhost"
-# HOST = "192.168.29.107"
-# HOST = "192.168.1.21"
-# HOST = "192.168.1.46"
-# HOST = "192.168.1.29"
 TALLY_URL = F"http://{HOST}:"
 TALLY_PORT = 9000
 
 COMPANY_NAME = "abc"    
 
-# EVITAL_RX_HOST = "192.168.29.107"
-# EVITAL_RX_HOST = "192.168.1.46"
 
 ## local
 EVITAL_RX_HOST = "localhost"
 EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}:4000/"
 
-# EVITAL_RX_HOST = "192.168.1.29"
-# EVITAL_RX_HOST = "0f9d-2405-201-2000-a0d0-b81f-b3cc-cee8-c796.ngrok-free.app"
-# EVITAL_RX_HOST = "9bbe-122-179-161-37.ngrok-free.app/"
+
+# EVITAL_RX_HOST = "3f16-122-179-161-37.ngrok-free.app"
 # EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}/"
-# EVITAL_RX_API_KEY = "masteraYQ8DVYzLP559sGJeWty4wXHaw"
 
 ## staging 
-EVITAL_RX_URL = "https://dev-api.evitalrx.in:3050/"
+# EVITAL_RX_URL = "https://dev-api.evitalrx.in:3050/"
 
 # # live
 # EVITAL_RX_HOST = "api.evitalrx.in"
@@ -48,7 +40,7 @@ STOP_THREAD = False
 DISPLAY_SYNC_LOADER = False
 REQUEST_TIMEOUT = 2000
 
-MAPPING_HISTORY = []
+MAPPING_HISTORY = {}
 ONE_SYNC = []
 LAST_SYNCED = ""
 MOBILE = ""

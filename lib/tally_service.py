@@ -3,6 +3,7 @@ import time
 import re
 import html
 from lib import constants
+from log import LogManagerObj
 
 TALLY_URL = constants.TALLY_URL + str(constants.TALLY_PORT)
 
@@ -74,6 +75,7 @@ class TallyService:
                 )
 
                 response_text = res.text
+                
                 created = self._extract_tag(response_text, "CREATED")
                 altered = self._extract_tag(response_text, "ALTERED")
                 errors  = self._extract_tag(response_text, "ERRORS")
@@ -83,6 +85,8 @@ class TallyService:
                     status_msg += f"❌ {errors} Errors | "
                 status_msg += f"✅ {created} Created, {altered} Altered"
                 print(status_msg)
+                LogManagerObj.write_log(status_msg)
+                
 
                 # print(response_text)
 
@@ -110,10 +114,12 @@ class TallyService:
             except requests.exceptions.Timeout:
                 consecutive_failures += 1
                 # log_callback(f"⏱️ Batch {batch_num} timed out (waited {timeout}s).")
+                LogManagerObj.write_log(f"⏱️ Batch {batch_num} timed out (waited {timeout}s).")
 
                 if consecutive_failures >= MAX_CONSECUTIVE_FAIL:
                     # log_callback(f"❌ {MAX_CONSECUTIVE_FAIL} consecutive timeouts. Tally stopped responding.")
                     # log_callback("💡 Restart Tally and re-run sync — already imported records are safe.")
+                    LogManagerObj.write_log(f"❌ {MAX_CONSECUTIVE_FAIL} consecutive timeouts. Tally stopped responding.")
                     break
 
                 # ── Retry once with smaller sub-batches ─────────────────────
@@ -132,10 +138,13 @@ class TallyService:
                         sub_errors = self._extract_tag(sub_text, "ERRORS")
                         # log_callback(f"   ↳ Sub-batch ({len(sub_batch)} recs): ✅ {sub_created} Created, {sub_altered} Altered" +
                                     # (f" | ❌ {sub_errors} Errors" if int(sub_errors) > 0 else ""))
+                        LogManagerObj.write_log(f"   ↳ Sub-batch ({len(sub_batch)} recs): ✅ {sub_created} Created, {sub_altered} Altered" +
+                                    (f" | ❌ {sub_errors} Errors" if int(sub_errors) > 0 else ""))
                         consecutive_failures = 0
                     except Exception as sub_e:
-                        pass
                         # log_callback(f"   ↳ Sub-batch failed: {str(sub_e)}")
+                        LogManagerObj.write_log(f"   ↳ Sub-batch failed: {str(sub_e)}")
+                        pass
 
                 processed += len(batch)
                 continue
@@ -143,9 +152,12 @@ class TallyService:
             except requests.exceptions.ConnectionError:
                 consecutive_failures += 1
                 # log_callback(f"🔌 Batch {batch_num}: Cannot connect to Tally. Is it running on port 9000?")
+                LogManagerObj.write_log(f"🔌 Batch {batch_num}: Cannot connect to Tally. Is it running on port 9000?")
                 if consecutive_failures >= MAX_CONSECUTIVE_FAIL:
                     # log_callback("❌ Tally connection lost. Import aborted.")
+                    LogManagerObj.write_log("❌ Tally connection lost. Import aborted.")
                     # log_callback("💡 Restart Tally and re-run sync — already imported records are safe.")
+                    LogManagerObj.write_log("💡 Restart Tally and re-run sync — already imported records are safe.")
                     break
                 processed += len(batch)
                 continue
@@ -153,13 +165,16 @@ class TallyService:
             except Exception as e:
                 consecutive_failures += 1
                 # log_callback(f"❌ Batch {batch_num} error: {str(e)}")
+                LogManagerObj.write_log(f"❌ Batch {batch_num} error: {str(e)}")
                 if consecutive_failures >= MAX_CONSECUTIVE_FAIL:
                     # log_callback("❌ Too many errors. Import aborted.")
+                    LogManagerObj.write_log("❌ Too many errors. Import aborted.")
                     break
                 processed += len(batch)
                 continue
 
         # log_callback("-" * 50)
+        LogManagerObj.write_log("-" * 50)
 
     def get_companies(self) -> list:
         try:
@@ -306,15 +321,15 @@ class TallyService:
     </DESC>
   </BODY>
 </ENVELOPE>"""
-        print(xml)
-        print(TALLY_URL)
+        # print(xml)
+        # print(TALLY_URL)
         res = requests.post(
             TALLY_URL,
             data=xml.encode("utf-8"),
             headers={"Content-Type": "text/xml"},
             timeout=30
         )
-        print(res.text)
+        # print(res.text)
 
         if res.status_code != 200:
             raise Exception(f"Tally export failed: {res.text}")

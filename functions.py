@@ -5,15 +5,12 @@ import base64
 import ctypes
 from datetime import date, datetime, timedelta
 import json
-import logging
 import multiprocessing
 import os
 import threading
 import time
 import tkinter as tk
 from tkinter import Tk, messagebox
-import lib.constants
-import tkinter
 # import image
 from cryptography.fernet import Fernet
 from PIL import Image, ImageSequence, ImageTk
@@ -23,8 +20,6 @@ from lib.import_export_data import *
 from lib.tally_service import TallyService
 
 def login(mobile_number, password, entity="chemist"):
-    # mobile_number = mobile_entry.get()
-    # password = password_entry.get()
     if len(mobile_number) != 10 or str(mobile_number).isdigit() == False:
         messagebox.showerror("Login Failed", "Invalid Mobile number")
         return 0
@@ -32,55 +27,38 @@ def login(mobile_number, password, entity="chemist"):
         messagebox.showerror("Login Failed", "Invalid Password")
         return 0
     else:
-    # Implement your login logic here
-    # For demonstration, just check for specific mobile number and password
         res = send_login_request(mobile_number, password, entity)
-        # print('➡ login.py:89 res:', res)
-        # logging.info(res)
         
         if "status_code" in res.keys() and res['status_code'] in [1,'1']:
             if_chain_pharmacy = res["data"]["business_details"]["is_chain_business"]
-            # print('➡ login.py:94 if_chain_pharmacy:', if_chain_pharmacy)
-            # messagebox.showinfo("Login", "Login Successful")
-            # print(res["data"])
-            constants.COMPANY_MAPPING = res["data"]["business_details"]["company_mapping_details"]
-            if "accesstoken" in res["data"]:
-                constants.ACCESS_TOKEN = res["data"]["accesstoken"]
-            if "apikey" in res["data"]:
-
-                constants.EVITAL_RX_API_KEY = res["data"]["apikey"]
-            # constants.ACCESS_TOKEN = res["data"]["accesstoken"]
+            LogManagerObj.write_log(res.get("status_message", ""))
+            
+            constants.COMPANY_MAPPING = []
+            if len(res["data"]["business_details"]["logged_in_business"]["tally_mapping_details"]) > 0:
+                constants.COMPANY_MAPPING.append(res["data"]["business_details"]["logged_in_business"]["tally_mapping_details"][0])
+                
+            if len(res["data"]["business_details"].get("child_businesses", [])) > 0:
+                for x in res["data"]["business_details"]["child_businesses"]:
+                    if len(x["tally_mapping_details"]) > 0:
+                        constants.COMPANY_MAPPING.append(x["tally_mapping_details"][0])
+            
+            if "accesstoken" in res["data"]["business_details"]["logged_in_business"]:
+                constants.ACCESS_TOKEN = res["data"]["business_details"]["logged_in_business"]["accesstoken"]
+            if "apikey" in res["data"]["business_details"]["logged_in_business"]:
+                constants.EVITAL_RX_API_KEY = res["data"]["business_details"]["logged_in_business"]["apikey"]
             
             data = {
                 "login_response" : constants.LOGIN_RESPONSE,
-                "company_mapping" : res["data"]["business_details"]["company_mapping_details"]
+                "company_mapping" : constants.COMPANY_MAPPING
             }
-            # with open("./lib/app_cache.txt", "w") as json_file:
-            #     json.dump(data, json_file)
             with open("./lib/app_cache.txt", "w") as json_file:
-                # json.dump(data, json_file)
                 json_file.write(encrypt_data(data))
-            already_mapped = True if len(res["data"]["business_details"]["company_mapping_details"]) > 0 else False
             
-            # get_all_mapping_details()
-            # if already_mapped:
-            #     # login_window.destroy()
-            #     main_thread()
-            # else:
-            #     if if_chain_pharmacy:
-            #         # print()
-            #         # if if_chain_pharmacy:
-            #         if_ho = res["data"]["business_details"]["logged_in_business"]["is_HO"]
-            #         if if_ho:
-            #             ask_account_type()
-            #         else:
-            #             show_single_account_selection(login_window)
-                        
-            #     else:
-            #         show_single_account_selection(login_window)
             return 1
         elif "status_code" in res.keys() and res['status_code'] in [0,'0']:
-            # messagebox.showerror("Login Error", res["status_message"])
+            LogManagerObj.write_log("Login Failed")
+            LogManagerObj.write_log(res.get("status_message", ""))
+            
             return 0
         
 def logout():
@@ -104,144 +82,158 @@ def logout():
     constants.STOP_THREAD = False
     constants.DISPLAY_SYNC_LOADER = False
 
-    constants.MAPPING_HISTORY = []
+    constants.MAPPING_HISTORY = {}
     constants.ONE_SYNC = []
     constants.LAST_SYNCED = ""
     constants.MOBILE = ""
-    constants.TALLY_PORT = 9000
     constants.MOBILE_VAR = None
     constants.CURRENT_BRANCH_SYNC = None
     constants.LAST_SYNC_VAR = None
     constants.REQUIRE_REBOOT = False
     constants.SYNC_TIMER = 0
     constants.CURRENT_BRANCH_SYNC_JSON = {}
+    constants.SYNC_STAGE = 0
+    # SYNC_STAGE = 0
+    constants.SYNC_BTN_TEXT = "Next"
+    constants.LAST_SYNC_HEADER_VAR = ""
+    constants.SYNC_START_DATE = ""
+    constants.SYNC_END_DATE = ""
+    LogManagerObj.write_log("Logout Successful")
     # root.destroy()
     
 def get_all_mapping_details():
     res = get_mapping_details()
+    print(res, "mapping res")
     if "status_code" in res and res["status_code"] in [1, '1']:
         constants.MAPPING_HISTORY = res["data"]
-        # if constants.LAST_SYNC_VAR is not None:
-        #     last_time = [str()]
-        #     constants.LAST_SYNC_VAR.set()
-    # print('➡ functions.py:85 res:', res)
-    
     
 def startprocess(one_sync=False):
     constants.DISPLAY_SYNC_LOADER = True
-    # start = self.start_date.get_date().strftime("%Y-%m-%d")
-    # end   = self.end_date.get_date().strftime("%Y-%m-%d")
-    # company = self.company_var.get()
     time.sleep(1)
     tallyObj = TallyService()
-    # animation_thread = threading.Thread(target=show_animation, daemon=True)
-    # animation_thread.start()
-    # show_animation()
     
-    #print('➡ main.py:97 constants.LOGIN_RESPONSE:', constants.LOGIN_RESPONSE)
-    # if constants.MAPPING_TYPE == "single" and constants.LOGIN_RESPONSE["data"]["business_details"]["is_chain_business"] and constants.LOGIN_RESPONSE["data"]["business_details"]["logged_in_business"]["is_HO"]:
-    #     #print("Sdsdgf")
-    #     #print('➡ main.py:99 constants.COMPANY_MAPPING:', constants.COMPANY_MAPPING)
-    #     #print('➡ main.py:101 constants.RX_ACCOUNTS:', constants.RX_ACCOUNTS)
-    #     companies = [
-    #         {"chemist_id": x["id"], "company_name": m["company_name"], "company_guid": m["company_guid"]}
-    #         for m in constants.COMPANY_MAPPING
-    #         for x in constants.RX_ACCOUNTS 
-    #     ]
-    # else:
-    #     companies = constants.COMPANY_MAPPING
-    
-    # print("1234")
     get_tally_companies()
-    # print("1234")
-    # print(constants.MAPPING_HISTORY)
+
     if not one_sync:
+        companies = [
+            {"chemist_id" : x["entity_id"], "company_name":x["tally_company_name"], "company_guid":x["tally_company_guid"], "branch_name":x["branch_name"]}
+            for x in constants.MAPPING_HISTORY["results"] if x["is_mapped"] in ['true', True, 'True']
+            # if x["tally_company_name"] == constants.COMPANY_NAME
+        ]
+    else:
         companies = [
             {"chemist_id" : x["entity_id"], "company_name":x["tally_company_name"], "company_guid":x["tally_company_guid"], "branch_name":x["branch_name"]}
             for x in constants.MAPPING_HISTORY["results"] if x["is_mapped"] in ['true', True, 'True']
             if x["tally_company_name"] == constants.COMPANY_NAME
         ]
-    else:
-        companies = constants.ONE_SYNC
         
-
-    
-    # current_time = datetime.now()
-    # current_year = current_time.year if current_time.month > 3 else current_time.year - 1
-    # from_date = date(current_year,int(4),1)
-    
-    # to_date = date(current_year+1,3,31)    
-    
-    from_date = datetime.strptime(constants.SYNC_START_DATE.get(), "%d-%m-%y")
-    to_date = datetime.strptime(constants.SYNC_END_DATE.get(), "%d-%m-%y")
-    # print(constants.COMPANY_MAPPING)
-    # print(constants.EVITAL_RX_API_KEY)
-    if "Ledgers" in constants.SELECTED_MODULES:
-        if constants.CURRENT_BRANCH_SYNC is not None:
-            constants.CURRENT_BRANCH_SYNC.set("Syncing Ledgers")
-        ledgers_selected = True
-        data = get_data_from_evitalrx(from_date.strftime("%Y-%m-%d"), to_date.strftime("%Y-%m-%d"), constants.EVITAL_RX_API_KEY, "Accounts")
-        print(type(data))
-        vouchers = extract_vouchers(data, ledgers_selected)
-        if not vouchers:
-            print("⚠️ No Ledger records found across all keys.")
-        else:
-            print(f"🚀 Found {len(vouchers)} Ledger records. Importing...")
-            tallyObj.push_batch(vouchers, report_name="All Masters", company_name=constants.COMPANY_NAME)
-        constants.SELECTED_MODULES.remove("Ledgers")
-    for x in constants.SELECTED_MODULES:
-        if constants.CURRENT_BRANCH_SYNC is not None:
-            constants.CURRENT_BRANCH_SYNC.set(f"Syncing {x}")
-        ledgers_selected = False
-        data = get_data_from_evitalrx(from_date.strftime("%Y-%m-%d"), to_date.strftime("%Y-%m-%d"), constants.EVITAL_RX_API_KEY, x)
-        print(type(data))
-        vouchers = extract_vouchers(data, ledgers_selected)
-        if not vouchers:
-            print(f"⚠️ No {x} records found across all keys.")
-        else:
-            print(f"🚀 Found {len(vouchers)} {x} records. Importing...")
-            tallyObj.push_batch(vouchers, company_name=constants.COMPANY_NAME, fetch_voucher_numbers=True)
-    
-    if constants.CURRENT_BRANCH_SYNC is not None:
-        constants.CURRENT_BRANCH_SYNC.set("Exporting Reconciliation Data")
-    txt_data = tallyObj.export_voucher_register(
-        from_date=from_date.strftime("%Y-%m-%d"),
-        to_date=to_date.strftime("%Y-%m-%d"),
-        company_name=constants.COMPANY_NAME
-    )
-
-    # ── Call ERP reconciliation API ────────────────────────────
-    print("🔄 Organizing reconciliation data..")
-
-    results = send_reconciliation(
-        file_content=txt_data,
-        start_date=from_date.strftime("%Y-%m-%d"),
-        end_date=to_date.strftime("%Y-%m-%d"),
-        api_keys=[constants.EVITAL_RX_API_KEY]
-    )
-
-    for api_key, res in results.items():
-        if "error" in res:
-            print(f"❌ Reconciliation failed: {res['error']}")
-        else:
-            print(f"✅ Reconciliation successful.")
-
-    # return 0
-
-    
-    request_array = []
-    init_data_array = []
     if len(companies) <= 0:
         messagebox.showerror("Tally Sync", "Please Map Your Company First.")
         constants.STOP_THREAD = True
         return 0
+
+
+    
+    request_array = []
+    init_data_array = []
     for company in companies:
+        if constants.STOP_THREAD:   
+            print("thread stopped abnormally")
+            LogManagerObj.write_log("thread stopped abnormally")
+            LogManagerObj.write_log("+"*50)
+            constants.STOP_THREAD = False
+            return 0
+        LogManagerObj.write_log("+"*50)
+        LogManagerObj.write_log(f"🔑 Syncing {company['company_name']}")
+        
+        current_apikey = ""
+        if constants.LOGIN_RESPONSE["data"]["business_details"]["logged_in_business"]["id"] == company["chemist_id"] and constants.LOGIN_RESPONSE["data"]["business_details"]["logged_in_business"]["apikey"] != "":
+            current_apikey = constants.LOGIN_RESPONSE["data"]["business_details"]["logged_in_business"]["apikey"]
+        
+        if current_apikey == "":
+            for x in constants.LOGIN_RESPONSE["data"]["business_details"]["child_businesses"]:
+                if x["id"] == company["chemist_id"] and x["apikey"] != "":
+                    current_apikey = x["apikey"]
+                            
+        print(current_apikey, "Api key")
+        if current_apikey == "":
+            print("No Api key found")
+            LogManagerObj.write_log("No Api key found")
+            LogManagerObj.write_log("+"*50)
+            continue
+        # continue
+    # return 0
+    
+        from_date = datetime.strptime(constants.SYNC_START_DATE.get(), "%d-%m-%y")
+        to_date = datetime.strptime(constants.SYNC_END_DATE.get(), "%d-%m-%y")
+        if "Ledgers" in constants.SELECTED_MODULES:
+            if constants.CURRENT_BRANCH_SYNC is not None:
+                constants.CURRENT_BRANCH_SYNC.set("Syncing Ledgers")
+            ledgers_selected = True
+            data = get_data_from_evitalrx(from_date.strftime("%Y-%m-%d"), to_date.strftime("%Y-%m-%d"), current_apikey, "Accounts")
+            vouchers = extract_vouchers(data, ledgers_selected)
+            if not vouchers:
+                print("⚠️ No Ledger records found across all keys.")
+                LogManagerObj.write_log("No Ledger records found across all keys.")
+            else:
+                print(f"🚀 Found {len(vouchers)} Ledger records. Importing...")
+                LogManagerObj.write_log(f"🚀 Found {len(vouchers)} Ledger records. Importing...")
+                tallyObj.push_batch(vouchers, report_name="All Masters", company_name=company["company_name"])
+        for x in constants.SELECTED_MODULES:
+            if x in ["ledgers", "Ledgers"]:
+                continue
+            if constants.STOP_THREAD:   
+                print("thread stopped abnormally")
+                LogManagerObj.write_log("thread stopped abnormally")
+                LogManagerObj.write_log("+"*50)
+                constants.STOP_THREAD = False
+                return 0
+            if constants.CURRENT_BRANCH_SYNC is not None:
+                constants.CURRENT_BRANCH_SYNC.set(f"Syncing {x}")
+            ledgers_selected = False
+            data = get_data_from_evitalrx(from_date.strftime("%Y-%m-%d"), to_date.strftime("%Y-%m-%d"), current_apikey, x)
+            vouchers = extract_vouchers(data, ledgers_selected)
+            if not vouchers:
+                LogManagerObj.write_log(f"⚠️ No {x} records found across all keys.")
+                print(f"⚠️ No {x} records found across all keys.")
+            else:
+                print(f"🚀 Found {len(vouchers)} {x} records. Importing...")
+                LogManagerObj.write_log(f"🚀 Found {len(vouchers)} {x} records. Importing...")
+                tallyObj.push_batch(vouchers, company_name=company["company_name"], fetch_voucher_numbers=True)
+        
+        if constants.CURRENT_BRANCH_SYNC is not None:
+            constants.CURRENT_BRANCH_SYNC.set("Exporting Reconciliation Data")
+        txt_data = tallyObj.export_voucher_register(
+            from_date=from_date.strftime("%Y-%m-%d"),
+            to_date=to_date.strftime("%Y-%m-%d"),
+            company_name=company["company_name"]
+        )
+
+        # ── Call ERP reconciliation API ────────────────────────────
+        print("🔄 Organizing reconciliation data..")
+        LogManagerObj.write_log("🔄 Organizing reconciliation data..")
+
+        results = send_reconciliation(
+            file_content=txt_data,
+            start_date=from_date.strftime("%Y-%m-%d"),
+            end_date=to_date.strftime("%Y-%m-%d"),
+            api_keys=[current_apikey]
+        )
+
+        for _, res in results.items():
+            if "error" in res:
+                print(f"❌ Reconciliation failed: {res['error']}")
+                LogManagerObj.write_log(f"❌ Reconciliation failed: {res['error']}")
+            else:
+                LogManagerObj.write_log(f"✅ Reconciliation successful.")
+                print(f"✅ Reconciliation successful.")
+
+        
         if constants.CURRENT_BRANCH_SYNC is not None:
         
             constants.CURRENT_BRANCH_SYNC.set(
                 "Exporting Balance Sheet"
             )
-        #print('➡ main.py:141 company:', company)
         data_list = {
             "list_of_companies": {},
             "active_company": {},
@@ -256,14 +248,13 @@ def startprocess(one_sync=False):
         }
         
         for key, value in constants.REQUEST_FORMATS.items():
-            # if constants.CURRENT_BRANCH_SYNC is not None:
-            
-            #     constants.CURRENT_BRANCH_SYNC.set(
-            #         company["branch_name"]
-            #     )
-            #print('➡ main.py:141 company:', company)
-            print('➡ func.py:208 key:', key)
-            
+            if constants.STOP_THREAD:   
+                print("thread stopped abnormally")
+                LogManagerObj.write_log("thread stopped abnormally")
+                LogManagerObj.write_log("+"*50)
+                constants.STOP_THREAD = False
+                return 0
+
             if key != "list_of_companies":
                 request_str = str(value)
                 request_str = request_str.replace("company_name", company["company_name"])
@@ -287,7 +278,7 @@ def startprocess(one_sync=False):
             elif key == "list_of_companies":
                     request_str = str(value)
                     parsed_data =  send_request_to_tally(request_str, key)
-                    print('➡ functions.py:217 parsed_data:', parsed_data)
+                    # print('➡ functions.py:217 parsed_data:', parsed_data)
                     data_list[key] = json.loads(parsed_data)
             # if key == 'profit_and_loss':
                 # print('➡ functions.py:157 parsed_data:', parsed_data)
@@ -305,37 +296,34 @@ def startprocess(one_sync=False):
             "chemist_id" : company["chemist_id"],
             "json_data" : data_list,
         }
-        # logging.info(encrypt_data(tally_data))
-        LogManagerObj.write_log(tally_data)
-        # print('➡ functions.py:245 cipher_text(json.dumps(tally_data):', cipher_text(json.dumps(tally_data), 15))
-        # print('➡ functions.py:246 15):', 15))
-        # logging.info(encrypt_data(init_data_list))
-        LogManagerObj.write_log(init_data_list)
         request_array.append(tally_data)
         init_data_array.append(init_data_list)
         
         if constants.STOP_THREAD:
             print("thread stopped abnormally")
+            LogManagerObj.write_log("thread stopped abnormally")
+            LogManagerObj.write_log("+"*50)
             constants.STOP_THREAD = False
             return 0
-    #print('➡ main.py:226 request_array:', request_array)
-        # #print('➡ main.py:228 init_data_array:', init_data_array)
+        
+    LogManagerObj.write_log("+"*50)
+        
     if constants.STOP_THREAD:   
         print("thread stopped abnormally")
+        LogManagerObj.write_log("thread stopped abnormally")
+        LogManagerObj.write_log("+"*50)
         constants.STOP_THREAD = False
         return 0
+    LogManagerObj.write_log("Sending tally data to EVITAL RX")
     res = send_data_to_evitalrx(request_array)
-    print('➡ functions.py:186 res:', res)
+    LogManagerObj.write_log(res)
+    
     init_response = send_init_data_to_evital_rx(init_data_array, from_date.strftime("%Y-%m-%d"), to_date.strftime("%Y-%m-%d"))    
-    print('➡ functions.py:188 init_response:', init_response)
-    # message_label.config(text=res["status_message"])
-    print('➡ main.py:168 constants.DISPLAY_SYNC_LOADER:', constants.DISPLAY_SYNC_LOADER)
+    LogManagerObj.write_log(init_response)
     
     if not ('status_code' in res.keys() and res["status_code"] != 1):
-        print("error", res)
         messagebox.showerror("Tally Sync", "Unable to sync data.")
     elif not ('status_code' in init_response.keys() and init_response["status_code"] != 1):
-        print("error", init_response)
         messagebox.showerror("Sync Issue", "Unable to sync data.")
     # elif constants.THREAD is None:
     #     messagebox.showinfo("Tally Data Export",str(res["status_message"]).replace("_", " "))
@@ -354,13 +342,6 @@ def startprocess(one_sync=False):
     if one_sync:
         constants.STOP_THREAD = True
     print("stopped")
-    # else:
-    #     constants.REQUIRE_REBOOT = True
-        
-    # if parent is not None:
-    #     parent.__init__(parent.parent, parent.controller)
-    # additional_message_label.config(text="Last Syncd : "+constants.LAST_SYNCED)
-    # print('➡ main.py:168 constants.DISPLAY_SYNC_LOADER:', constants.DISPLAY_SYNC_LOADER)
 
     
 def start_background_thread(start_now=False, one_sync=False):
@@ -557,157 +538,4 @@ def extract_vouchers(multi_key_response: dict, ledgers_selected: bool) -> list:
 
     return vouchers
 
-
-class LogManager:
-    def __init__(self, log_file="./lib/app_logs.txt"):
-        self.log_file = log_file
-        self.last_clear_date = self._get_last_clear_date()
-        
-        # Start the log clearing thread
-        self.clear_thread = threading.Thread(target=self._monitor_for_clearing, daemon=True)
-        self.clear_thread.start()
-
-    def _get_last_clear_date(self):
-        """Extract the date when the log was created from the first line of the log file"""
-        if not os.path.exists(self.log_file):
-            return date.today() - timedelta(days=1)  # Default to yesterday
-        
-        try:
-            with open(self.log_file, "rb") as f:
-                first_line = f.readline().strip()
-                if first_line.startswith(b'# Log file created on'):
-                    # Try to decrypt if it's encrypted
-                    try:
-                        key = constants.ENCRYPTION_KEY
-                        fernet = Fernet(key)
-                        line = fernet.decrypt(first_line).decode('utf-8')
-                    except:
-                        # Not encrypted, just decode
-                        line = first_line.decode('utf-8')
-                    
-                    # Extract date using regex
-                    match = re.search(r'created on (\d{4}-\d{2}-\d{2})', line)
-                    if match:
-                        date_str = match.group(1)
-                        return datetime.strptime(date_str, "%Y-%m-%d").date()
-                
-                # If we get here, check the timestamps in the logs
-                self._rewind_file(f)
-                latest_date = None
-                
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    
-                    try:
-                        # Try to decrypt the line
-                        key = self._get_key()
-                        fernet = Fernet(key)
-                        decrypted = fernet.decrypt(line).decode('utf-8')
-                        
-                        # Extract timestamp
-                        match = re.search(r'\[(\d{4}-\d{2}-\d{2})', decrypted)
-                        if match:
-                            date_str = match.group(1)
-                            log_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-                            if latest_date is None or log_date > latest_date:
-                                latest_date = log_date
-                    except:
-                        pass
-                
-                if latest_date:
-                    return latest_date
-                
-            # Default to yesterday if we couldn't find a date
-            return date.today() - timedelta(days=1)
-        except Exception as e:
-            print(f"Error determining last clear date: {e}")
-            return date.today() - timedelta(days=1)
-    
-    def _update_last_clear_date(self):
-        """Update the date of the last log clearing"""
-        metadata_file = "log_metadata.txt"
-        with open(metadata_file, "w") as f:
-            f.write(date.today().strftime("%Y-%m-%d"))
-        self.last_clear_date = date.today()
-    
-    def _monitor_for_clearing(self):
-        """Thread function to check for daily log clearing"""
-        while True:
-            today = date.today()
-            last_clear_date = self._get_last_clear_date()
-            
-            if today > last_clear_date:
-                self.clear_logs()
-            
-            # Check every hour
-            time.sleep(3600)
-    
-    def clear_logs(self):
-        """Clear the log file and update the clear date"""
-        try:
-            creation_date = datetime.now()
-            header = f"# Log file created on {creation_date.strftime('%Y-%m-%d %H:%M:%S')}"
-            
-            with open(self.log_file, "w") as f:
-                f.write(header + "\n")
-            
-            return True
-        except Exception as e:
-            print(f"Error clearing logs: {e}")
-            return False
-    
-    def write_log(self, message):
-        """Write an encrypted log entry"""
-        try:
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            log_entry = f"[{timestamp}] {message}"
-            
-            # Encrypt the log entry
-            # key = self._get_key()
-            key = constants.ENCRYPTION_KEY
-            fernet = Fernet(key)
-            encrypted_entry = fernet.encrypt(log_entry.encode())
-            
-            with open(self.log_file, "ab") as f:
-                f.write(encrypted_entry + b"\n")
-            
-            return True
-        except Exception as e:
-            print(f"Error writing log: {e}")
-            return False
-    
-    def read_logs(self):
-        """Read and decrypt all log entries"""
-        if not os.path.exists(self.log_file):
-            return []
-        
-        try:
-            # key = self._get_key()
-            key = constants.ENCRYPTION_KEY
-            fernet = Fernet(key)
-            
-            logs = []
-            with open(self.log_file, "rb") as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        try:
-                            decrypted_line = fernet.decrypt(line).decode('utf-8')
-                            logs.append(decrypted_line)
-                        except:
-                            # Skip lines that can't be decrypted (could be plain text headers)
-                            if line.startswith(b'#'):
-                                logs.append(line.decode('utf-8'))
-            
-            return logs
-        except Exception as e:
-            print(f"Error reading logs: {e}")
-            return [f"Error: {e}"]
-        
-    def get_last_clear_date_formatted(self):
-        """Get the formatted last clear date for display"""
-        return self._get_last_clear_date().strftime("%Y-%m-%d")
-
-LogManagerObj = LogManager()
+from log import LogManagerObj
