@@ -39,12 +39,16 @@ class MARGINS(ctypes.Structure):
                 ("cyBottomHeight", wintypes.INT)]
     
 
-def open_log_window(parent, event):
-    print("ctrl d")
+def open_log_window(parent, event, LogViewerAppObj):
     # logObj = LogManagerObj()
-    LogViewerAppObj = LogViewerApp(parent)
-    # parent.log_window = 
-    LogViewerAppObj.show_log_viewer()
+    if constants.SHOW_LOG_WINDOW:
+        LogViewerAppObj.hide_log_viewer()
+        # print("hide")
+        constants.SHOW_LOG_WINDOW = False
+    else:
+        # print("show")
+        constants.SHOW_LOG_WINDOW = True
+        LogViewerAppObj.show_log_viewer()
     
 
 class App(tk.Tk):
@@ -107,7 +111,7 @@ class App(tk.Tk):
         
         self.resizable(0,0)
         self.iconbitmap("./lib/images/logo2.ico")
-        self.title("Login Screen")
+        self.title("eVitalRx Tally Sync")
         # self.bind("<Button-1>", start_move)
         # self.bind("<ButtonRelease-1>", stop_move)
         # self.bind("<B1-Motion>", do_move)
@@ -195,6 +199,7 @@ class App(tk.Tk):
             self.frames[frame_name] = Dashboard(self, self)
         
         frame = self.frames[frame_name]
+        # self.clear_frame_inputs(frame)
         # frame.tkraise()
         # frame.update_idletasks() 
         
@@ -216,8 +221,8 @@ class App(tk.Tk):
                 widget.deselect()  # Uncheck checkbuttons
             elif isinstance(widget, tk.Radiobutton):
                 widget.deselect()  # Unselect radiobuttons
-            elif isinstance(widget, tk.OptionMenu):
-                widget.set("")  # Reset dropdown selection if applicable
+            # elif isinstance(widget, tk.OptionMenu):
+            #     widget.set("")  # Reset dropdown selection if applicable
             elif isinstance(widget, tk.Frame):
                 self.clear_frame_inputs(widget)  # Recursively clear nested frames
 
@@ -226,8 +231,9 @@ class LoginScreen(tk.Frame):
         super().__init__(parent, bg="white")
         self.controller = controller
         parent.title = "Login"
+        LogViewerAppObj = LogViewerApp(parent)
         
-        self.bind_all("<Control-d>", lambda e: open_log_window(parent, e))
+        self.bind_all("<Control-d>", lambda e: open_log_window(parent, e, LogViewerAppObj))
 
 
         header_font = font.Font(family="Manrope", size=14, weight="bold")
@@ -386,16 +392,16 @@ class LoginScreen(tk.Frame):
             print(f"Error loading title bar icon: {e}")
 
         # Title (left side)
-        title_label = tk.Label(
-            drag_layer,
-            text="Tally Sync Utility",
-            # bg="#0CA1F6",
-            bg="white",
-            # fg="white",
-            fg="black",
-            font=header_font5b
-        )
-        title_label.pack(side=tk.LEFT, padx=(5, 0), pady=(3,0))
+        # title_label = tk.Label(
+        #     drag_layer,
+        #     text="Tally Sync Utility",
+        #     # bg="#0CA1F6",
+        #     bg="white",
+        #     # fg="white",
+        #     fg="black",
+        #     font=header_font5b
+        # )
+        # title_label.pack(side=tk.LEFT, padx=(5, 0), pady=(3,0))
 
         # Close button (right side)
         close_button = tk.Label(
@@ -424,8 +430,8 @@ class LoginScreen(tk.Frame):
         drag_layer.bind("<B1-Motion>", self.controller.do_move)
 
         # Also allow dragging from title text
-        title_label.bind("<Button-1>", self.controller.start_move)
-        title_label.bind("<B1-Motion>", self.controller.do_move)
+        # title_label.bind("<Button-1>", self.controller.start_move)
+        # title_label.bind("<B1-Motion>", self.controller.do_move)
         
         close_button.bind("<Button-1>", lambda e: close_window())
 
@@ -551,9 +557,8 @@ class Dashboard(tk.Frame):
         header_font5b = font.Font(family="Manrope", size=8, weight="bold")
         
         # def open_log_window()
-        
-        self.bind_all("<Control-d>", lambda e: open_log_window(parent, e))
-
+        LogViewerAppObj = LogViewerApp(parent)
+        self.bind_all("<Control-d>", lambda e: open_log_window(parent, e, LogViewerAppObj))
 
         def create_main_content():
 
@@ -912,13 +917,25 @@ class Dashboard(tk.Frame):
                 company_row.pack(fill=tk.X, pady=(5, 0), padx=(5,0))
 
                 company_options = {x["company_guid"]: x["company_name"] for x in constants.TALLY_ACCOUNTS}
+                tally_guids = list(company_options.keys())
                 if constants.MAPPING_HISTORY is not None and len(constants.MAPPING_HISTORY) > 0:
                     if len(constants.MAPPING_HISTORY.get("results", [])) > 0:
                         company_options = {}
                         for x in constants.MAPPING_HISTORY.get("results", []):
+                            if x["is_mapped"] in ["False", False, 'false', ""]:
+                                continue
                             company_options[x["tally_company_guid"]] = x["tally_company_name"]
+                            if x["tally_company_guid"] not in tally_guids:
+                                messagebox.showerror("Tally Comapny", "Mapped tally company not found. Please contact support.")
+                                logout()
+                                close_window()
+                                parent.quit()
+                                import sys
+                                sys.exit(1)
+                                
+                                # # re_create_main_content()
 
-                company_var = tk.StringVar(value=list(company_options.values())[0] if company_options else "")
+                company_var = tk.StringVar(company_row, value=list(company_options.values())[0] if company_options else "")
                 constants.COMPANY_NAME = company_var.get()
                 
                 def update_company(*args):
@@ -1008,11 +1025,11 @@ class Dashboard(tk.Frame):
                             return
 
                         # Rule 2: Max 30 days range
-                        if (end_date - start_date).days > 30:
+                        if (end_date - start_date).days > 180:
                             messagebox.showerror("Invalid Range", "You can select a maximum of 30 days only.")
                             
                             # Auto-correct end date to +30 days from start
-                            corrected_date = start_date + timedelta(days=30)
+                            corrected_date = start_date + timedelta(days=180)
                             constants.SYNC_END_DATE.set(corrected_date.strftime(DATE_FORMAT))
                             return
                         
@@ -1344,7 +1361,7 @@ class Dashboard(tk.Frame):
                 def on_start_change(*args):
                     try:
                         start_date = datetime.strptime(constants.SYNC_START_DATE.get(), DATE_FORMAT)
-                        max_date = start_date + timedelta(days=30)
+                        max_date = start_date + timedelta(days=180)
                         
                         if max_date.date() > datetime.now().date():
                             constants.SYNC_END_DATE.set(datetime.now().date().strftime(DATE_FORMAT))
@@ -1491,15 +1508,30 @@ class Dashboard(tk.Frame):
                     print("stage 1")
                 
                 
-                    for widget in right_panel.winfo_children():
-                        if widget.winfo_exists():
-                            widget.destroy()
+                    # for widget in right_panel.winfo_children():
+                    #     if widget.winfo_exists():
+                    #         widget.destroy()
 
                     print("sync increased")
                     # re_create_main_content()
                     self.after(100, re_create_main_content)
                 else:
-                    messagebox.showerror("Map Comany", "Please map all your companies first.")
+                    current_chemist = constants.LOGIN_RESPONSE["data"]["business_details"]["logged_in_business"]["id"]
+                    mapped_current = [x for x in constants.MAPPING_HISTORY["results"] if x["is_mapped"] in ["True", True, 'True'] and x["entity_id"] == current_chemist]
+                    if len(mapped_current) <= 0:
+                        messagebox.showerror("Map Comany", "Please map your company")
+                    else:
+                        constants.SYNC_STAGE = 1
+                        constants.SYNC_BTN_TEXT = "Sync All"
+                        
+                        # for widget in right_panel.winfo_children():
+                        #     if widget.winfo_exists():
+                        #         widget.destroy()
+
+                        print("sync increased")
+                        # re_create_main_content()
+                        self.after(100, re_create_main_content)
+                
             
             elif constants.SYNC_STAGE == 1:
                 if constants.SELECTED_MODULES == []:
@@ -1979,16 +2011,16 @@ class Dashboard(tk.Frame):
             print(f"Error loading title bar icon: {e}")
 
         # Title (left side)
-        title_label = tk.Label(
-            drag_layer,
-            text="Tally Sync Utility",
-            # bg="#0CA1F6",
-            bg="white",
-            # fg="white",
-            fg="black",
-            font=header_font5b
-        )
-        title_label.pack(side=tk.LEFT, padx=(5, 0), pady=(3,0))
+        # title_label = tk.Label(
+        #     drag_layer,
+        #     text="Tally Sync Utility",
+        #     # bg="#0CA1F6",
+        #     bg="white",
+        #     # fg="white",
+        #     fg="black",
+        #     font=header_font5b
+        # )
+        # title_label.pack(side=tk.LEFT, padx=(5, 0), pady=(3,0))
 
         # Close button (right side)
         close_button = tk.Label(
@@ -2017,8 +2049,8 @@ class Dashboard(tk.Frame):
         drag_layer.bind("<B1-Motion>", self.controller.do_move)
 
         # Also allow dragging from title text
-        title_label.bind("<Button-1>", self.controller.start_move)
-        title_label.bind("<B1-Motion>", self.controller.do_move)
+        # title_label.bind("<Button-1>", self.controller.start_move)
+        # title_label.bind("<B1-Motion>", self.controller.do_move)
         
         close_button.bind("<Button-1>", lambda e: close_window())
             
@@ -2124,7 +2156,7 @@ class LogViewerApp:
         refresh_btn = ttk.Button(btn_frame, text="Refresh Logs", command=self.refresh_logs)
         refresh_btn.pack(side=tk.LEFT, padx=5)
         
-        clear_btn = ttk.Button(btn_frame, text="Clear Logs Now", command=self.clear_logs)
+        clear_btn = ttk.Button(btn_frame, text="Clear Logs", command=self.clear_logs)
         clear_btn.pack(side=tk.RIGHT)
         
         # Last cleared info
@@ -2146,7 +2178,7 @@ class LogViewerApp:
         # frame.configure(bg="white")
         
         # Clear logs button
-        clear_btn = ttk.Button(parent, text="Clear Logs Now", command=self.clear_logs)
+        clear_btn = ttk.Button(parent, text="Clear Logs", command=self.clear_logs)
         clear_btn.pack(pady=10)
         
         # Last cleared info

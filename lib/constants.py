@@ -352,3 +352,4 @@ SELECTED_MODULES = []
 
 ROOT_WINDOW = None  # For thread-safe operations
 ANIMATION_AFTER_ID = None
+SHOW_LOG_WINDOW = False

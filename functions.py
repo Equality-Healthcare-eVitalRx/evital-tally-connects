@@ -28,6 +28,7 @@ def login(mobile_number, password, entity="chemist"):
         return 0
     else:
         res = send_login_request(mobile_number, password, entity)
+        # print(res)
         
         if "status_code" in res.keys() and res['status_code'] in [1,'1']:
             if_chain_pharmacy = res["data"]["business_details"]["is_chain_business"]
@@ -144,7 +145,7 @@ def startprocess(one_sync=False):
             constants.STOP_THREAD = False
             return 0
         LogManagerObj.write_log("+"*50)
-        LogManagerObj.write_log(f"🔑 Syncing {company['company_name']}")
+        LogManagerObj.write_log(f"🔑 Syncing {company['company_name']} from {company['branch_name']}")
         
         current_apikey = ""
         if constants.LOGIN_RESPONSE["data"]["business_details"]["logged_in_business"]["id"] == company["chemist_id"] and constants.LOGIN_RESPONSE["data"]["business_details"]["logged_in_business"]["apikey"] != "":
@@ -246,6 +247,19 @@ def startprocess(one_sync=False):
             "ledgers_data" : {},
             "groups_data" : {}
         }
+                    
+        current_date = datetime.now()
+        start_date = from_date.strftime("%Y%m%d")
+        end_date = to_date.strftime("%Y%m%d")
+        
+        
+        if current_date.month > 3:
+            start_date = str(current_date.year) + "0401"
+            end_date = str(current_date.year + 1) + "0331"
+        else:
+            start_date = str(current_date.year - 1) + "0401"
+            end_date = str(current_date.year - 1) + "0331"
+
         
         for key, value in constants.REQUEST_FORMATS.items():
             if constants.STOP_THREAD:   
@@ -260,8 +274,10 @@ def startprocess(one_sync=False):
                 request_str = request_str.replace("company_name", company["company_name"])
                 # request_str = request_str.replace("company_name", "company")
                 # request_str = request_str.replace("company_name", "Smit Pharmacy")
-                request_str = request_str.replace("from_date", from_date.strftime("%Y%m%d"))
-                request_str = request_str.replace("to_date", to_date.strftime("%Y%m%d"))
+                
+                    
+                request_str = request_str.replace("from_date", start_date)
+                request_str = request_str.replace("to_date", end_date)
                 # #print('➡ main.py:25 request_str:', request_str)
                 
                 parsed_data =  send_request_to_tally(request_str, key)
@@ -286,13 +302,15 @@ def startprocess(one_sync=False):
         # #print('➡ main.py:210 data_list:', data_list)
         # #print('➡ main.py:213 init_data_list:', init_data_list)
                 
-        init_data_list["start_date"] = from_date.strftime("%Y-%m-%d")
-        init_data_list["end_date"] = to_date.strftime("%Y-%m-%d")
+        new_start_date = datetime.strptime(start_date, "%Y%m%d").strftime("%Y-%m-%d")
+        new_end_date = datetime.strptime(end_date, "%Y%m%d").strftime("%Y-%m-%d")
+        init_data_list["start_date"] = new_start_date
+        init_data_list["end_date"] = new_end_date
         init_data_list["chemist_id"] = company["chemist_id"]
         
         tally_data = {
-            "start_date" : from_date.strftime("%Y-%m-%d"),
-            "end_date" : to_date.strftime("%Y-%m-%d"),
+            "start_date" : new_start_date,
+            "end_date" : new_end_date,
             "chemist_id" : company["chemist_id"],
             "json_data" : data_list,
         }
@@ -314,7 +332,7 @@ def startprocess(one_sync=False):
         LogManagerObj.write_log("+"*50)
         constants.STOP_THREAD = False
         return 0
-    LogManagerObj.write_log("Sending tally data to EVITAL RX")
+    LogManagerObj.write_log("Sending tally data to eVitalRx")
     res = send_data_to_evitalrx(request_array)
     LogManagerObj.write_log(res)
     
