@@ -1,16 +1,13 @@
 import itertools
 import json
-from multiprocessing import freeze_support
 import threading
 from tkinter import *
 from functions import encrypt_data
 from lib import constants
 from tkinter import messagebox
 from lib.import_export_data import send_request_to_tally,send_data_to_evitalrx,reset_mapping_from_rx,check_if_tally_running,send_init_data_to_evital_rx
-from tkinter.ttk import Combobox, Labelframe
-import os
+from tkinter.ttk import Combobox
 from ttkthemes import ThemedTk
-from tkcalendar import Calendar, DateEntry
 from datetime import datetime, date
 import time
 

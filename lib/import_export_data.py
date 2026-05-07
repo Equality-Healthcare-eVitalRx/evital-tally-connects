@@ -4,9 +4,7 @@ from lib import constants
 import requests
 import xmltodict
 import json
-import re
 from tkinter import messagebox
-from datetime import datetime
 import traceback
 import logging
 from log import LogManagerObj

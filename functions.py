@@ -3,14 +3,13 @@
 
 import base64
 import ctypes
-from datetime import date, datetime, timedelta
+from datetime import datetime
 import json
 import multiprocessing
-import os
 import threading
 import time
 import tkinter as tk
-from tkinter import Tk, messagebox
+from tkinter import messagebox
 # import image
 from cryptography.fernet import Fernet
 from PIL import Image, ImageSequence, ImageTk
@@ -226,8 +225,8 @@ def startprocess(one_sync=False):
                 print(f"❌ Reconciliation failed: {res['error']}")
                 LogManagerObj.write_log(f"❌ Reconciliation failed: {res['error']}")
             else:
-                LogManagerObj.write_log(f"✅ Reconciliation successful.")
-                print(f"✅ Reconciliation successful.")
+                LogManagerObj.write_log("✅ Reconciliation successful.")
+                print("✅ Reconciliation successful.")
 
         
         if constants.CURRENT_BRANCH_SYNC is not None:

@@ -1,10 +1,8 @@
+from tkcalendar import Calendar
 import ctypes
 from ctypes import wintypes
 from datetime import datetime, timedelta
-import json
-import multiprocessing
 from multiprocessing.dummy import freeze_support
-import multiprocessing.process
 from pathlib import Path
 import threading
 import time
@@ -12,14 +10,10 @@ import tkinter as tk
 from tkinter import font, ttk
 from tkinter import messagebox
 from tkinter import scrolledtext
-import traceback
 from PIL import Image, ImageTk, ImageSequence, ImageGrab, ImageFilter
 from customtkinter import CTkButton, CTkFont
 import pyglet
-import keyboard
-from tkcalendar import Calendar, DateEntry
-from ttkthemes import ThemedStyle
-from functions import login, logout, get_all_mapping_details, constants, start_background_thread, start_thread, map_rx_companies, startprocess, encrypt_data,decrypt_data, LogManagerObj
+from functions import login, logout, get_all_mapping_details, constants, start_background_thread, start_thread, map_rx_companies, encrypt_data,decrypt_data, LogManagerObj
 pyglet.options['win32_gdi_font'] = True
 fontpath = Path(__file__).parent / 'lib/fonts/static/Manrope-Regular.ttf'
 themepath = Path(__file__).parent / "lib/fonts/breeze/breeze.tcl"
@@ -569,20 +563,20 @@ class Dashboard(tk.Frame):
                         widget.destroy()
 
             get_all_mapping_details()
-            all_mapped = False
-            mapres1 = constants.MAPPING_HISTORY["results"] if isinstance(constants.MAPPING_HISTORY, dict) and "results" in constants.MAPPING_HISTORY.keys() else []
-            mapres = [x for x in mapres1 if x["is_mapped"] in ["False", False, 'false', ""]]
+            # all_mapped = False
+            # mapres1 = constants.MAPPING_HISTORY["results"] if isinstance(constants.MAPPING_HISTORY, dict) and "results" in constants.MAPPING_HISTORY.keys() else []
+            # mapres = [x for x in mapres1 if x["is_mapped"] in ["False", False, 'false', ""]]
             
-            available_companies = constants.TALLY_ACCOUNTS.copy()
-            for x in constants.TALLY_ACCOUNTS:
-                for j in constants.MAPPING_HISTORY.get("results", []):
-                    if x["company_guid"] == j["tally_company_guid"] and x in available_companies:
-                        available_companies.remove(x)
-            all_mapped = len(available_companies) == 0 or len(mapres) == 0
-            if all_mapped and len(mapres1) > 0:
-                constants.SYNC_STAGE = 1
-                constants.SYNC_BTN_TEXT = "Sync All"
-                print("stage 1")
+            # available_companies = constants.TALLY_ACCOUNTS.copy()
+            # for x in constants.TALLY_ACCOUNTS:
+            #     for j in constants.MAPPING_HISTORY.get("results", []):
+            #         if x["company_guid"] == j["tally_company_guid"] and x in available_companies:
+            #             available_companies.remove(x)
+            # all_mapped = len(available_companies) == 0 or len(mapres) == 0
+            # if all_mapped and len(mapres1) > 0:
+                # constants.SYNC_STAGE = 1
+                # constants.SYNC_BTN_TEXT = "Sync All"
+                # print("stage 1")
                 
             # print(constants.MAPPING_HISTORY, "mapping history in dashboard")
             # # print(constants.COMPANY_MAPPING, "company mapping in dashboard")
@@ -624,7 +618,7 @@ class Dashboard(tk.Frame):
 
             # Lower right panel (contains branch data)
             lower_right_panel = tk.Frame(right_panel, bg="white")
-            lower_right_panel.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=30, pady=(10, 0))
+            lower_right_panel.pack(side=tk.TOP, fill=tk.X, expand=True, padx=30, pady=(0,80))
             
             if constants.SYNC_STAGE == 0:
 
@@ -651,8 +645,7 @@ class Dashboard(tk.Frame):
                 branches_label = tk.Label(lower_right_panel, text=str(len(branches))+" Branches", bg="white", fg="#A9A9A9", font=label_font, justify=tk.LEFT)
                 branches_label.pack(pady=(30, 5), padx=5, anchor=tk.W)
                 
-                canvas = tk.Canvas(lower_right_panel, bg="white", bd=0, highlightthickness=0, relief='ridge')
-                # scrollbar = ttk.Scrollbar(lower_right_panel, orient="vertical", command=canvas.yview, style="Custom.Vertical.TScrollbar")
+                canvas = tk.Canvas(lower_right_panel, bg="white", bd=0, highlightthickness=0, relief='ridge', height=350)
                 scrollbar = ttk.Scrollbar(lower_right_panel, orient="vertical", command=canvas.yview)
                 scrollable_frame = tk.Frame(canvas, bg="white")
 
@@ -679,35 +672,35 @@ class Dashboard(tk.Frame):
                         elif event.num == 5:  # Linux scroll down
                             canvas.yview_scroll(1, "units")
                             
-                def rotate_image(canvas2, size, image_tk, angle):
-                    while not constants.STOP_THREAD:
-                        # Rotate image smoothly
-                        rotated_image = branch_image.rotate(angle, resample=Image.BICUBIC, expand=True)
+                # def rotate_image(canvas2, size, image_tk, angle):
+                #     while not constants.STOP_THREAD:
+                #         # Rotate image smoothly
+                #         rotated_image = branch_image.rotate(angle, resample=Image.BICUBIC, expand=True)
 
-                        # Create a transparent background to prevent jiggling
-                        background = Image.new("RGBA", (size, size), (255, 255, 255, 0))
-                        offset = (
-                            int((size - rotated_image.width) / 2),
-                            int((size - rotated_image.height) / 2)
-                        )
-                        background.paste(rotated_image, offset, rotated_image)
+                #         # Create a transparent background to prevent jiggling
+                #         background = Image.new("RGBA", (size, size), (255, 255, 255, 0))
+                #         offset = (
+                #             int((size - rotated_image.width) / 2),
+                #             int((size - rotated_image.height) / 2)
+                #         )
+                #         background.paste(rotated_image, offset, rotated_image)
 
-                        # Update the image on canvas
-                        image_tk = ImageTk.PhotoImage(background)
-                        canvas2.itemconfig(image_id, image=image_tk)
+                #         # Update the image on canvas
+                #         image_tk = ImageTk.PhotoImage(background)
+                #         canvas2.itemconfig(image_id, image=image_tk)
 
-                        # Increment angle for rotation
-                        angle = (angle - 15) % 360
-                        time.sleep(0.05)
-                    re_create_main_content()
+                #         # Increment angle for rotation
+                #         angle = (angle - 15) % 360
+                #         time.sleep(0.05)
+                #     re_create_main_content()
 
-                def toggle_rotation(event, branch_data, canvas2, size, image_tk, angle=0):
-                    # print('➡ tk_screen.py:528 toggle_rotation:')
-                    # print(event)
-                    # print(branch_data)
-                    sync_single_branch(branch_data)
-                    if not constants.STOP_THREAD:
-                        threading.Thread(target=rotate_image, args=(canvas2, size, image_tk, angle), daemon=True).start()
+                # def toggle_rotation(event, branch_data, canvas2, size, image_tk, angle=0):
+                #     # print('➡ tk_screen.py:528 toggle_rotation:')
+                #     # print(event)
+                #     # print(branch_data)
+                #     sync_single_branch(branch_data)
+                #     if not constants.STOP_THREAD:
+                #         threading.Thread(target=rotate_image, args=(canvas2, size, image_tk, angle), daemon=True).start()
                         
                 
                 def show_map_menu(event, branch_data):
@@ -807,7 +800,10 @@ class Dashboard(tk.Frame):
                 canvas.bind_all("<MouseWheel>", on_scroll)  # Windows
                 canvas.bind_all("<Button-4>", on_scroll)  # Linux Scroll Up
                 canvas.bind_all("<Button-5>", on_scroll)  # Linux Scroll Down
-                
+                # branches = [
+                #     {"name":"Branch 1sjnsdgjsldngslgnsglsjgslkgjsglksjglskgjsglksjglksgjslkgsjgklsgjslkgsjlgksdjglksdgj", "status":"Map Now", "time" : "No Sync", "chemist_id" : 1, "company_guid" : 1}
+                #     for x in range(10)
+                # ]
                 for branch in branches:
                     # Main frame for each branch
                     branch_frame = tk.Frame(scrollable_frame, bg="white")
@@ -1423,8 +1419,8 @@ class Dashboard(tk.Frame):
             # print('➡ tk_screen.py:605 constants.COMPANY_MAPPING:', constants.COMPANY_MAPPING)
             map_rx_companies()
             
-            self.update()
-            self.update_idletasks()
+            # self.update()
+            # self.update_idletasks()
             print(f"Mapping branch: {branch_name}")
             overlay.destroy()
             create_main_content()
@@ -1433,8 +1429,8 @@ class Dashboard(tk.Frame):
             constants.STOP_THREAD = True
             create_main_content()
         
-        def safe_after_cancel():
-            self.after_cancel(animate_gif)
+        # def safe_after_cancel():
+        #     self.after_cancel(animate_gif)
         
         def logout_account(overlay):
             logout()
@@ -2059,7 +2055,7 @@ class Dashboard(tk.Frame):
         
         
         left_panel.pack_propagate(False)
-        right_panel = tk.Frame(self, bg="white", width=600, height=600)
+        right_panel = tk.Frame(self, bg="white", width=600, height=150)
         right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
         
         

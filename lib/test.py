@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
 
 class PortUpdateWindow(tk.Tk):
     def __init__(self, current_port=5000):

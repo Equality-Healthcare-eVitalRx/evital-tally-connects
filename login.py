@@ -1,9 +1,7 @@
 import ctypes
-import json
 import tkinter as tk
-from tkinter import Menu, messagebox
+from tkinter import messagebox
 from tkinter import ttk
-from tkinter.ttk import Button, Style
 from PIL import Image, ImageTk
 from tkinter import font
 from ttkthemes import ThemedTk
@@ -11,9 +9,7 @@ from functions import decrypt_data, encrypt_data, LogManagerObj
 from main import main_thread
 from lib.import_export_data import send_login_request, get_tally_companies, map_rx_companies, check_if_tally_running
 from lib import constants
-from ctypes import windll
 # from app import logging
-import logging
 
 
 def login_thread():
@@ -423,7 +419,7 @@ def login_thread():
     root.geometry("900x600")
     root.configure(bg="#044C9D")  # Set background to blue
     root.overrideredirect(True)
-    root.geometry(f'+300+200')
+    root.geometry('+300+200')
     root.resizable(0,0)
     root.iconbitmap("./lib/images/logo2.ico")
     root.title("Login Screen")

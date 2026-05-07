@@ -6,9 +6,7 @@ from functions import decrypt_data, LogManagerObj
 from lib.import_export_data import get_tally_companies
 from lib import constants
 from tk_screen import App
-import logging
-import ctypes, tkinter
-from tkinter import font
+import ctypes
 
 try: # >= win 8.1
     ctypes.windll.shcore.SetProcessDpiAwareness(2)
@@ -17,9 +15,9 @@ except: # win 8.0 or less
 
 
 # spalsh comment
-import pyi_splash
-pyi_splash.update_text('UI Loaded ...')
-pyi_splash.close()
+# import pyi_splash
+# pyi_splash.update_text('UI Loaded ...')
+# pyi_splash.close()
 
 
 pyglet.options['win32_gdi_font'] = True
