@@ -1,10 +1,11 @@
+from lib import constants
+constants.LOAD_COMPLETE = False
 
 import multiprocessing
 from pathlib import Path
 import pyglet
 from functions import decrypt_data, LogManagerObj
 from lib.import_export_data import get_tally_companies
-from lib import constants
 from tk_screen import App
 import ctypes
 
@@ -12,7 +13,6 @@ try: # >= win 8.1
     ctypes.windll.shcore.SetProcessDpiAwareness(2)
 except: # win 8.0 or less
     ctypes.windll.user32.SetProcessDPIAware()
-
 
 # spalsh comment
 # import pyi_splash
@@ -27,7 +27,6 @@ pyglet.font.add_file(str(fontpath))
 LogManagerObj.clear_logs()
 LogManagerObj.write_log("Application started")
 
-get_tally_companies()
 
 my_file = Path("./lib/app_cache.txt")
 appObj = App()
@@ -48,6 +47,7 @@ if my_file.is_file():
         if "apikey" in json_data["login_response"]["data"]["business_details"]["logged_in_business"]:
             constants.EVITAL_RX_API_KEY = json_data["login_response"]["data"]["business_details"]["logged_in_business"]["apikey"]
             
+        get_tally_companies()
         appObj.show_frame("Dashboard")
     else:
         appObj.show_frame("LoginScreen")
@@ -57,6 +57,6 @@ else:
     appObj.show_frame("LoginScreen")
     
 if __name__ == "__main__":
-
+    constants.LOAD_COMPLETE = True
     appObj.mainloop()
     multiprocessing.freeze_support()

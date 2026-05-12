@@ -5,7 +5,7 @@ import html
 from lib import constants
 from log import LogManagerObj
 
-TALLY_URL = constants.TALLY_URL + str(constants.TALLY_PORT)
+
 
 class TallyService:
 
@@ -37,6 +37,7 @@ class TallyService:
         if total == 0:
             return
 
+        TALLY_URL = constants.TALLY_URL + str(constants.TALLY_PORT)
         # ── Adaptive batch size based on total records ──────────────────────
         if total <= 50:
             batch_size = 10
@@ -202,6 +203,7 @@ class TallyService:
         </DESC>
     </BODY>
     </ENVELOPE>"""
+            TALLY_URL = constants.TALLY_URL + str(constants.TALLY_PORT)
             res       = requests.post(TALLY_URL, data=xml.encode("utf-8"),
                                     headers={"Content-Type": "text/xml"}, timeout=5)
 
@@ -243,6 +245,7 @@ class TallyService:
     </EXPORTDATA>
   </BODY>
 </ENVELOPE>"""
+            TALLY_URL = constants.TALLY_URL + str(constants.TALLY_PORT)
             res = requests.post(TALLY_URL, data=xml.encode("utf-8"),
                                 headers={"Content-Type": "text/xml"}, timeout=5)
             return res.status_code == 200
@@ -323,6 +326,7 @@ class TallyService:
 </ENVELOPE>"""
         # print(xml)
         # print(TALLY_URL)
+        TALLY_URL = constants.TALLY_URL + str(constants.TALLY_PORT)
         res = requests.post(
             TALLY_URL,
             data=xml.encode("utf-8"),

@@ -164,9 +164,9 @@ def send_login_request(mobile_no, password, entity="chemist"):
 def get_tally_companies():
     headers = {'Content-Type': 'application/xml'}
     request_params = constants.REQUEST_FORMATS["list_of_companies"]
-    
+    # print(request_params)
     try:
-        
+        print(constants.TALLY_URL+str(constants.TALLY_PORT))
         response = requests.post(url=constants.TALLY_URL+str(constants.TALLY_PORT), data=request_params, headers=headers, timeout=3)
         if response.status_code == 200:
             response_content = response.content
@@ -182,6 +182,7 @@ def get_tally_companies():
 
         return parsed_data
     except requests.exceptions.Timeout:
+        traceback.print_exc()
         LogManagerObj.write_log(traceback.format_exc())
         error_message = "Connection timed out. Please try again later."
         messagebox.showerror("Tally Company", error_message)
@@ -190,10 +191,14 @@ def get_tally_companies():
         LogManagerObj.write_log(traceback.format_exc())
         error_message = str(e)
         messagebox.showerror("Tally Company", "Tally is not running.")
+        import os 
+        os.remove("./lib/app_cache.txt")
         sys.exit(1)
     except:
         LogManagerObj.write_log(traceback.format_exc())
         messagebox.showerror("Tally Company", "Tally is not running.")
+        import os 
+        os.remove("./lib/app_cache.txt")
         sys.exit(1)
 
     return 0

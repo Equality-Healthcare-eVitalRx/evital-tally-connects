@@ -472,7 +472,7 @@ def login_thread():
     right_panel.pack_propagate(False)
 
     login_label = tk.Label(right_panel, text="Login with your", bg="white", font=header_font1, justify=tk.LEFT)
-    login_label.pack(pady=(45, 0), padx=50, anchor=tk.W)
+    login_label.pack(pady=(55, 0), padx=50, anchor=tk.W)
     login_label = tk.Label(right_panel, text="eVitalRx account", bg="white", font=header_font, justify=tk.LEFT)
     login_label.pack(pady=(0, 30), padx=50, anchor=tk.W)
 

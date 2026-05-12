@@ -115,9 +115,11 @@ def startprocess(one_sync=False):
     get_tally_companies()
 
     if not one_sync:
+        company_options = {x["company_guid"]: x["company_name"] for x in constants.TALLY_ACCOUNTS}
+        tally_guids = list(company_options.keys())
         companies = [
             {"chemist_id" : x["entity_id"], "company_name":x["tally_company_name"], "company_guid":x["tally_company_guid"], "branch_name":x["branch_name"]}
-            for x in constants.MAPPING_HISTORY["results"] if x["is_mapped"] in ['true', True, 'True']
+            for x in constants.MAPPING_HISTORY["results"] if x["is_mapped"] in ['true', True, 'True'] and x["tally_company_guid"] in tally_guids
             # if x["tally_company_name"] == constants.COMPANY_NAME
         ]
     else:

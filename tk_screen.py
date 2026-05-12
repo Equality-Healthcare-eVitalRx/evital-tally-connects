@@ -14,6 +14,7 @@ from PIL import Image, ImageTk, ImageSequence, ImageGrab, ImageFilter
 from customtkinter import CTkButton, CTkFont
 import pyglet
 from functions import login, logout, get_all_mapping_details, constants, start_background_thread, start_thread, map_rx_companies, encrypt_data,decrypt_data, LogManagerObj
+from lib.import_export_data import get_tally_companies
 pyglet.options['win32_gdi_font'] = True
 fontpath = Path(__file__).parent / 'lib/fonts/static/Manrope-Regular.ttf'
 themepath = Path(__file__).parent / "lib/fonts/breeze/breeze.tcl"
@@ -85,15 +86,15 @@ class App(tk.Tk):
         
         self.geometry("950x650")
         self.configure(bg="#044C9D")  # Set background to blue
-        self.overrideredirect(True)
+        self.overrideredirect(False)
         
         hwnd = self.winfo_id()
         
         # Ensure the window has a taskbar presence
-        ctypes.windll.user32.SetWindowLongW(hwnd, -8, 0)  # Set parent to None (GWLP_HWNDPARENT = -8)
-        ctypes.windll.user32.SetWindowLongW(hwnd, -20, 
-                                            ctypes.windll.user32.GetWindowLongW(hwnd, -20) & ~0x00000080)  # Remove WS_EX_TOOLWINDOW
-        ctypes.windll.user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, 0x0020)  # Apply changes (SWP_FRAMECHANGED)
+        # ctypes.windll.user32.SetWindowLongW(hwnd, -8, 0)  # Set parent to None (GWLP_HWNDPARENT = -8)
+        # ctypes.windll.user32.SetWindowLongW(hwnd, -20, 
+        #                                     ctypes.windll.user32.GetWindowLongW(hwnd, -20) & ~0x00000080)  # Remove WS_EX_TOOLWINDOW
+        # ctypes.windll.user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, 0x0020)  # Apply changes (SWP_FRAMECHANGED)
 
         
         user32 = ctypes.windll.user32
@@ -105,7 +106,7 @@ class App(tk.Tk):
         
         self.resizable(0,0)
         self.iconbitmap("./lib/images/logo2.ico")
-        self.title("eVitalRx Tally Sync")
+        self.title("eVitalRx Tally Connects")
         # self.bind("<Button-1>", start_move)
         # self.bind("<ButtonRelease-1>", stop_move)
         # self.bind("<B1-Motion>", do_move)
@@ -127,15 +128,15 @@ class App(tk.Tk):
         self.initialize_screens()
         self.show_frame("LoginScreen")
         
-        hwnd = self.winfo_id()
-        
-        # Ensure the window has a taskbar presence
-        ctypes.windll.user32.SetWindowLongW(hwnd, -8, 0)  # Set parent to None (GWLP_HWNDPARENT = -8)
-        ctypes.windll.user32.SetWindowLongW(hwnd, -20, 
-                                            ctypes.windll.user32.GetWindowLongW(hwnd, -20) & ~0x00000080)  # Remove WS_EX_TOOLWINDOW
-        ctypes.windll.user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, 0x0020)  # Apply changes (SWP_FRAMECHANGED)
-
-        user32 = ctypes.windll.user32
+        # # Replace the existing WinAPI block in __init__ with this:
+        # hwnd = self.winfo_id()
+        # ex_style = ctypes.windll.user32.GetWindowLongW(hwnd, -20)
+        # ex_style &= ~0x00000080  # Remove WS_EX_TOOLWINDOW
+        # ex_style |= 0x00040000   # Add WS_EX_APPWINDOW
+        # ctypes.windll.user32.SetWindowLongW(hwnd, -20, ex_style)
+        # ctypes.windll.user32.SetWindowLongW(hwnd, -8, 0)
+        # ctypes.windll.user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0,
+        #                                 0x0020 | 0x0002 | 0x0001)
         
         self.update()
         self.update_idletasks()
@@ -173,11 +174,9 @@ class App(tk.Tk):
         self.destroy()
 
     def initialize_screens(self):
-        # Add frames to the dictionary
         self.frames["LoginScreen"] = LoginScreen(self, self)
         self.frames["Dashboard"] = Dashboard(self, self)
         
-        # Pack all frames but keep them hidden initially
         for frame in self.frames.values():
             frame.grid(row=0, column=0, sticky="nsew")
 
@@ -250,28 +249,35 @@ class LoginScreen(tk.Frame):
             print(res, "login response")
             if res == 1:
                 show_port_popup()
-                constants.MOBILE = mobile_entry.get()
+                print("port popup")
                 
-                with open("./lib/app_cache.txt") as data_file:
-                        # data = json.load(data_file)
-                        data = decrypt_data(data_file.read())
-                data["mobile"] = constants.MOBILE
-                data["tally_port"] = constants.TALLY_PORT
-                data["tally_host"] = constants.HOST
-                with open("./lib/app_cache.txt", "w") as json_file:
-                        # json.dump(data, json_file)
-                        json_file.write(encrypt_data(data))
-                if constants.MOBILE_VAR is not None:
-                    constants.MOBILE_VAR.set(constants.MOBILE)
-                get_all_mapping_details()
-                parent.show_frame("Dashboard")
                 
         def update_tally_port(overlay, port, host):
             constants.TALLY_PORT = port
             constants.HOST = host
+            print(constants.TALLY_URL+str(constants.TALLY_PORT), "changed")
+            constants.MOBILE = mobile_entry.get()
+                
+            with open("./lib/app_cache.txt") as data_file:
+                    # data = json.load(data_file)
+                    data = decrypt_data(data_file.read())
+            print(data)
+            data["mobile"] = constants.MOBILE
+            data["tally_port"] = constants.TALLY_PORT
+            data["tally_host"] = constants.HOST
+            with open("./lib/app_cache.txt", "w") as json_file:
+                    # json.dump(data, json_file)
+                    json_file.write(encrypt_data(data))
+            print(data)
+            if constants.MOBILE_VAR is not None:
+                constants.MOBILE_VAR.set(constants.MOBILE)
+            
             overlay.destroy()
             [widget.delete(0, tk.END) for widget in parent.winfo_children() if isinstance(widget, tk.Entry)]
-        
+            get_all_mapping_details()
+            get_tally_companies()
+            # parent.update()
+            parent.show_frame("Dashboard")
             
         def show_port_popup():
             x = self.winfo_rootx()
@@ -345,9 +351,9 @@ class LoginScreen(tk.Frame):
             
             # YES button - Blue background with white text
             yes_button2 = tk.Button(menu_frame, text="Update", width=8, bg="#007BFF", fg="white",
-                                activebackground="#0056b3", activeforeground="white",
-                                relief="flat", font=header_font4,
-                                command=lambda x=overlay,y=tally_port_var.get(),z=tally_host_var.get():update_tally_port(x,y,z))
+                    activebackground="#0056b3", activeforeground="white",
+                    relief="flat", font=header_font4,
+                    command=lambda: update_tally_port(overlay, tally_port_var.get(), tally_host_var.get()))
             yes_button2.pack(pady=(0, 10), side="left", padx=20, fill=tk.X, expand=True)
 
 
@@ -359,75 +365,75 @@ class LoginScreen(tk.Frame):
             # Bind click outside the menu to close the overlay
             overlay.bind("<Button-1>", on_click_outside)
         
-        drag_layer = tk.Frame(
-            self,
-            # bg="#0CA1F6",
-            bg="white",
-            height=35
-        )
-        drag_layer.pack(side=tk.TOP, fill=tk.X)
+        # drag_layer = tk.Frame(
+        #     self,
+        #     # bg="#0CA1F6",
+        #     bg="white",
+        #     height=35
+        # )
+        # drag_layer.pack(side=tk.TOP, fill=tk.X)
         
-        # Load and display icon in title bar
-        icon_path = "./lib/images/logo2.ico"  # or use .png
-        try:
-            icon_image = Image.open(icon_path)
-            icon_image = icon_image.resize((20, 20), Image.Resampling.LANCZOS)
-            icon_image_tk = ImageTk.PhotoImage(icon_image)
+        # # Load and display icon in title bar
+        # icon_path = "./lib/images/logo2.ico"  # or use .png
+        # try:
+        #     icon_image = Image.open(icon_path)
+        #     icon_image = icon_image.resize((20, 20), Image.Resampling.LANCZOS)
+        #     icon_image_tk = ImageTk.PhotoImage(icon_image)
             
-            icon_label = tk.Label(
-                drag_layer,
-                image=icon_image_tk,
-                bg="white"
-            )
-            icon_label.image = icon_image_tk  # Keep reference
-            icon_label.pack(side=tk.LEFT, padx=(15, 5), pady=(3, 3))
-            print("Title bar icon loaded")
-        except Exception as e:
-            print(f"Error loading title bar icon: {e}")
+        #     icon_label = tk.Label(
+        #         drag_layer,
+        #         image=icon_image_tk,
+        #         bg="white"
+        #     )
+        #     icon_label.image = icon_image_tk  # Keep reference
+        #     icon_label.pack(side=tk.LEFT, padx=(15, 5), pady=(3, 3))
+        #     print("Title bar icon loaded")
+        # except Exception as e:
+        #     print(f"Error loading title bar icon: {e}")
 
-        # Title (left side)
-        # title_label = tk.Label(
+        # # Title (left side)
+        # # title_label = tk.Label(
+        # #     drag_layer,
+        # #     text="Tally Sync Utility",
+        # #     # bg="#0CA1F6",
+        # #     bg="white",
+        # #     # fg="white",
+        # #     fg="black",
+        # #     font=header_font5b
+        # # )
+        # # title_label.pack(side=tk.LEFT, padx=(5, 0), pady=(3,0))
+
+        # # Close button (right side)
+        # close_button = tk.Label(
         #     drag_layer,
-        #     text="Tally Sync Utility",
+        #     text="✕",
         #     # bg="#0CA1F6",
         #     bg="white",
         #     # fg="white",
         #     fg="black",
-        #     font=header_font5b
+        #     font=("Segoe UI", 8, "bold"),
+        #     cursor="hand2"
         # )
-        # title_label.pack(side=tk.LEFT, padx=(5, 0), pady=(3,0))
-
-        # Close button (right side)
-        close_button = tk.Label(
-            drag_layer,
-            text="✕",
-            # bg="#0CA1F6",
-            bg="white",
-            # fg="white",
-            fg="black",
-            font=("Segoe UI", 8, "bold"),
-            cursor="hand2"
-        )
-        close_button.pack(side=tk.RIGHT, padx=15, pady=3)
+        # close_button.pack(side=tk.RIGHT, padx=15, pady=3)
     
-        def on_close_enter(e):
-            close_button.config(bg="#E81123")  # Windows red
+        # def on_close_enter(e):
+        #     close_button.config(bg="#E81123")  # Windows red
 
-        def on_close_leave(e):
-            # close_button.config(bg="#0CA1F6")
-            close_button.config(bg="white")
+        # def on_close_leave(e):
+        #     # close_button.config(bg="#0CA1F6")
+        #     close_button.config(bg="white")
 
-        close_button.bind("<Enter>", on_close_enter)
-        close_button.bind("<Leave>", on_close_leave)
+        # close_button.bind("<Enter>", on_close_enter)
+        # close_button.bind("<Leave>", on_close_leave)
 
-        drag_layer.bind("<Button-1>", self.controller.start_move)
-        drag_layer.bind("<B1-Motion>", self.controller.do_move)
+        # drag_layer.bind("<Button-1>", self.controller.start_move)
+        # drag_layer.bind("<B1-Motion>", self.controller.do_move)
 
         # Also allow dragging from title text
         # title_label.bind("<Button-1>", self.controller.start_move)
         # title_label.bind("<B1-Motion>", self.controller.do_move)
         
-        close_button.bind("<Button-1>", lambda e: close_window())
+        # close_button.bind("<Button-1>", lambda e: close_window())
 
         # Left panel
         left_panel = tk.Frame(self, bg="#044C9D")
@@ -453,7 +459,7 @@ class LoginScreen(tk.Frame):
         right_panel.pack_propagate(False)
 
         login_label = tk.Label(right_panel, text="Login with", bg="white", font=header_font2b, justify=tk.LEFT)
-        login_label.pack(pady=(75, 0), padx=(60,55), anchor=tk.W)
+        login_label.pack(pady=(85, 0), padx=(60,55), anchor=tk.W)
         
         entity_selection_frame = tk.Frame(right_panel, bg="white")
         entity_selection_frame.pack(pady=(5, 20), padx=(60,55), anchor=tk.W)
@@ -920,17 +926,25 @@ class Dashboard(tk.Frame):
                         for x in constants.MAPPING_HISTORY.get("results", []):
                             if x["is_mapped"] in ["False", False, 'false', ""]:
                                 continue
-                            company_options[x["tally_company_guid"]] = x["tally_company_name"]
-                            if x["tally_company_guid"] not in tally_guids:
-                                messagebox.showerror("Tally Comapny", "Mapped tally company not found. Please contact support.")
-                                logout()
-                                close_window()
-                                parent.quit()
-                                import sys
-                                sys.exit(1)
+                            if x["tally_company_guid"] in tally_guids:
+                                company_options[x["tally_company_guid"]] = x["tally_company_name"]
+                            # if x["tally_company_guid"] not in tally_guids:
+                                # messagebox.showerror("Tally Comapny", "Mapped tally company not found. Please contact support.")
+                                # logout()
+                                # close_window()
+                                # parent.quit()
+                                # import sys
+                                # sys.exit(1)
                                 
                                 # # re_create_main_content()
 
+                        if len(company_options) <= 0:
+                            messagebox.showerror("Tally Comapny", "No companies found in your Tally. Please contact support.")
+                            logout()
+                            parent.quit()
+                            import sys
+                            sys.exit(1)
+                            
                 company_var = tk.StringVar(company_row, value=list(company_options.values())[0] if company_options else "")
                 constants.COMPANY_NAME = company_var.get()
                 
@@ -1515,7 +1529,7 @@ class Dashboard(tk.Frame):
                     current_chemist = constants.LOGIN_RESPONSE["data"]["business_details"]["logged_in_business"]["id"]
                     mapped_current = [x for x in constants.MAPPING_HISTORY["results"] if x["is_mapped"] in ["True", True, 'True'] and x["entity_id"] == current_chemist]
                     if len(mapped_current) <= 0:
-                        messagebox.showerror("Map Comany", "Please map your company")
+                        messagebox.showerror("Map Comany", "Please map your current company")
                     else:
                         constants.SYNC_STAGE = 1
                         constants.SYNC_BTN_TEXT = "Sync All"
@@ -1967,7 +1981,7 @@ class Dashboard(tk.Frame):
             #                         highlightbackground='#004BA8', highlightcolor='#004BA8', borderwidth=0,font=label_font2, justify=tk.LEFT, relief=tk.SUNKEN, command=show_logout_popup)
             # logout_label.pack(pady=(0, 20), padx=25, anchor=tk.W)
             logout_label = tk.Label(left_panel, text="Logout >", bg="#004BA8", fg="white",font=label_font2, justify=tk.LEFT)
-            logout_label.pack(pady=(0, 15), padx=30, anchor=tk.W)
+            logout_label.pack(pady=(0, 2), padx=30, anchor=tk.W)
             logout_label.bind("<Button-1>", show_logout_popup)
 
             left_panel.pack_propagate(False)
@@ -1979,32 +1993,32 @@ class Dashboard(tk.Frame):
         #     print(f"Error loading window icon: {e}")
         
 
-        drag_layer = tk.Frame(
-            self,
-            # bg="#0CA1F6",
-            bg="white",
-            height=35
-        )
-        drag_layer.pack(side=tk.TOP, fill=tk.X)
+        # drag_layer = tk.Frame(
+        #     self,
+        #     # bg="#0CA1F6",
+        #     bg="white",
+        #     height=35
+        # )
+        # drag_layer.pack(side=tk.TOP, fill=tk.X)
         
         
         # Load and display icon in title bar
-        icon_path = "./lib/images/logo2.ico"  # or use .png
-        try:
-            icon_image = Image.open(icon_path)
-            icon_image = icon_image.resize((20, 20), Image.Resampling.LANCZOS)
-            icon_image_tk = ImageTk.PhotoImage(icon_image)
+        # icon_path = "./lib/images/logo2.ico"  # or use .png
+        # try:
+        #     icon_image = Image.open(icon_path)
+        #     icon_image = icon_image.resize((20, 20), Image.Resampling.LANCZOS)
+        #     icon_image_tk = ImageTk.PhotoImage(icon_image)
             
-            icon_label = tk.Label(
-                drag_layer,
-                image=icon_image_tk,
-                bg="white"
-            )
-            icon_label.image = icon_image_tk  # Keep reference
-            icon_label.pack(side=tk.LEFT, padx=(15, 5), pady=(3, 0))
-            print("Title bar icon loaded")
-        except Exception as e:
-            print(f"Error loading title bar icon: {e}")
+        #     icon_label = tk.Label(
+        #         drag_layer,
+        #         image=icon_image_tk,
+        #         bg="white"
+        #     )
+        #     icon_label.image = icon_image_tk  # Keep reference
+        #     icon_label.pack(side=tk.LEFT, padx=(15, 5), pady=(3, 0))
+        #     print("Title bar icon loaded")
+        # except Exception as e:
+        #     print(f"Error loading title bar icon: {e}")
 
         # Title (left side)
         # title_label = tk.Label(
@@ -2019,36 +2033,36 @@ class Dashboard(tk.Frame):
         # title_label.pack(side=tk.LEFT, padx=(5, 0), pady=(3,0))
 
         # Close button (right side)
-        close_button = tk.Label(
-            drag_layer,
-            text="✕",
-            # bg="#0CA1F6",
-            bg="white",
-            # fg="white",
-            fg="black",
-            font=("Segoe UI", 8, "bold"),
-            cursor="hand2"
-        )
-        close_button.pack(side=tk.RIGHT, padx=15, pady=3)
+        # close_button = tk.Label(
+        #     drag_layer,
+        #     text="✕",
+        #     # bg="#0CA1F6",
+        #     bg="white",
+        #     # fg="white",
+        #     fg="black",
+        #     font=("Segoe UI", 8, "bold"),
+        #     cursor="hand2"
+        # )
+        # close_button.pack(side=tk.RIGHT, padx=15, pady=3)
     
-        def on_close_enter(e):
-            close_button.config(bg="#E81123")  # Windows red
+        # def on_close_enter(e):
+        #     close_button.config(bg="#E81123")  # Windows red
 
-        def on_close_leave(e):
-            # close_button.config(bg="#0CA1F6")
-            close_button.config(bg="white")
+        # def on_close_leave(e):
+        #     # close_button.config(bg="#0CA1F6")
+        #     close_button.config(bg="white")
 
-        close_button.bind("<Enter>", on_close_enter)
-        close_button.bind("<Leave>", on_close_leave)
+        # close_button.bind("<Enter>", on_close_enter)
+        # close_button.bind("<Leave>", on_close_leave)
 
-        drag_layer.bind("<Button-1>", self.controller.start_move)
-        drag_layer.bind("<B1-Motion>", self.controller.do_move)
+        # drag_layer.bind("<Button-1>", self.controller.start_move)
+        # drag_layer.bind("<B1-Motion>", self.controller.do_move)
 
         # Also allow dragging from title text
         # title_label.bind("<Button-1>", self.controller.start_move)
         # title_label.bind("<B1-Motion>", self.controller.do_move)
         
-        close_button.bind("<Button-1>", lambda e: close_window())
+        # close_button.bind("<Button-1>", lambda e: close_window())
             
         left_panel = tk.Frame(self, bg="#004BA8", width=220, height=600)
         left_panel.pack(side=tk.LEFT, fill=tk.Y)

@@ -21,8 +21,8 @@ EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}:4000/"
 EVITAL_RX_URL = "https://dev-api.evitalrx.in:3050/"
 
 # # live
-# EVITAL_RX_HOST = "api.evitalrx.in"
-# EVITAL_RX_URL = f"https://{EVITAL_RX_HOST}:4050/"
+EVITAL_RX_HOST = "api.evitalrx.in"
+EVITAL_RX_URL = f"https://{EVITAL_RX_HOST}:4050/"
 
 EVITAL_RX_API_KEY = ""
 ENCRYPTION_KEY = 'kphEig0_Dtx3iq2-Ok19KP0MTtVnXxO0gMlJ4ggAzPE='
@@ -353,3 +353,4 @@ SELECTED_MODULES = []
 ROOT_WINDOW = None  # For thread-safe operations
 ANIMATION_AFTER_ID = None
 SHOW_LOG_WINDOW = False
+LOAD_COMPLETE = False
