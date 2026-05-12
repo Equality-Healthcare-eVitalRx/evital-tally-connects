@@ -2756,6 +2756,8 @@ class LogViewerApp:
             self.log_text.insert(tk.END, f"{log}\n")
         self.log_text.configure(state=tk.DISABLED)
 
+        self.log_text.see(tk.END)
+
     def clear_logs(self):
         if messagebox.askyesno(
             "Confirmation", "Are you sure you want to clear all logs?"

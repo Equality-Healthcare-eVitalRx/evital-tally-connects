@@ -14,11 +14,11 @@ EVITAL_RX_HOST = "localhost"
 EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}:4000/"
 
 
-# EVITAL_RX_HOST = "3f16-122-179-161-37.ngrok-free.app"
-# EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}/"
+# EVITAL_RX_HOST = "acce-122-179-161-37.ngrok-free.app"
+# EVITAL_RX_URL = f"https://{EVITAL_RX_HOST}/"
 
 ## staging
-EVITAL_RX_URL = "https://dev-api.evitalrx.in:3050/"
+# EVITAL_RX_URL = "https://dev-api.evitalrx.in:3050/"
 
 # # live
 EVITAL_RX_HOST = "api.evitalrx.in"
