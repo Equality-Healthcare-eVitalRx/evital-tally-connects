@@ -2,7 +2,6 @@ import requests
 
 
 class APIClient:
-
     def __init__(self):
         self.api_keys = API_KEYS  # list of keys
 
@@ -69,8 +68,8 @@ class APIClient:
                 "apikey": key,
                 "opening_balance_date": opening_balance_date,
                 "is_tally": "true",
-                "xml_import": "true"
-            }
+                "xml_import": "true",
+            },
         )
 
     def fetch_transactions(self, start, end, type_) -> dict:
@@ -82,8 +81,8 @@ class APIClient:
                 "end_date": end,
                 "type": type_,
                 "is_tally": "true",
-                "xml_import": "true"
-            }
+                "xml_import": "true",
+            },
         )
 
     def fetch_payment(self, start, end) -> dict:
@@ -94,8 +93,8 @@ class APIClient:
                 "start_date": start,
                 "end_date": end,
                 "is_tally": "true",
-                "xml_import": "true"
-            }
+                "xml_import": "true",
+            },
         )
 
     def fetch_receipt(self, start, end) -> dict:
@@ -106,8 +105,8 @@ class APIClient:
                 "start_date": start,
                 "end_date": end,
                 "is_tally": "true",
-                "xml_import": "true"
-            }
+                "xml_import": "true",
+            },
         )
 
     def fetch_contra(self, start, end) -> dict:
@@ -118,6 +117,6 @@ class APIClient:
                 "start_date": start,
                 "end_date": end,
                 "is_tally": "true",
-                "xml_import": "true"
-            }
+                "xml_import": "true",
+            },
         )

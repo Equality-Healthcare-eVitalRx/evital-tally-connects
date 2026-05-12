@@ -1,12 +1,12 @@
 # class constant (){
-    
+
 # }
 
 HOST = "localhost"
-TALLY_URL = F"http://{HOST}:"
+TALLY_URL = f"http://{HOST}:"
 TALLY_PORT = 9000
 
-COMPANY_NAME = "abc"    
+COMPANY_NAME = "abc"
 
 
 ## local
@@ -17,7 +17,7 @@ EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}:4000/"
 # EVITAL_RX_HOST = "3f16-122-179-161-37.ngrok-free.app"
 # EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}/"
 
-## staging 
+## staging
 EVITAL_RX_URL = "https://dev-api.evitalrx.in:3050/"
 
 # # live
@@ -25,7 +25,7 @@ EVITAL_RX_HOST = "api.evitalrx.in"
 EVITAL_RX_URL = f"https://{EVITAL_RX_HOST}:4050/"
 
 EVITAL_RX_API_KEY = ""
-ENCRYPTION_KEY = 'kphEig0_Dtx3iq2-Ok19KP0MTtVnXxO0gMlJ4ggAzPE='
+ENCRYPTION_KEY = "kphEig0_Dtx3iq2-Ok19KP0MTtVnXxO0gMlJ4ggAzPE="
 
 LOGIN_RESPONSE = {}
 IS_LOGIN = False
@@ -52,30 +52,27 @@ SYNC_TIMER = 0
 CURRENT_BRANCH_SYNC_JSON = {}
 
 VOUCHERS = {
-"company_data": {
-        "list_of_companies": {},
-        "active_company": {}
-    },
+    "company_data": {"list_of_companies": {}, "active_company": {}},
     "vouchers_data": {
         "payment_vouchers": {},
         "receipt_vouchers": {},
         "contra_vouchers": {},
         "journal_vouchers": {},
         "sales_vouchers": {},
-        "purchase_vouchers": {}
+        "purchase_vouchers": {},
     },
     "income_and_expenses_data": {
         "direct_incomes": {},
         "direct_expenses": {},
         "indirect_incomes": {},
-        "indirect_expenses": {}
+        "indirect_expenses": {},
     },
     "assets_and_liabilities_data": {
         "fixed_assets": {},
         "current_assets": {},
         "current_liabilities": {},
         "loans": {},
-        "loans_and_advances": {}
+        "loans_and_advances": {},
     },
     "report_data": {
         "balance_sheet": {},
@@ -85,7 +82,7 @@ VOUCHERS = {
         "day_book": {},
         "stock_summary": {},
         "cash_flow": {},
-        "fund_flow": {}
+        "fund_flow": {},
     },
     "other_data": {
         "sales_accounts": {},
@@ -96,16 +93,15 @@ VOUCHERS = {
         "sundry_creditors": {},
         "capital_account": {},
         "reserves_and_surplus": {},
-        "investments": {}
-    }
+        "investments": {},
+    },
 }
 IMPORTED_FIELDS = [
     "ledgers",
     "groups",
-    'balance_sheet' ,
-    'profit_and_loss' ,
-    'ratio_analysis' ,
-    
+    "balance_sheet",
+    "profit_and_loss",
+    "ratio_analysis",
     # 'sales_accounts' ,
     # 'purchase_accounts' ,
     # 'bank_accounts' ,
@@ -134,30 +130,30 @@ IMPORTED_FIELDS = [
 ]
 
 REQUEST_FORMATS = {
-#     "list_of_companies" : """<ENVELOPE>
-#     <HEADER>
-#         <VERSION>1</VERSION>
-#         <TALLYREQUEST>Export</TALLYREQUEST>
-#         <TYPE>Collection</TYPE>
-#         <ID>List of Companies</ID>
-#     </HEADER>
-#     <BODY>
-#         <DESC>
-#             <STATICVARIABLES />
-#             <TDL>
-#                 <TDLMESSAGE>
-#                     <COLLECTION ISMODIFY="No" ISFIXED="No" ISINITIALIZE="Yes" ISOPTION="No" ISINTERNAL="No" NAME="List of Companies">
-#                         <TYPE>Company</TYPE>
-#                         <NATIVEMETHOD>Name</NATIVEMETHOD>
-#                         <NATIVEMETHOD>StartingFrom</NATIVEMETHOD>
-#                     </COLLECTION>
-#                 </TDLMESSAGE>
-#             </TDL>
-#         </DESC>
-#     </BODY>
-# </ENVELOPE>
-#     """,
-    "balance_sheet" : """<ENVELOPE>
+    #     "list_of_companies" : """<ENVELOPE>
+    #     <HEADER>
+    #         <VERSION>1</VERSION>
+    #         <TALLYREQUEST>Export</TALLYREQUEST>
+    #         <TYPE>Collection</TYPE>
+    #         <ID>List of Companies</ID>
+    #     </HEADER>
+    #     <BODY>
+    #         <DESC>
+    #             <STATICVARIABLES />
+    #             <TDL>
+    #                 <TDLMESSAGE>
+    #                     <COLLECTION ISMODIFY="No" ISFIXED="No" ISINITIALIZE="Yes" ISOPTION="No" ISINTERNAL="No" NAME="List of Companies">
+    #                         <TYPE>Company</TYPE>
+    #                         <NATIVEMETHOD>Name</NATIVEMETHOD>
+    #                         <NATIVEMETHOD>StartingFrom</NATIVEMETHOD>
+    #                     </COLLECTION>
+    #                 </TDLMESSAGE>
+    #             </TDL>
+    #         </DESC>
+    #     </BODY>
+    # </ENVELOPE>
+    #     """,
+    "balance_sheet": """<ENVELOPE>
         <HEADER>
             <VERSION>1</VERSION>
             <REQVERSION>1</REQVERSION>
@@ -178,7 +174,7 @@ REQUEST_FORMATS = {
         </BODY>
     </ENVELOPE>
         """,
-    "profit_and_loss" : """<ENVELOPE>
+    "profit_and_loss": """<ENVELOPE>
     <HEADER>
         <VERSION>1</VERSION>
         <REQVERSION>1</REQVERSION>
@@ -200,7 +196,7 @@ REQUEST_FORMATS = {
     </BODY>
 </ENVELOPE>
     """,
-    "ratio_analysis" : """<ENVELOPE>
+    "ratio_analysis": """<ENVELOPE>
     <HEADER>
         <VERSION>1</VERSION>
         <TALLYREQUEST>Export</TALLYREQUEST>
@@ -220,7 +216,7 @@ REQUEST_FORMATS = {
     </BODY>
 </ENVELOPE>
     """,
-    "list_of_companies" : """<ENVELOPE>
+    "list_of_companies": """<ENVELOPE>
     <HEADER>
         <VERSION>1</VERSION>
         <TALLYREQUEST>Export</TALLYREQUEST>
@@ -243,7 +239,7 @@ REQUEST_FORMATS = {
         </DESC>
     </BODY>
 </ENVELOPE>""",
-"ledgers_data" : """<ENVELOPE>
+    "ledgers_data": """<ENVELOPE>
     <HEADER>
         <VERSION>1</VERSION>
         <TALLYREQUEST>EXPORT</TALLYREQUEST>
@@ -306,7 +302,7 @@ REQUEST_FORMATS = {
         </DESC>
     </BODY>
 </ENVELOPE>""",
-"groups_data" : """<ENVELOPE>
+    "groups_data": """<ENVELOPE>
     <HEADER>
         <VERSION>1</VERSION>
         <REQVERSION>1</REQVERSION>
@@ -335,7 +331,7 @@ REQUEST_FORMATS = {
             </TDL>
         </DESC>
     </BODY>
-</ENVELOPE>"""
+</ENVELOPE>""",
 }
 SYNC_STAGE = 0
 SYNC_BTN_TEXT = "Next"
@@ -345,7 +341,14 @@ SYNC_END_DATE = ""
 
 EXPORT_MODULES = {
     "Masters": ["Ledgers"],
-    "Primary Vouchers": ["Sales", "Credit Note", "Purchase", "Debit Note", "Wholesale", "Wholesale Return"],
+    "Primary Vouchers": [
+        "Sales",
+        "Credit Note",
+        "Purchase",
+        "Debit Note",
+        "Wholesale",
+        "Wholesale Return",
+    ],
     "Payment Vouchers": ["Receipt", "Payment", "Contra"],
 }
 SELECTED_MODULES = []

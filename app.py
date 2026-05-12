@@ -1,4 +1,5 @@
 from lib import constants
+
 constants.LOAD_COMPLETE = False
 
 import multiprocessing
@@ -9,9 +10,9 @@ from lib.import_export_data import get_tally_companies
 from tk_screen import App
 import ctypes
 
-try: # >= win 8.1
+try:  # >= win 8.1
     ctypes.windll.shcore.SetProcessDpiAwareness(2)
-except: # win 8.0 or less
+except:  # win 8.0 or less
     ctypes.windll.user32.SetProcessDPIAware()
 
 # spalsh comment
@@ -20,8 +21,8 @@ except: # win 8.0 or less
 # pyi_splash.close()
 
 
-pyglet.options['win32_gdi_font'] = True
-fontpath = './lib/fonts/static/Manrope-Regular.ttf'
+pyglet.options["win32_gdi_font"] = True
+fontpath = "./lib/fonts/static/Manrope-Regular.ttf"
 pyglet.font.add_file(str(fontpath))
 
 LogManagerObj.clear_logs()
@@ -31,10 +32,11 @@ LogManagerObj.write_log("Application started")
 my_file = Path("./lib/app_cache.txt")
 appObj = App()
 if my_file.is_file():
-
     json_data = open("./lib/app_cache.txt", "rb")
     json_data = decrypt_data(json_data.read())
-    if "login_response" in json_data.keys() and json_data["login_response"]["status_code"] in [1,'1'] :
+    if "login_response" in json_data.keys() and json_data["login_response"][
+        "status_code"
+    ] in [1, "1"]:
         LogManagerObj.write_log("Previous Login Found.")
         constants.LOGIN_RESPONSE = json_data["login_response"]
         if "mobile" in json_data.keys():
@@ -42,11 +44,25 @@ if my_file.is_file():
             constants.TALLY_PORT = json_data.get("tally_port", 9000)
             constants.HOST = json_data.get("tally_host", "localhost")
             constants.MOBILE_VAR.set(constants.MOBILE)
-        if "accesstoken" in json_data["login_response"]["data"]["business_details"]["logged_in_business"]:
-            constants.ACCESS_TOKEN = json_data["login_response"]["data"]["business_details"]["logged_in_business"]["accesstoken"]
-        if "apikey" in json_data["login_response"]["data"]["business_details"]["logged_in_business"]:
-            constants.EVITAL_RX_API_KEY = json_data["login_response"]["data"]["business_details"]["logged_in_business"]["apikey"]
-            
+        if (
+            "accesstoken"
+            in json_data["login_response"]["data"]["business_details"][
+                "logged_in_business"
+            ]
+        ):
+            constants.ACCESS_TOKEN = json_data["login_response"]["data"][
+                "business_details"
+            ]["logged_in_business"]["accesstoken"]
+        if (
+            "apikey"
+            in json_data["login_response"]["data"]["business_details"][
+                "logged_in_business"
+            ]
+        ):
+            constants.EVITAL_RX_API_KEY = json_data["login_response"]["data"][
+                "business_details"
+            ]["logged_in_business"]["apikey"]
+
         get_tally_companies()
         appObj.show_frame("Dashboard")
     else:
@@ -55,7 +71,7 @@ if my_file.is_file():
 else:
     LogManagerObj.write_log("Login Details Not found.")
     appObj.show_frame("LoginScreen")
-    
+
 if __name__ == "__main__":
     constants.LOAD_COMPLETE = True
     appObj.mainloop()

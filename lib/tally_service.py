@@ -6,14 +6,21 @@ from lib import constants
 from log import LogManagerObj
 
 
-
 class TallyService:
-
     def clean_xml(self, xml):
-        if not xml: return ""
-        return xml.strip().replace("\\n", "").replace("\n", "").replace("\t", "").replace("\xa0", " ")
+        if not xml:
+            return ""
+        return (
+            xml.strip()
+            .replace("\\n", "")
+            .replace("\n", "")
+            .replace("\t", "")
+            .replace("\xa0", " ")
+        )
 
-    def build_envelope(self, messages, report_name="Vouchers", company_name="$$CurrentCompany"):
+    def build_envelope(
+        self, messages, report_name="Vouchers", company_name="$$CurrentCompany"
+    ):
         combined = "\n".join([self.clean_xml(m) for m in messages])
         return f"""<?xml version="1.0" encoding="utf-8"?>
 <ENVELOPE>
@@ -32,7 +39,13 @@ class TallyService:
   </BODY>
 </ENVELOPE>"""
 
-    def push_batch(self, xml_list, report_name="Vouchers", company_name="$$CurrentCompany", fetch_voucher_numbers=False):
+    def push_batch(
+        self,
+        xml_list,
+        report_name="Vouchers",
+        company_name="$$CurrentCompany",
+        fetch_voucher_numbers=False,
+    ):
         total = len(xml_list)
         if total == 0:
             return
@@ -51,18 +64,20 @@ class TallyService:
         # ── Adaptive timeout based on batch size ────────────────────────────
         # ~0.5s per voucher is a safe estimate for Tally processing speed
         def get_timeout(size: int) -> int:
-            base = 30                        # minimum timeout
-            per_rec = 1                         # seconds per record
-            return max(base, size * per_rec)    # e.g. 50 recs → 50s, 100 recs → 100s
+            base = 30  # minimum timeout
+            per_rec = 1  # seconds per record
+            return max(base, size * per_rec)  # e.g. 50 recs → 50s, 100 recs → 100s
 
         processed = 0
         consecutive_failures = 0
         MAX_CONSECUTIVE_FAIL = 3
 
         for i in range(0, total, batch_size):
-            batch = xml_list[i:i + batch_size]
+            batch = xml_list[i : i + batch_size]
             timeout = get_timeout(len(batch))
-            envelope = self.build_envelope(batch, report_name=report_name, company_name=company_name)
+            envelope = self.build_envelope(
+                batch, report_name=report_name, company_name=company_name
+            )
             # print(envelope)
 
             batch_num = i // batch_size + 1
@@ -72,14 +87,14 @@ class TallyService:
                     TALLY_URL,
                     data=envelope.encode("utf-8"),
                     headers={"Content-Type": "text/xml"},
-                    timeout=timeout
+                    timeout=timeout,
                 )
 
                 response_text = res.text
-                
+
                 created = self._extract_tag(response_text, "CREATED")
                 altered = self._extract_tag(response_text, "ALTERED")
-                errors  = self._extract_tag(response_text, "ERRORS")
+                errors = self._extract_tag(response_text, "ERRORS")
 
                 status_msg = f"📦 Batch {batch_num}/{(total + batch_size - 1) // batch_size} ({len(batch)} recs): "
                 if int(errors) > 0:
@@ -87,7 +102,6 @@ class TallyService:
                 status_msg += f"✅ {created} Created, {altered} Altered"
                 print(status_msg)
                 LogManagerObj.write_log(status_msg)
-                
 
                 # print(response_text)
 
@@ -97,7 +111,7 @@ class TallyService:
                         error_detail = html.unescape(part.split("</LINEERROR>")[0])
                         # log_callback(f"   ⚠️ Error {idx + 1}: {error_detail}")
                     # if len(parts) > 6:
-                        # log_callback(f"   ... and {len(parts) - 6} more errors")
+                    # log_callback(f"   ... and {len(parts) - 6} more errors")
 
                     if fetch_voucher_numbers:
                         vnos = [self.get_voucher_number(xml) for xml in batch]
@@ -109,38 +123,56 @@ class TallyService:
                 # progress_callback(processed, total)
 
                 # ── Adaptive sleep: larger batches need more recovery time ──
-                sleep_time = 0.3 if len(batch) <= 25 else 0.6 if len(batch) <= 50 else 1.0
+                sleep_time = (
+                    0.3 if len(batch) <= 25 else 0.6 if len(batch) <= 50 else 1.0
+                )
                 time.sleep(sleep_time)
 
             except requests.exceptions.Timeout:
                 consecutive_failures += 1
                 # log_callback(f"⏱️ Batch {batch_num} timed out (waited {timeout}s).")
-                LogManagerObj.write_log(f"⏱️ Batch {batch_num} timed out (waited {timeout}s).")
+                LogManagerObj.write_log(
+                    f"⏱️ Batch {batch_num} timed out (waited {timeout}s)."
+                )
 
                 if consecutive_failures >= MAX_CONSECUTIVE_FAIL:
                     # log_callback(f"❌ {MAX_CONSECUTIVE_FAIL} consecutive timeouts. Tally stopped responding.")
                     # log_callback("💡 Restart Tally and re-run sync — already imported records are safe.")
-                    LogManagerObj.write_log(f"❌ {MAX_CONSECUTIVE_FAIL} consecutive timeouts. Tally stopped responding.")
+                    LogManagerObj.write_log(
+                        f"❌ {MAX_CONSECUTIVE_FAIL} consecutive timeouts. Tally stopped responding."
+                    )
                     break
 
                 # ── Retry once with smaller sub-batches ─────────────────────
                 # log_callback(f"🔄 Retrying batch {batch_num} in smaller chunks...")
                 half = max(1, len(batch) // 2)
                 for j in range(0, len(batch), half):
-                    sub_batch = batch[j:j + half]
-                    sub_envelope = self.build_envelope(sub_batch, report_name=report_name, company_name=company_name)
-                    sub_timeout  = get_timeout(len(sub_batch))
+                    sub_batch = batch[j : j + half]
+                    sub_envelope = self.build_envelope(
+                        sub_batch, report_name=report_name, company_name=company_name
+                    )
+                    sub_timeout = get_timeout(len(sub_batch))
                     try:
-                        sub_res = requests.post(TALLY_URL, data=sub_envelope.encode("utf-8"),
-                                                    headers={"Content-Type": "text/xml"}, timeout=sub_timeout)
+                        sub_res = requests.post(
+                            TALLY_URL,
+                            data=sub_envelope.encode("utf-8"),
+                            headers={"Content-Type": "text/xml"},
+                            timeout=sub_timeout,
+                        )
                         sub_text = sub_res.text
                         sub_created = self._extract_tag(sub_text, "CREATED")
                         sub_altered = self._extract_tag(sub_text, "ALTERED")
                         sub_errors = self._extract_tag(sub_text, "ERRORS")
                         # log_callback(f"   ↳ Sub-batch ({len(sub_batch)} recs): ✅ {sub_created} Created, {sub_altered} Altered" +
-                                    # (f" | ❌ {sub_errors} Errors" if int(sub_errors) > 0 else ""))
-                        LogManagerObj.write_log(f"   ↳ Sub-batch ({len(sub_batch)} recs): ✅ {sub_created} Created, {sub_altered} Altered" +
-                                    (f" | ❌ {sub_errors} Errors" if int(sub_errors) > 0 else ""))
+                        # (f" | ❌ {sub_errors} Errors" if int(sub_errors) > 0 else ""))
+                        LogManagerObj.write_log(
+                            f"   ↳ Sub-batch ({len(sub_batch)} recs): ✅ {sub_created} Created, {sub_altered} Altered"
+                            + (
+                                f" | ❌ {sub_errors} Errors"
+                                if int(sub_errors) > 0
+                                else ""
+                            )
+                        )
                         consecutive_failures = 0
                     except Exception as sub_e:
                         # log_callback(f"   ↳ Sub-batch failed: {str(sub_e)}")
@@ -153,12 +185,16 @@ class TallyService:
             except requests.exceptions.ConnectionError:
                 consecutive_failures += 1
                 # log_callback(f"🔌 Batch {batch_num}: Cannot connect to Tally. Is it running on port 9000?")
-                LogManagerObj.write_log(f"🔌 Batch {batch_num}: Cannot connect to Tally. Is it running on port 9000?")
+                LogManagerObj.write_log(
+                    f"🔌 Batch {batch_num}: Cannot connect to Tally. Is it running on port 9000?"
+                )
                 if consecutive_failures >= MAX_CONSECUTIVE_FAIL:
                     # log_callback("❌ Tally connection lost. Import aborted.")
                     LogManagerObj.write_log("❌ Tally connection lost. Import aborted.")
                     # log_callback("💡 Restart Tally and re-run sync — already imported records are safe.")
-                    LogManagerObj.write_log("💡 Restart Tally and re-run sync — already imported records are safe.")
+                    LogManagerObj.write_log(
+                        "💡 Restart Tally and re-run sync — already imported records are safe."
+                    )
                     break
                 processed += len(batch)
                 continue
@@ -204,12 +240,16 @@ class TallyService:
     </BODY>
     </ENVELOPE>"""
             TALLY_URL = constants.TALLY_URL + str(constants.TALLY_PORT)
-            res       = requests.post(TALLY_URL, data=xml.encode("utf-8"),
-                                    headers={"Content-Type": "text/xml"}, timeout=5)
+            res = requests.post(
+                TALLY_URL,
+                data=xml.encode("utf-8"),
+                headers={"Content-Type": "text/xml"},
+                timeout=5,
+            )
 
             print("Get Companies Response:", res.text)
             companies = re.findall(r'<NAME TYPE="String">(.*?)</NAME>', res.text)
-            seen   = set()
+            seen = set()
             unique = []
             for c in companies:
                 c = c.strip()
@@ -246,12 +286,16 @@ class TallyService:
   </BODY>
 </ENVELOPE>"""
             TALLY_URL = constants.TALLY_URL + str(constants.TALLY_PORT)
-            res = requests.post(TALLY_URL, data=xml.encode("utf-8"),
-                                headers={"Content-Type": "text/xml"}, timeout=5)
+            res = requests.post(
+                TALLY_URL,
+                data=xml.encode("utf-8"),
+                headers={"Content-Type": "text/xml"},
+                timeout=5,
+            )
             return res.status_code == 200
         except Exception:
             return False
-        
+
     def export_voucher_register(self, from_date, to_date, company_name):
         xml = f"""<?xml version="1.0" encoding="utf-8"?>
 <ENVELOPE>
@@ -331,7 +375,7 @@ class TallyService:
             TALLY_URL,
             data=xml.encode("utf-8"),
             headers={"Content-Type": "text/xml"},
-            timeout=30
+            timeout=30,
         )
         # print(res.text)
 
