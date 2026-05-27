@@ -1882,29 +1882,23 @@ class Dashboard(tk.Frame):
         def show_sync_frame(one_sync=False):
 
             if constants.SYNC_STAGE == 0:
-                all_mapped = False
-                mapres1 = (
-                    constants.MAPPING_HISTORY["results"]
-                    if isinstance(constants.MAPPING_HISTORY, dict)
-                    and "results" in constants.MAPPING_HISTORY.keys()
-                    else []
-                )
-                mapres = [
+                
+                current_chemist = constants.LOGIN_RESPONSE["data"][
+                    "business_details"
+                ]["logged_in_business"]["id"]
+                mapped_current = [
                     x
-                    for x in mapres1
-                    if x["is_mapped"] in ["False", False, "false", ""]
+                    for x in constants.MAPPING_HISTORY["results"]
+                    if x["is_mapped"] in ["True", True, "True"]
+                    and x["entity_id"] == current_chemist
                 ]
-
-                available_companies = constants.TALLY_ACCOUNTS.copy()
-                for x in constants.TALLY_ACCOUNTS:
-                    for j in constants.MAPPING_HISTORY.get("results", []):
-                        if x["company_guid"] == j["tally_company_guid"]:
-                            available_companies.remove(x)
-                all_mapped = len(available_companies) == 0 or len(mapres) == 0
-                if all_mapped and len(mapres1) > 0:
+                if len(mapped_current) <= 0:
+                    messagebox.showerror(
+                        "Map Comany", "Please map your current company"
+                    )
+                else:
                     constants.SYNC_STAGE = 1
                     constants.SYNC_BTN_TEXT = "Sync All"
-                    print("stage 1")
 
                     # for widget in right_panel.winfo_children():
                     #     if widget.winfo_exists():
@@ -1913,32 +1907,7 @@ class Dashboard(tk.Frame):
                     print("sync increased")
                     # re_create_main_content()
                     self.after(100, re_create_main_content)
-                else:
-                    current_chemist = constants.LOGIN_RESPONSE["data"][
-                        "business_details"
-                    ]["logged_in_business"]["id"]
-                    mapped_current = [
-                        x
-                        for x in constants.MAPPING_HISTORY["results"]
-                        if x["is_mapped"] in ["True", True, "True"]
-                        and x["entity_id"] == current_chemist
-                    ]
-                    if len(mapped_current) <= 0:
-                        messagebox.showerror(
-                            "Map Comany", "Please map your current company"
-                        )
-                    else:
-                        constants.SYNC_STAGE = 1
-                        constants.SYNC_BTN_TEXT = "Sync All"
-
-                        # for widget in right_panel.winfo_children():
-                        #     if widget.winfo_exists():
-                        #         widget.destroy()
-
-                        print("sync increased")
-                        # re_create_main_content()
-                        self.after(100, re_create_main_content)
-
+    
             elif constants.SYNC_STAGE == 1:
                 if constants.SELECTED_MODULES == []:
                     messagebox.showerror(

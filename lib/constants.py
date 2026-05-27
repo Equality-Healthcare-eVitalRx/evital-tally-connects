@@ -10,19 +10,23 @@ COMPANY_NAME = "abc"
 
 
 ## local
-EVITAL_RX_HOST = "localhost"
-EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}:4000/"
+# EVITAL_RX_HOST = "localhost"
+# EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}:4000/"
 
 
-# EVITAL_RX_HOST = "acce-122-179-161-37.ngrok-free.app"
-# EVITAL_RX_URL = f"https://{EVITAL_RX_HOST}/"
+EVITAL_RX_HOST = "3fee-122-179-161-37.ngrok-free.app"
+EVITAL_RX_URL = f"https://{EVITAL_RX_HOST}/"
 
 ## staging
 # EVITAL_RX_URL = "https://dev-api.evitalrx.in:3050/"
 
 # # live
-EVITAL_RX_HOST = "api.evitalrx.in"
-EVITAL_RX_URL = f"https://{EVITAL_RX_HOST}:4050/"
+# EVITAL_RX_HOST = "api.evitalrx.in"
+# EVITAL_RX_URL = f"https://{EVITAL_RX_HOST}:4050/"
+
+## beta
+# EVITAL_RX_HOST = "beta-api.evitalrx.in"
+# EVITAL_RX_URL = f"https://{EVITAL_RX_HOST}/"
 
 EVITAL_RX_API_KEY = ""
 ENCRYPTION_KEY = "kphEig0_Dtx3iq2-Ok19KP0MTtVnXxO0gMlJ4ggAzPE="
