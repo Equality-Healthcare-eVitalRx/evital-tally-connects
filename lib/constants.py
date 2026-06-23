@@ -1,6 +1,4 @@
-# class constant (){
 
-# }
 
 HOST = "localhost"
 TALLY_URL = f"http://{HOST}:"
@@ -8,25 +6,25 @@ TALLY_PORT = 9000
 
 COMPANY_NAME = "abc"
 
+envtype = "staging"
 
-## local
-# EVITAL_RX_HOST = "localhost"
-# EVITAL_RX_URL = f"http://{EVITAL_RX_HOST}:4000/"
+env_config = {
+    "local": {
+        "EVITAL_RX_HOST": "localhost",
+        "EVITAL_RX_URL": f"http://localhost:4000/",
+    },
+    "staging": {
+        "EVITAL_RX_HOST": "dev-api.evitalrx.in",
+        "EVITAL_RX_URL": "https://dev-api.evitalrx.in:3050/",
+    },
+    "production": {
+        "EVITAL_RX_HOST": "api.evitalrx.in",
+        "EVITAL_RX_URL": "https://api.evitalrx.in:3050/",
+    },
+}
+EVITAL_RX_URL = env_config[envtype]["EVITAL_RX_URL"]
+EVITAL_RX_HOST = env_config[envtype]["EVITAL_RX_HOST"]
 
-
-EVITAL_RX_HOST = "3fee-122-179-161-37.ngrok-free.app"
-EVITAL_RX_URL = f"https://{EVITAL_RX_HOST}/"
-
-## staging
-# EVITAL_RX_URL = "https://dev-api.evitalrx.in:3050/"
-
-# # live
-# EVITAL_RX_HOST = "api.evitalrx.in"
-# EVITAL_RX_URL = f"https://{EVITAL_RX_HOST}:4050/"
-
-## beta
-# EVITAL_RX_HOST = "beta-api.evitalrx.in"
-# EVITAL_RX_URL = f"https://{EVITAL_RX_HOST}/"
 
 EVITAL_RX_API_KEY = ""
 ENCRYPTION_KEY = "kphEig0_Dtx3iq2-Ok19KP0MTtVnXxO0gMlJ4ggAzPE="

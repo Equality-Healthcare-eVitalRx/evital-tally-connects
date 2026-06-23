@@ -181,6 +181,7 @@ def startprocess(one_sync=False):
         )
 
         current_apikey = ""
+        current_from_date = ""
         if (
             constants.LOGIN_RESPONSE["data"]["business_details"]["logged_in_business"][
                 "id"
@@ -210,6 +211,12 @@ def startprocess(one_sync=False):
             continue
         # continue
         # return 0
+        
+        current_company_data = filter(lambda x: x["company_guid"] == company["company_guid"], constants.TALLY_ACCOUNTS)
+        if current_company_data:
+            for z in current_company_data:
+                current_from_date = z["starting_from"]
+                break
 
         from_date = datetime.strptime(constants.SYNC_START_DATE.get(), "%d-%m-%y")
         to_date = datetime.strptime(constants.SYNC_END_DATE.get(), "%d-%m-%y")
@@ -217,11 +224,13 @@ def startprocess(one_sync=False):
             if constants.CURRENT_BRANCH_SYNC is not None:
                 constants.CURRENT_BRANCH_SYNC.set("Syncing Ledgers")
             ledgers_selected = True
+            current_from_date = datetime.strptime(current_from_date, "%Y%m%d").strftime("%Y-%m-%d")
             data = get_data_from_evitalrx(
                 from_date.strftime("%Y-%m-%d"),
                 to_date.strftime("%Y-%m-%d"),
                 current_apikey,
                 "Accounts",
+                current_from_date
             )
             vouchers = extract_vouchers(data, ledgers_selected)
             if not vouchers:

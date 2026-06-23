@@ -248,14 +248,14 @@ def get_tally_companies():
                 == list
             ):
                 constants.TALLY_ACCOUNTS = [
-                    {"company_name": x["@NAME"], "company_guid": x["GUID"]["#text"]}
+                    {"company_name": x["@NAME"], "company_guid": x["GUID"]["#text"], "starting_from": x["STARTINGFROM"]["#text"]}
                     for x in parsed_data["ENVELOPE"]["BODY"]["DATA"]["COLLECTION"][
                         "COMPANY"
                     ]
                 ]
             else:
                 constants.TALLY_ACCOUNTS = [
-                    {"company_name": x["@NAME"], "company_guid": x["GUID"]["#text"]}
+                    {"company_name": x["@NAME"], "company_guid": x["GUID"]["#text"], "starting_from": x["STARTINGFROM"]["#text"]}
                     for x in [
                         parsed_data["ENVELOPE"]["BODY"]["DATA"]["COLLECTION"]["COMPANY"]
                     ]
@@ -473,7 +473,7 @@ def send_init_data_to_evital_rx(request_array, from_date, to_date):
     return res
 
 
-def get_data_from_evitalrx(start, end, api_key, type_):
+def get_data_from_evitalrx(start, end, api_key, type_, applicable_from_date=""):
     primary_mapping = {
         "Accounts": "accounts",
         "Sales": "sales",
@@ -495,6 +495,7 @@ def get_data_from_evitalrx(start, end, api_key, type_):
         payload = {
             "apikey": api_key,
             "opening_balance_date": start,
+            "applicable_from_date" : applicable_from_date,
             "is_tally": "true",
             "xml_import": "true",
         }
