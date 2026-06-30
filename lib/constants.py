@@ -6,7 +6,7 @@ TALLY_PORT = 9000
 
 COMPANY_NAME = "abc"
 
-envtype = "staging"
+envtype = "beta"
 
 env_config = {
     "local": {
@@ -17,9 +17,13 @@ env_config = {
         "EVITAL_RX_HOST": "dev-api.evitalrx.in",
         "EVITAL_RX_URL": "https://dev-api.evitalrx.in:3050/",
     },
+    "beta": {
+        "EVITAL_RX_HOST": "beta-api.evitalrx.in",
+        "EVITAL_RX_URL": "https://beta-api.evitalrx.in/",
+    },
     "production": {
         "EVITAL_RX_HOST": "api.evitalrx.in",
-        "EVITAL_RX_URL": "https://api.evitalrx.in:3050/",
+        "EVITAL_RX_URL": "https://api.evitalrx.in:4050/",
     },
 }
 EVITAL_RX_URL = env_config[envtype]["EVITAL_RX_URL"]

@@ -232,6 +232,7 @@ def startprocess(one_sync=False):
                 "Accounts",
                 current_from_date
             )
+            # print(data)
             vouchers = extract_vouchers(data, ledgers_selected)
             if not vouchers:
                 print("⚠️ No Ledger records found across all keys.")
@@ -249,6 +250,8 @@ def startprocess(one_sync=False):
         for x in constants.SELECTED_MODULES:
             if x in ["ledgers", "Ledgers"]:
                 continue
+            LogManagerObj.write_log("=" * 50)
+            LogManagerObj.write_log("-" * 50)
             if constants.STOP_THREAD:
                 print("thread stopped abnormally")
                 LogManagerObj.write_log("thread stopped abnormally")
@@ -264,6 +267,7 @@ def startprocess(one_sync=False):
                 current_apikey,
                 x,
             )
+            # print(data)
             vouchers = extract_vouchers(data, ledgers_selected)
             if not vouchers:
                 LogManagerObj.write_log(f"⚠️ No {x} records found across all keys.")
@@ -279,6 +283,19 @@ def startprocess(one_sync=False):
                     fetch_voucher_numbers=True,
                 )
 
+            vouchers = extract_party_xmls(data)
+            if not vouchers:
+                print("⚠️ No Party XML records found across all keys.")
+                LogManagerObj.write_log("⚠️ No Party XML records found across all keys.")
+            else:
+                print(f"🚀 Found {len(vouchers)} Party XML records. Importing...")
+                LogManagerObj.write_log(
+                    f"🚀 Found {len(vouchers)} Party XML records. Importing..."
+                )
+                tallyObj.push_batch(
+                    vouchers,
+                    company_name=company["company_name"],
+                )
         if constants.CURRENT_BRANCH_SYNC is not None:
             constants.CURRENT_BRANCH_SYNC.set("Exporting Reconciliation Data")
         txt_data = tallyObj.export_voucher_register(
@@ -619,13 +636,34 @@ def extract_vouchers(multi_key_response: dict, ledgers_selected: bool) -> list:
         xmls = data.get("voucher_xmls") or data.get("import_xmls") or []
 
         for xml in xmls:
-            if not ledgers_selected and "<LEDGER " in xml:
-                continue  # filter out ledger XMLs when not requested
+            # if not ledgers_selected and "<LEDGER " in xml:
+            #     continue  # filter out ledger XMLs when not requested
             if xml not in seen:
                 seen.add(xml)
                 vouchers.append(xml)
 
     return vouchers
 
+def extract_party_xmls(multi_key_response:dict) -> list:
+    seen = set()
+    vouchers = []
+
+    for api_key, response in multi_key_response.items():
+        # Skip failed keys
+        if "error" in response:
+            # self.log_msg(f"  ⚠️  Key {api_key} failed: {response['error']}")
+            continue
+
+        # print(response)
+        data = response.get("data") or {}
+        xmls = data.get("party_import_xmls") or []
+
+        for xml in xmls:
+            if xml not in seen:
+                seen.add(xml)
+                vouchers.append(xml)
+
+    return vouchers
+    
 
 from log import LogManagerObj

@@ -16,9 +16,9 @@ except:  # win 8.0 or less
     ctypes.windll.user32.SetProcessDPIAware()
 
 # spalsh comment
-# import pyi_splash
-# pyi_splash.update_text('UI Loaded ...')
-# pyi_splash.close()
+import pyi_splash
+pyi_splash.update_text('UI Loaded ...')
+pyi_splash.close()
 
 
 pyglet.options["win32_gdi_font"] = True
