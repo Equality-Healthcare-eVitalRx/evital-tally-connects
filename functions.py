@@ -268,6 +268,21 @@ def startprocess(one_sync=False):
                 x,
             )
             # print(data)
+            
+            vouchers = extract_party_xmls(data)
+            if not vouchers:
+                print("⚠️ No Party XML records found across all keys.")
+                LogManagerObj.write_log("⚠️ No Party XML records found across all keys.")
+            else:
+                print(f"🚀 Found {len(vouchers)} Party XML records. Importing...")
+                LogManagerObj.write_log(
+                    f"🚀 Found {len(vouchers)} Party XML records. Importing..."
+                )
+                tallyObj.push_batch(
+                    vouchers,
+                    company_name=company["company_name"],
+                )
+            
             vouchers = extract_vouchers(data, ledgers_selected)
             if not vouchers:
                 LogManagerObj.write_log(f"⚠️ No {x} records found across all keys.")
@@ -282,20 +297,7 @@ def startprocess(one_sync=False):
                     company_name=company["company_name"],
                     fetch_voucher_numbers=True,
                 )
-
-            vouchers = extract_party_xmls(data)
-            if not vouchers:
-                print("⚠️ No Party XML records found across all keys.")
-                LogManagerObj.write_log("⚠️ No Party XML records found across all keys.")
-            else:
-                print(f"🚀 Found {len(vouchers)} Party XML records. Importing...")
-                LogManagerObj.write_log(
-                    f"🚀 Found {len(vouchers)} Party XML records. Importing..."
-                )
-                tallyObj.push_batch(
-                    vouchers,
-                    company_name=company["company_name"],
-                )
+        
         if constants.CURRENT_BRANCH_SYNC is not None:
             constants.CURRENT_BRANCH_SYNC.set("Exporting Reconciliation Data")
         txt_data = tallyObj.export_voucher_register(

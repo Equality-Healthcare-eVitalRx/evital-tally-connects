@@ -146,7 +146,7 @@ def send_login_request(mobile_no, password, entity="chemist"):
         LogManagerObj.write_log(
             f"🔑 Login request sent to {constants.EVITAL_RX_URL}v2/master/tally_data/v3/login"
         )
-        LogManagerObj.write_log(json.dumps(json_request))
+        # LogManagerObj.write_log(json.dumps(json_request))
         response = requests.post(
             url=constants.EVITAL_RX_URL + "v2/master/tally_data/v3/login",
             data=json.dumps(json_request),
