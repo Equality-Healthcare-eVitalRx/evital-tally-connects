@@ -146,13 +146,15 @@ def send_login_request(mobile_no, password, entity="chemist"):
         LogManagerObj.write_log(
             f"🔑 Login request sent to {constants.EVITAL_RX_URL}v2/master/tally_data/v3/login"
         )
-        # LogManagerObj.write_log(json.dumps(json_request))
+        LogManagerObj.write_log(json.dumps(json_request))
         response = requests.post(
             url=constants.EVITAL_RX_URL + "v2/master/tally_data/v3/login",
             data=json.dumps(json_request),
             headers=headers,
             timeout=constants.REQUEST_TIMEOUT,
         )
+        print(f"🔑 Login response status: {response.status_code}")
+        print(f"🔑 Login response content: {response.content}")
         if response.status_code == 200:
             login_response = json.loads(response.content)
             if (

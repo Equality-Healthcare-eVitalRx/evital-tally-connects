@@ -6,7 +6,7 @@ TALLY_PORT = 9000
 
 COMPANY_NAME = "abc"
 
-envtype = "production"
+envtype = "staging"
 
 env_config = {
     "local": {

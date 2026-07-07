@@ -1674,7 +1674,7 @@ class Dashboard(tk.Frame):
                     def close_on_focus_out(e):
                         top.destroy()
 
-                    top.bind("<FocusOut>", close_on_focus_out)
+                    # top.bind("<FocusOut>", close_on_focus_out)
                     top.focus_set()
 
                 def create_date_input(parent, var, open_calendar):

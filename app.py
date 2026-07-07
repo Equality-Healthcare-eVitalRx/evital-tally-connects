@@ -16,10 +16,12 @@ except:  # win 8.0 or less
     ctypes.windll.user32.SetProcessDPIAware()
 
 # spalsh comment
-import pyi_splash
-pyi_splash.update_text('UI Loaded ...')
-pyi_splash.close()
-
+try:
+    import pyi_splash
+    pyi_splash.update_text('UI Loaded ...')
+    pyi_splash.close()
+except ImportError:
+    print("No Splash Screen Found")
 
 pyglet.options["win32_gdi_font"] = True
 fontpath = "./lib/fonts/static/Manrope-Regular.ttf"

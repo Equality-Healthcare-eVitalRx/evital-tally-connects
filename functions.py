@@ -26,7 +26,7 @@ def login(mobile_number, password, entity="chemist"):
         return 0
     else:
         res = send_login_request(mobile_number, password, entity)
-        # print(res)
+        print(res)
 
         if "status_code" in res.keys() and res["status_code"] in [1, "1"]:
             if_chain_pharmacy = res["data"]["business_details"]["is_chain_business"]
