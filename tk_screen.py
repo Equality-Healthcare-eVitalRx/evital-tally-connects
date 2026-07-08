@@ -1673,7 +1673,13 @@ class Dashboard(tk.Frame):
                     # Optional: close if click outside
                     def close_on_focus_out(e):
                         top.destroy()
+                        
+                    def close_on_focus_out_cal(e):
+                        top.destroy()
+                        cal.destroy()
 
+                    cal.bind("<FocusOut>", close_on_focus_out_cal)
+                    # cal.bind("<FocusOut>", close_on_focus_out)
                     # top.bind("<FocusOut>", close_on_focus_out)
                     top.focus_set()
 
