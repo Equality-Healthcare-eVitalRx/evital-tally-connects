@@ -19,11 +19,11 @@ VSVersionInfo(
           [
             StringStruct(u'CompanyName', u'eVitalRx'),
             StringStruct(u'FileDescription', u'Tally Sync Utility'),
-            StringStruct(u'FileVersion', u'0.3.10'),
+            StringStruct(u'FileVersion', u'0.3.10.1'),
             StringStruct(u'InternalName', u'eVitalConnects'),
             StringStruct(u'LegalCopyright', u'eVitalConnects'),
             StringStruct(u'ProductName', u'eVitalConnects'),
-            StringStruct(u'ProductVersion', u'0.3.10'),
+            StringStruct(u'ProductVersion', u'0.3.10.1'),
             StringStruct(u'ApplicationName', u'eVitalConnects.exe')
           ]
         )
