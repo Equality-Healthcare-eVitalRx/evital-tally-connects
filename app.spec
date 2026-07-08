@@ -23,7 +23,7 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 splash = Splash(
-    './lib/images/login_panel.jpg',
+    '.\\lib\\images\\login_panel.jpg',
     binaries=a.binaries,
     datas=a.datas,
     text_pos=None,
