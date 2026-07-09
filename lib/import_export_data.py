@@ -560,10 +560,12 @@ def send_reconciliation(
         print(f"\n🔑 Reconciliation for API key: {api_key}")
 
         url = constants.EVITAL_RX_URL + "/v2/master/reports/reconciliation"
-
+        # print("file_content:", file_content)
         try:
             # 🔴 IN-MEMORY FILE (no disk)
             file_obj = io.BytesIO(file_content.encode("utf-8"))
+            with open("./lib/tally_recon.txt", "w") as f:
+                f.write(file_content)
 
             files = {"file": ("tally_recon.txt", file_obj, "text/plain")}
 
