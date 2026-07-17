@@ -15,7 +15,7 @@ env_config = {
     },
     "staging": {
         "EVITAL_RX_HOST": "dev-api.evitalrx.in",
-        "EVITAL_RX_URL": "https://dev-api.evitalrx.in/",
+        "EVITAL_RX_URL": "https://ews-staging-api-product.portal-evital.com/",
     },
     "beta": {
         "EVITAL_RX_HOST": "beta-api.evitalrx.in",

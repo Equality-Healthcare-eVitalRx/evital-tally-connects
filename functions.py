@@ -247,12 +247,15 @@ def startprocess(one_sync=False):
                     report_name="All Masters",
                     company_name=company["company_name"],
                 )
+        with open("./lib/tally_errors.txt", "w") as f:
+            f.write("")
         for x in constants.SELECTED_MODULES:
             if x in ["ledgers", "Ledgers"]:
                 continue
-            if x in ["sales", "Sales"]:
-                with open("./lib/tally_errors.txt", "w") as f:
-                    f.write("")
+            with open("./lib/tally_errors.txt", "a") as f:
+                f.write("-"*50 + "\n")
+                f.write("Syncing " + x + "\n")
+                f.write("-"*50 + "\n")
             LogManagerObj.write_log("=" * 50)
             LogManagerObj.write_log("-" * 50)
             if constants.STOP_THREAD:
@@ -284,7 +287,6 @@ def startprocess(one_sync=False):
                 tallyObj.push_batch(
                     vouchers,
                     company_name=company["company_name"],
-                    print_log=x in ["sales", "Sales"]
                 )
             
             vouchers = extract_vouchers(data, ledgers_selected)
@@ -300,7 +302,6 @@ def startprocess(one_sync=False):
                     vouchers,
                     company_name=company["company_name"],
                     fetch_voucher_numbers=True,
-                    print_log=x in ["sales", "Sales"]
                 )
         
         if constants.CURRENT_BRANCH_SYNC is not None:

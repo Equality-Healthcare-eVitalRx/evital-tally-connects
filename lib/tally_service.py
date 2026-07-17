@@ -45,7 +45,6 @@ class TallyService:
         report_name="Vouchers",
         company_name="$$CurrentCompany",
         fetch_voucher_numbers=False,
-        print_log=False
     ):
         total = len(xml_list)
         if total == 0:
@@ -92,10 +91,10 @@ class TallyService:
                 )
 
                 response_text = res.text
-                if print_log:
+                if report_name != "All Masters":
                     with open("./lib/tally_errors.txt", "a") as f:
-                        f.write(response_text + "\n\n")
-
+                        f.write(response_text + "\n")
+                        print("writing")
                 created = self._extract_tag(response_text, "CREATED")
                 altered = self._extract_tag(response_text, "ALTERED")
                 errors = self._extract_tag(response_text, "ERRORS")
