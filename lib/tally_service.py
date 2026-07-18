@@ -92,7 +92,7 @@ class TallyService:
 
                 response_text = res.text
                 if report_name != "All Masters":
-                    with open("./lib/tally_errors.txt", "a") as f:
+                    with open("./lib/tally_data.txt", "a") as f:
                         f.write(response_text + "\n")
                         print("writing")
                 created = self._extract_tag(response_text, "CREATED")

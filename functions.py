@@ -247,12 +247,12 @@ def startprocess(one_sync=False):
                     report_name="All Masters",
                     company_name=company["company_name"],
                 )
-        with open("./lib/tally_errors.txt", "w") as f:
+        with open("./lib/tally_data.txt", "w") as f:
             f.write("")
         for x in constants.SELECTED_MODULES:
             if x in ["ledgers", "Ledgers"]:
                 continue
-            with open("./lib/tally_errors.txt", "a") as f:
+            with open("./lib/tally_data.txt", "a") as f:
                 f.write("-"*50 + "\n")
                 f.write("Syncing " + x + "\n")
                 f.write("-"*50 + "\n")
