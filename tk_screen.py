@@ -1,3 +1,5 @@
+import json
+
 from tkcalendar import Calendar
 import ctypes
 from ctypes import wintypes
@@ -1242,6 +1244,16 @@ class Dashboard(tk.Frame):
                 ):
                     if len(constants.MAPPING_HISTORY.get("results", [])) > 0:
                         company_options = {}
+                        try:
+                            with open("./lib/tally_data.txt", "a") as f:
+                                f.write("-"*50 + "\n")
+                                f.write("Company Data  " + "\n")
+                                f.write("-"*50 + "\n")
+                                
+                                f.write(json.dumps(constants.MAPPING_HISTORY) + "\n")
+                                f.write(json.dumps(constants.TALLY_ACCOUNTS) + "\n")
+                        except:
+                            pass
                         for x in constants.MAPPING_HISTORY.get("results", []):
                             if x["is_mapped"] in ["False", False, "false", ""]:
                                 continue
@@ -1262,9 +1274,9 @@ class Dashboard(tk.Frame):
                         if len(company_options) <= 0:
                             messagebox.showerror(
                                 "Tally Comapny",
-                                "No companies found in your Tally. Please contact support.",
+                                "eVitalRx Mapped Tally company is not loaded.\nPlease open the mapped company in Tally and try again.",
                             )
-                            logout()
+                            # logout()
                             parent.quit()
                             import sys
 
