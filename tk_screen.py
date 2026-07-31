@@ -242,7 +242,7 @@ class LoginScreen(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent, bg="white")
         self.controller = controller
-        parent.title = "Login"
+        parent.title("Login")
         LogViewerAppObj = LogViewerApp(parent)
 
         self.bind_all(
@@ -717,7 +717,7 @@ class Dashboard(tk.Frame):
                 widget.destroy()
         self.controller = controller
         self.parent = parent
-        parent.title = "Tally Sync"
+        parent.title("Tally Sync")
         self.checkbox_vars = {}
         header_font5b = font.Font(family="Manrope", size=8, weight="bold")
 
@@ -1554,6 +1554,8 @@ class Dashboard(tk.Frame):
                 def create_module_section(parent, title, modules):
                     section = tk.Frame(parent, bg="white")
                     section.pack(fill=tk.X, pady=10, padx=(10, 0))
+                    # print("Section created:", title)
+                    # print("Modules:", modules)
 
                     # Store checkbox variables
                     vars_list = []
@@ -1580,7 +1582,14 @@ class Dashboard(tk.Frame):
                     grid = tk.Frame(section, bg="white")
                     grid.pack(fill=tk.X, pady=(5, 0))
 
+                    # print("m,ap|",constants.MAPPING_HISTORY)
+                    # constants.MAPPING_HISTORY["login_entity_stock_transfer_import_enabled"] = True
                     for i, module in enumerate(modules):
+                        if constants.MAPPING_HISTORY.get("login_entity_stock_transfer_import_enabled", False):
+                            if module == "Purchase":
+                                module = "Purchase/Stock In"
+                            elif module == "Wholesale":
+                                module = "Wholesale/Stock Out"
                         var = tk.BooleanVar()
                         vars_list.append(var)
 

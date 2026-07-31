@@ -252,6 +252,10 @@ def startprocess(one_sync=False):
         for x in constants.SELECTED_MODULES:
             if x in ["ledgers", "Ledgers"]:
                 continue
+            if x == "Purchase/Stock In":
+                x = "Purchase"
+            if x == "Wholesale/Stock Out":
+                x = "Wholesale"
             with open("./lib/tally_data.txt", "a") as f:
                 f.write("-"*50 + "\n")
                 f.write("Syncing " + x + "\n")
