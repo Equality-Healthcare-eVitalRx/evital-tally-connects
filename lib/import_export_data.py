@@ -278,16 +278,16 @@ def get_tally_companies():
         LogManagerObj.write_log(traceback.format_exc())
         error_message = str(e)
         messagebox.showerror("Tally Company", "Tally is not running.")
-        import os
+        # import os
 
-        os.remove("./lib/app_cache.txt")
+        # os.remove("./lib/app_cache.txt")
         sys.exit(1)
     except:
         LogManagerObj.write_log(traceback.format_exc())
         messagebox.showerror("Tally Company", "Tally is not running.")
-        import os
+        # import os
 
-        os.remove("./lib/app_cache.txt")
+        # os.remove("./lib/app_cache.txt")
         sys.exit(1)
 
     return 0
