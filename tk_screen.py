@@ -33,7 +33,10 @@ pyglet.options["win32_gdi_font"] = True
 fontpath = Path(__file__).parent / "lib/fonts/static/Manrope-Regular.ttf"
 themepath = Path(__file__).parent / "lib/fonts/breeze/breeze.tcl"
 print(fontpath)
-pyglet.font.add_file(str(fontpath))
+try:
+    pyglet.font.add_file(str(fontpath))
+except Exception:
+    pass  # Use default font if custom font cannot be loaded
 try:  # >= win 8.1
     ctypes.windll.shcore.SetProcessDpiAwareness(2)
 except:  # win 8.0 or less

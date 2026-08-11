@@ -25,7 +25,10 @@ except ImportError:
 
 pyglet.options["win32_gdi_font"] = True
 fontpath = "./lib/fonts/static/Manrope-Regular.ttf"
-pyglet.font.add_file(str(fontpath))
+try:
+    pyglet.font.add_file(str(fontpath))
+except Exception:
+    pass  # Use default font if custom font cannot be loaded
 
 LogManagerObj.clear_logs()
 LogManagerObj.write_log("Application started")
