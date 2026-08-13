@@ -16,7 +16,7 @@ from lib import constants
 from lib.import_export_data import *
 from lib.tally_service import TallyService
 
-
+    
 def login(mobile_number, password, entity="chemist"):
     if len(mobile_number) != 10 or str(mobile_number).isdigit() == False:
         messagebox.showerror("Login Failed", "Invalid Mobile number")
