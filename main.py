@@ -229,7 +229,7 @@ def main_thread():
         if start_now:
             tally_status = check_if_tally_running()
             if tally_status != True:
-                messagebox.showerror("Tally is Not Open", "Make Sure Tally is Running.")
+                messagebox.showerror("Tally is Not Open", "Make sure your tally is running.")
                 return 0
         if constants.THREAD is None:
             background_thread = threading.Thread(

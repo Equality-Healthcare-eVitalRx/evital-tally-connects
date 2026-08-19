@@ -48,7 +48,8 @@ if my_file.is_file():
             constants.MOBILE = json_data["mobile"]
             constants.TALLY_PORT = json_data.get("tally_port", 9000)
             constants.HOST = json_data.get("tally_host", "localhost")
-            constants.MOBILE_VAR.set(constants.MOBILE)
+            if constants.MOBILE_VAR is not None:
+                constants.MOBILE_VAR.set(constants.MOBILE)
         if (
             "accesstoken"
             in json_data["login_response"]["data"]["business_details"][

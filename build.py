@@ -1,5 +1,5 @@
 """
-Build automation script for eVitalConnects (Tally Sync Utility).
+Build automation script for eVitalConnects (eVital<>Tally Connects).
 Generates local, staging, beta, and production builds using PyInstaller,
 then packages each build into a versioned zip archive.
 

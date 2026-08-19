@@ -16,7 +16,34 @@ from lib import constants
 from lib.import_export_data import *
 from lib.tally_service import TallyService
 
-    
+
+def get_sync_date_value(var):
+    """Safely read a sync date (works whether it's a StringVar or a plain string)."""
+    if hasattr(var, "get"):
+        return var.get()
+    return str(var or "")
+
+
+def get_valid_sync_date(var):
+    """Parse a sync date field into a datetime, or return None if invalid/empty."""
+    raw = get_sync_date_value(var)
+    try:
+        return datetime.strptime(raw, "%d-%m-%y")
+    except (ValueError, TypeError):
+        return None
+
+
+def reset_sync_dates():
+    """Reset the sync date fields to today without breaking the StringVar reference."""
+    today = datetime.now().strftime("%d-%m-%y")
+    for name in ("SYNC_START_DATE", "SYNC_END_DATE"):
+        var = getattr(constants, name)
+        if hasattr(var, "set"):
+            var.set(today)
+        else:
+            setattr(constants, name, today)
+
+
 def login(mobile_number, password, entity="chemist"):
     if len(mobile_number) != 10 or str(mobile_number).isdigit() == False:
         messagebox.showerror("Login Failed", "Invalid Mobile number")
@@ -94,7 +121,7 @@ def logout():
     constants.MAPPING_TYPE = ""
     constants.ACCESS_TOKEN = ""
     constants.THREAD = None
-    constants.STOP_THREAD = False
+    constants.STOP_THREAD = True if constants.SYNC_RUNNING else False
     constants.DISPLAY_SYNC_LOADER = False
 
     constants.MAPPING_HISTORY = {}
@@ -111,8 +138,7 @@ def logout():
     # SYNC_STAGE = 0
     constants.SYNC_BTN_TEXT = "Next"
     constants.LAST_SYNC_HEADER_VAR = ""
-    constants.SYNC_START_DATE = ""
-    constants.SYNC_END_DATE = ""
+    reset_sync_dates()
     LogManagerObj.write_log("Logout Successful")
     # root.destroy()
 
@@ -170,14 +196,14 @@ def startprocess(one_sync=False):
     init_data_array = []
     for company in companies:
         if constants.STOP_THREAD:
-            print("thread stopped abnormally")
-            LogManagerObj.write_log("thread stopped abnormally")
+            print("⏹ Syncing process stopped abnormally")
+            LogManagerObj.write_log("⏹ Syncing process stopped abnormally")
             LogManagerObj.write_log("+" * 50)
             constants.STOP_THREAD = False
             return 0
         LogManagerObj.write_log("+" * 50)
         LogManagerObj.write_log(
-            f"🔑 Syncing {company['company_name']} from {company['branch_name']}"
+            f"🔑 Syncing '{company['company_name']}' from '{company['branch_name']}'"
         )
 
         current_apikey = ""
@@ -218,8 +244,18 @@ def startprocess(one_sync=False):
                 current_from_date = z["starting_from"]
                 break
 
-        from_date = datetime.strptime(constants.SYNC_START_DATE.get(), "%d-%m-%y")
-        to_date = datetime.strptime(constants.SYNC_END_DATE.get(), "%d-%m-%y")
+        from_date = get_valid_sync_date(constants.SYNC_START_DATE)
+        to_date = get_valid_sync_date(constants.SYNC_END_DATE)
+        if from_date is None or to_date is None:
+            LogManagerObj.write_log("⚠️ Invalid or empty sync dates; using today's date.")
+        today = datetime.now()
+        if from_date is None:
+            from_date = to_date or today
+        if to_date is None:
+            to_date = from_date or today
+        LogManagerObj.write_log(
+            f"📅 Sync Period: {from_date.strftime('%d-%m-%Y')} to {to_date.strftime('%d-%m-%Y')}"
+        )
         if "Ledgers" in constants.SELECTED_MODULES:
             if constants.CURRENT_BRANCH_SYNC is not None:
                 constants.CURRENT_BRANCH_SYNC.set("Syncing Ledgers")
@@ -247,15 +283,22 @@ def startprocess(one_sync=False):
                     report_name="All Masters",
                     company_name=company["company_name"],
                 )
+                if constants.STOP_THREAD:
+                    print("⏹ Syncing process stopped abnormally")
+                    LogManagerObj.write_log("⏹ Syncing process stopped abnormally")
+                    LogManagerObj.write_log("+" * 50)
+                    constants.STOP_THREAD = False
+                    return 0
         with open("./lib/tally_data.txt", "w") as f:
             f.write("")
         for x in constants.SELECTED_MODULES:
             if x in ["ledgers", "Ledgers"]:
                 continue
+            api_type = x
             if x == "Purchase/Stock In":
-                x = "Purchase"
+                api_type = "Purchase"
             if x == "Wholesale/Stock Out":
-                x = "Wholesale"
+                api_type = "Wholesale"
             with open("./lib/tally_data.txt", "a") as f:
                 f.write("-"*50 + "\n")
                 f.write("Syncing " + x + "\n")
@@ -263,8 +306,8 @@ def startprocess(one_sync=False):
             LogManagerObj.write_log("=" * 50)
             LogManagerObj.write_log("-" * 50)
             if constants.STOP_THREAD:
-                print("thread stopped abnormally")
-                LogManagerObj.write_log("thread stopped abnormally")
+                print("Process stopped abnormally")
+                LogManagerObj.write_log("Process stopped abnormally")
                 LogManagerObj.write_log("+" * 50)
                 constants.STOP_THREAD = False
                 return 0
@@ -275,18 +318,18 @@ def startprocess(one_sync=False):
                 from_date.strftime("%Y-%m-%d"),
                 to_date.strftime("%Y-%m-%d"),
                 current_apikey,
-                x,
+                api_type,
             )
             # print(data)
             
             vouchers = extract_party_xmls(data)
             if not vouchers:
-                print("⚠️ No Party XML records found across all keys.")
-                LogManagerObj.write_log("⚠️ No Party XML records found across all keys.")
+                print("⚠️ No Party records found across all keys.")
+                LogManagerObj.write_log("⚠️ No Party records found across all keys.")
             else:
-                print(f"🚀 Found {len(vouchers)} Party XML records. Importing...")
+                print(f"🚀 Found {len(vouchers)} Party records. Importing...")
                 LogManagerObj.write_log(
-                    f"🚀 Found {len(vouchers)} Party XML records. Importing..."
+                    f"🚀 Found {len(vouchers)} Party records. Importing..."
                 )
                 tallyObj.push_batch(
                     vouchers,
@@ -307,6 +350,12 @@ def startprocess(one_sync=False):
                     company_name=company["company_name"],
                     fetch_voucher_numbers=True,
                 )
+            if constants.STOP_THREAD:
+                print("⏹ Syncing process stopped abnormally")
+                LogManagerObj.write_log("⏹ Syncing process stopped abnormally")
+                LogManagerObj.write_log("+" * 50)
+                constants.STOP_THREAD = False
+                return 0
         
         if constants.CURRENT_BRANCH_SYNC is not None:
             constants.CURRENT_BRANCH_SYNC.set("Exporting Reconciliation Data")
@@ -316,9 +365,21 @@ def startprocess(one_sync=False):
             company_name=company["company_name"],
         )
 
+        if constants.STOP_THREAD:
+            print("⏹ Syncing process stopped abnormally")
+            LogManagerObj.write_log("⏹ Syncing process stopped abnormally")
+            LogManagerObj.write_log("+" * 50)
+            constants.STOP_THREAD = False
+            return 0
+
+        print("✅ eVital to Tally data synced successfully")
+        LogManagerObj.write_log("✅ eVital to Tally data synced successfully")
+
+        LogManagerObj.write_log("+" * 50)
+
         # ── Call ERP reconciliation API ────────────────────────────
-        print("🔄 Organizing reconciliation data..")
-        LogManagerObj.write_log("🔄 Organizing reconciliation data..")
+        print("🔄 Organizing reconciliation data...")
+        LogManagerObj.write_log("🔄 Organizing reconciliation data...")
 
         results = send_reconciliation(
             file_content=txt_data,
@@ -332,8 +393,8 @@ def startprocess(one_sync=False):
                 print(f"❌ Reconciliation failed: {res['error']}")
                 LogManagerObj.write_log(f"❌ Reconciliation failed: {res['error']}")
             else:
-                LogManagerObj.write_log("✅ Reconciliation successful.")
-                print("✅ Reconciliation successful.")
+                LogManagerObj.write_log("✅ Reconciliation completed successfully")
+                print("✅ Reconciliation completed successfully")
 
         if constants.CURRENT_BRANCH_SYNC is not None:
             constants.CURRENT_BRANCH_SYNC.set("Exporting Balance Sheet")
@@ -359,8 +420,8 @@ def startprocess(one_sync=False):
 
         for key, value in constants.REQUEST_FORMATS.items():
             if constants.STOP_THREAD:
-                print("thread stopped abnormally")
-                LogManagerObj.write_log("thread stopped abnormally")
+                print("⏹ Syncing process stopped abnormally")
+                LogManagerObj.write_log("⏹ Syncing process stopped abnormally")
                 LogManagerObj.write_log("+" * 50)
                 constants.STOP_THREAD = False
                 return 0
@@ -415,8 +476,8 @@ def startprocess(one_sync=False):
         init_data_array.append(init_data_list)
 
         if constants.STOP_THREAD:
-            print("thread stopped abnormally")
-            LogManagerObj.write_log("thread stopped abnormally")
+            print("⏹ Syncing process stopped abnormally")
+            LogManagerObj.write_log("⏹ Syncing process stopped abnormally")
             LogManagerObj.write_log("+" * 50)
             constants.STOP_THREAD = False
             return 0
@@ -424,26 +485,21 @@ def startprocess(one_sync=False):
     LogManagerObj.write_log("+" * 50)
 
     if constants.STOP_THREAD:
-        print("thread stopped abnormally")
-        LogManagerObj.write_log("thread stopped abnormally")
+        print("⏹ Syncing process stopped abnormally")
+        LogManagerObj.write_log("⏹ Syncing process stopped abnormally")
         LogManagerObj.write_log("+" * 50)
         constants.STOP_THREAD = False
         return 0
-    LogManagerObj.write_log("Sending tally data to eVitalRx")
+    LogManagerObj.write_log("🔄 Sending Tally data to eVital...")
     res = send_data_to_evitalrx(request_array)
-    LogManagerObj.write_log(res)
+    LogManagerObj.write_log("✅ " + res.get("status_message", ""))
 
     init_response = send_init_data_to_evital_rx(
         init_data_array, from_date.strftime("%Y-%m-%d"), to_date.strftime("%Y-%m-%d")
     )
-    LogManagerObj.write_log(init_response)
-
-    if not ("status_code" in res.keys() and res["status_code"] != 1):
-        messagebox.showerror("Tally Sync", "Unable to sync data.")
-    elif not (
-        "status_code" in init_response.keys() and init_response["status_code"] != 1
-    ):
-        messagebox.showerror("Sync Issue", "Unable to sync data.")
+    LogManagerObj.write_log("✅ " + init_response.get("status_message", ""))
+    LogManagerObj.write_log("✅ All data syncing processes have been completed successfully")
+    
     # elif constants.THREAD is None:
     #     messagebox.showinfo("Tally Data Export",str(res["status_message"]).replace("_", " "))
     constants.ANIMATION_AFTER_ID = None
@@ -451,8 +507,7 @@ def startprocess(one_sync=False):
     constants.DISPLAY_SYNC_LOADER = False
 
     constants.LAST_SYNC_HEADER_VAR = ""
-    constants.SYNC_START_DATE = ""
-    constants.SYNC_END_DATE = ""
+    reset_sync_dates()
     constants.SELECTED_MODULES = []
     constants.STOP_THREAD = True
 
@@ -463,35 +518,40 @@ def startprocess(one_sync=False):
 
 
 def start_background_thread(start_now=False, one_sync=False):
-    while not constants.STOP_THREAD:
-        # print("Running background task...")
-        tally_status = check_if_tally_running()
-        if tally_status == True:
-            if not start_now:
-                if constants.SYNC_TIMER == 0:
+    constants.STOP_THREAD = False
+    constants.SYNC_RUNNING = True
+    try:
+        while not constants.STOP_THREAD:
+            # print("Running background task...")
+            tally_status = check_if_tally_running()
+            if tally_status == True:
+                if not start_now:
+                    if constants.SYNC_TIMER == 0:
+                        constants.STOP_THREAD = True
+                        break
+                    print("sleep")
+                    time.sleep(constants.SYNC_TIMER * 60)
+                    # time.sleep(3 * 1)
+                if constants.STOP_THREAD:
+                    print("background thread killed")
+                    break
+                startprocess(one_sync=one_sync)
+                if start_now:
                     constants.STOP_THREAD = True
                     break
-                print("sleep")
-                time.sleep(constants.SYNC_TIMER * 60)
-                # time.sleep(3 * 1)
-            if constants.STOP_THREAD:
-                print("background thread killed")
-                break
-            startprocess(one_sync=one_sync)
-            if start_now:
-                constants.STOP_THREAD = True
-                break
 
-        else:
-            time.sleep(15 * 60)
-    # constants.STOP_THREAD = False
+            else:
+                time.sleep(15 * 60)
+    finally:
+        constants.SYNC_RUNNING = False
+        constants.STOP_THREAD = True
 
 
 def start_thread(start_now=False, one_sync=False):
     if start_now:
         tally_status = check_if_tally_running()
         if tally_status != True:
-            messagebox.showerror("Tally is Not Open", "Make Sure Tally is Running.")
+            messagebox.showerror("Tally is Not Open", "Make sure your tally is running.")
             return 0
     if constants.THREAD is None:
         background_thread = threading.Thread(
@@ -567,12 +627,12 @@ def play_loading_animation():
     root.resizable(0, 0)
 
     root.iconbitmap("./lib/images/logo2.ico")
-    root.title("Tally Sync")
+    root.title("eVital<>Tally Connects")
 
     hwnd = ctypes.windll.user32.GetForegroundWindow()
     ctypes.windll.user32.SetWindowLongW(hwnd, -20, 0x00000000)
 
-    gif_path = "lib\images\TallySyncSplash.gif"  # Update with your gif path
+    gif_path = r"lib\images\TallySyncSplash.gif"  # Update with your gif path
 
     gif_label = tk.Label(root, bg="white")
     gif_label.pack(expand=True)

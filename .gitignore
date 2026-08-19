@@ -5,3 +5,7 @@ __pycache__
 breeze
 *.zip
 themes
+lib/tally_data.txt
+lib/tally_recon.txt
+lib/app_cache.txt
+lib/app_logs.txt

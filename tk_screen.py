@@ -1,4 +1,6 @@
 import json
+import sys
+import traceback
 
 from tkcalendar import Calendar
 import ctypes
@@ -20,9 +22,12 @@ from functions import (
     logout,
     get_all_mapping_details,
     constants,
+    get_sync_date_value,
+    get_valid_sync_date,
     start_background_thread,
     start_thread,
     map_rx_companies,
+    remove_company_mapping,
     encrypt_data,
     decrypt_data,
     LogManagerObj,
@@ -32,9 +37,9 @@ from lib.import_export_data import get_tally_companies
 pyglet.options["win32_gdi_font"] = True
 fontpath = Path(__file__).parent / "lib/fonts/static/Manrope-Regular.ttf"
 themepath = Path(__file__).parent / "lib/fonts/breeze/breeze.tcl"
-print(fontpath)
 try:
-    pyglet.font.add_file(str(fontpath))
+    if fontpath.is_file():
+        pyglet.font.add_file(str(fontpath))
 except Exception:
     pass  # Use default font if custom font cannot be loaded
 try:  # >= win 8.1
@@ -43,6 +48,28 @@ except:  # win 8.0 or less
     ctypes.windll.user32.SetProcessDPIAware()
 
 import ctypes
+
+
+def _log_exception(exc_type, exc_value, exc_traceback):
+    """Write any uncaught exception to the app log so it shows in the log viewer."""
+    try:
+        text = "".join(
+            traceback.format_exception(exc_type, exc_value, exc_traceback)
+        )
+        LogManagerObj.write_log(f"❌ Unhandled exception:\n{text}")
+    except Exception:
+        pass
+    if exc_type is not SystemExit:
+        traceback.print_exception(exc_type, exc_value, exc_traceback)
+
+
+def _thread_exception_logger(args):
+    """Write uncaught exceptions raised inside worker threads to the app log."""
+    _log_exception(args.exc_type, args.exc_value, args.exc_traceback)
+
+
+sys.excepthook = _log_exception
+threading.excepthook = _thread_exception_logger
 
 
 class MARGINS(ctypes.Structure):
@@ -102,6 +129,12 @@ class App(tk.Tk):
             self.destroy()
 
         def on_closing():
+            if constants.SYNC_RUNNING:
+                messagebox.showwarning(
+                    "Sync in Progress",
+                    "Cannot close the app while data is being imported. Please wait for the sync to finish or stop it first.",
+                )
+                return
             self.destroy()
 
         self.frames = {}
@@ -159,6 +192,13 @@ class App(tk.Tk):
 
         self.update()
         self.update_idletasks()
+
+    def report_callback_exception(self, exc, val, tb):
+        """Log exceptions raised inside Tkinter callbacks."""
+        if isinstance(exc, tk.TclError) and "invalid command name" in str(val):
+            return  # benign: widget was destroyed while a pending event fired
+        _log_exception(exc, val, tb)
+        super().report_callback_exception(exc, val, tb)
 
     def start_move(self, event):
         self.x_offset = event.x_root - self.winfo_x()
@@ -245,7 +285,7 @@ class LoginScreen(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent, bg="white")
         self.controller = controller
-        parent.title("Login")
+        parent.title("eVital<>Tally Connects")
         LogViewerAppObj = LogViewerApp(parent)
 
         self.bind_all(
@@ -259,6 +299,7 @@ class LoginScreen(tk.Frame):
         header_font3 = font.Font(family="Manrope", size=12)
         header_font4 = font.Font(family="Manrope", size=11)
         header_font4b = font.Font(family="Manrope", size=11, weight="bold")
+        header_font5 = font.Font(family="Manrope", size=8)
         header_font5b = font.Font(family="Manrope", size=8, weight="bold")
 
         def close_window():
@@ -472,7 +513,7 @@ class LoginScreen(tk.Frame):
         # # Title (left side)
         # # title_label = tk.Label(
         # #     drag_layer,
-        # #     text="Tally Sync Utility",
+        # #     text="eVital<>Tally Connects",
         # #     # bg="#0CA1F6",
         # #     bg="white",
         # #     # fg="white",
@@ -552,28 +593,19 @@ class LoginScreen(tk.Frame):
         entity_selection_frame.pack(pady=(5, 20), padx=(60, 55), anchor=tk.W)
 
         entity_button_theme = ttk.Style()
-        if "breeze" not in entity_button_theme.theme_names():
-            self.tk.call("source", themepath)
-
-        entity_button_theme.configure("TLabel", foreground="black")  # Label text color
-        entity_button_theme.configure(
-            "TButton", foreground="black"
-        )  # Button text color
-        entity_button_theme.configure(
-            "TRadiobutton", foreground="black"
-        )  # Radiobutton text color
-        entity_button_theme.configure(
-            "TCheckbutton", foreground="black"
-        )  # Checkbutton text color
-
-        entity_button_theme.configure(
-            "breeze.TRadiobutton",  # First argument is the name of style. Needs to end with: .TRadiobutton
-            background="white",
-            focuscolor="white",
-            highlightthickness=0,
-            borderwidth=0,
-        )  # You can define colors like this also
-        entity_button_theme.theme_use("breeze")
+        try:
+            if "breeze" not in entity_button_theme.theme_names():
+                self.tk.call("source", themepath)
+            entity_button_theme.configure(
+                "breeze.TRadiobutton",  # First argument is the name of style. Needs to end with: .TRadiobutton
+                background="white",
+                focuscolor="white",
+                highlightthickness=0,
+                borderwidth=0,
+            )  # You can define colors like this also
+            entity_button_theme.theme_use("breeze")
+        except Exception:
+            entity_button_theme.theme_use("default")
 
         selected_color = "#044C9D"  # Blue color for selected text
         default_color = "black"
@@ -658,21 +690,22 @@ class LoginScreen(tk.Frame):
         )
         mobile_label.pack(pady=(20, 0), padx=(60, 55), anchor=tk.W)
 
+        mobile_frame = tk.Frame(right_panel, bg="white")
+        mobile_frame.pack(pady=4, padx=65, anchor=tk.W, fill=tk.X)
+
         mobile_entry = tk.Entry(
-            right_panel,
+            mobile_frame,
             bg="white",
             font=header_font2,
             bd=0,
-            width=40,
             validate="key",
             validatecommand=vcmd,
         )
-        mobile_entry.pack(pady=4, padx=65, anchor=tk.W)
+        mobile_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
         mobile_line = tk.Canvas(
-            right_panel, width=280, height=1, bg="#004BA8", highlightthickness=0
+            right_panel, height=1, bg="#004BA8", highlightthickness=0
         )
-        mobile_line.pack(pady=(0, 10), padx=(65, 35), anchor=tk.W)
-        mobile_entry.propagate(False)
+        mobile_line.pack(pady=(0, 10), padx=65, anchor=tk.W, fill=tk.X)
 
         password_label = tk.Label(
             right_panel,
@@ -686,14 +719,46 @@ class LoginScreen(tk.Frame):
         )
         password_label.pack(pady=(10, 0), padx=(60, 55), anchor=tk.W)
 
+        password_frame = tk.Frame(right_panel, bg="white")
+        password_frame.pack(pady=4, padx=65, anchor=tk.W, fill=tk.X)
+
         password_entry = tk.Entry(
-            right_panel, bg="white", font=header_font2, bd=0, show="*"
+            password_frame, bg="white", font=header_font2, bd=0, show="*"
         )
-        password_entry.pack(pady=4, padx=65, anchor=tk.W, fill=tk.X)
+        password_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+
+        eye_label = tk.Label(
+            password_frame,
+            text="Show",
+            bg="white",
+            fg="#0CA1F6",
+            cursor="hand2",
+            font=header_font4,
+        )
+        eye_label.pack(side=tk.RIGHT)
+
+        def on_eye_enter(event):
+            eye_label.config(fg="#033D7E")
+
+        def on_eye_leave(event):
+            eye_label.config(fg="#0CA1F6")
+
+        def toggle_password_visibility():
+            if password_entry.cget("show") == "*":
+                password_entry.config(show="")
+                eye_label.config(text="Hide")
+            else:
+                password_entry.config(show="*")
+                eye_label.config(text="Show")
+
+        eye_label.bind("<Button-1>", lambda e: toggle_password_visibility())
+        eye_label.bind("<Enter>", on_eye_enter)
+        eye_label.bind("<Leave>", on_eye_leave)
+
         password_line = tk.Canvas(
-            right_panel, width=280, height=1, bg="#004BA8", highlightthickness=0
+            right_panel, height=1, bg="#004BA8", highlightthickness=0
         )
-        password_line.pack(pady=(0, 20), padx=(65, 35), anchor=tk.W)
+        password_line.pack(pady=(0, 20), padx=65, anchor=tk.W, fill=tk.X)
 
         password_entry.bind("<Return>", lambda e: login_button.invoke())
 
@@ -705,11 +770,11 @@ class LoginScreen(tk.Frame):
             fg_color="#0CA1F6",
             font=CTkFont(family="Manrope", size=16, weight="bold"),
             height=42,
-            width=230,
-            corner_radius=4,
+            width=320,
+            corner_radius=6,
             command=check_login,
         )
-        login_button.pack(pady=20, padx=(20, 50))
+        login_button.pack(pady=20, padx=65)
 
 
 class Dashboard(tk.Frame):
@@ -720,7 +785,7 @@ class Dashboard(tk.Frame):
                 widget.destroy()
         self.controller = controller
         self.parent = parent
-        parent.title("Tally Sync")
+        parent.title("eVital<>Tally Connects")
         self.checkbox_vars = {}
         header_font5b = font.Font(family="Manrope", size=8, weight="bold")
 
@@ -731,8 +796,17 @@ class Dashboard(tk.Frame):
         )
 
         def create_main_content():
-
-            constants.STOP_THREAD = False
+            nonlocal rebuild_scheduled
+            rebuild_scheduled = False
+            if not constants.SYNC_RUNNING:
+                constants.STOP_THREAD = False
+            if getattr(self, "_logout_label", None) is not None:
+                self._logout_label.pack(
+                    side=tk.BOTTOM, anchor=tk.W, pady=(0, 50), padx=30
+                )
+                self._user_label.pack(
+                    side=tk.BOTTOM, anchor=tk.W, pady=(0, 8), padx=30
+                )
             if (
                 right_panel.winfo_exists()
             ):  # Ensures widget exists before calling winfo_children()
@@ -832,7 +906,7 @@ class Dashboard(tk.Frame):
                 fg_color="#0CA1F6",
                 height=42,
                 width=120,
-                corner_radius=4,
+                corner_radius=6,
                 command=show_sync_frame,
             )
             sync_all_button.pack(pady=(5, 20), padx=40, anchor=tk.E)
@@ -978,111 +1052,318 @@ class Dashboard(tk.Frame):
                     bg_label.image = bg_image
                     bg_label.pack(fill="both", expand=True)
 
-                    # Centered menu
+                    options = remaining_branch
+
+                    ACCENT = "#0CA1F6"
+                    HEADER_BG = "#004BA8"
+                    HEADER_HOVER = "#003A80"
+                    HOVER_BG = "#E7F6FF"
+                    TEXT = "#1F2430"
+                    MUTED = "#7E878C"
+                    BORDER = "#E3E8EF"
+                    CHEVRON = "#C9D2DC"
+                    LIST_BG = "#F3F6F9"
+
+                    MENU_WIDTH = 460
+                    ROW_HEIGHT = 46
+                    ROW_PAD_Y = 6
+                    MAX_LIST_HEIGHT = 368
+                    MAX_VISIBLE_ROWS = MAX_LIST_HEIGHT // (ROW_HEIGHT + ROW_PAD_Y)
+
+                    # Centered menu with a subtle border
                     menu_frame = tk.Frame(
-                        overlay, bg="white", bd=2, relief="ridge", pady=20
+                        overlay,
+                        bg="white",
+                        highlightbackground=BORDER,
+                        highlightthickness=1,
                     )
                     menu_frame.place(relx=0.5, rely=0.5, anchor="center")
 
-                    # print(branch_data)
+                    # ================= HEADER =================
+                    header = tk.Frame(menu_frame, bg=HEADER_BG)
+                    header.pack(fill=tk.X)
+
+                    header_text = tk.Frame(header, bg=HEADER_BG)
+                    header_text.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(20, 8), pady=14)
+
+                    tk.Label(
+                        header_text,
+                        text="MAP BRANCH",
+                        bg=HEADER_BG,
+                        fg="#9DD3FF",
+                        font=small_font,
+                        anchor=tk.W,
+                    ).pack(anchor=tk.W, pady=(0, 3))
+
+                    branch_name = branch_data["name"]
+                    if len(branch_name) > 55:
+                        branch_name = branch_name[:54] + "…"
+                    tk.Label(
+                        header_text,
+                        text=branch_name,
+                        bg=HEADER_BG,
+                        fg="white",
+                        font=header_font,
+                        anchor=tk.W,
+                        justify=tk.LEFT,
+                        wraplength=330,
+                    ).pack(anchor=tk.W, pady=(0, 3))
+                    tk.Label(
+                        header_text,
+                        text="Select a Tally company to map this branch",
+                        bg=HEADER_BG,
+                        fg="#EAF6FF",
+                        font=small_font,
+                        anchor=tk.W,
+                    ).pack(anchor=tk.W)
+
+                    close_btn = tk.Label(
+                        header,
+                        text="✕",
+                        bg=HEADER_BG,
+                        fg="white",
+                        font=header_font2,
+                        cursor="hand2",
+                        padx=14,
+                        pady=8,
+                    )
+                    close_btn.pack(side=tk.RIGHT, padx=(4, 10))
+                    close_btn.bind("<Button-1>", lambda e: overlay.destroy())
+                    close_btn.bind("<Enter>", lambda e: close_btn.configure(bg=HEADER_HOVER))
+                    close_btn.bind("<Leave>", lambda e: close_btn.configure(bg=HEADER_BG))
+
+                    # ================= BODY =================
+                    noun = "company" if len(options) == 1 else "companies"
                     tk.Label(
                         menu_frame,
-                        text=branch_data["name"],
-                        font=header_font,
+                        text=f"{len(options)} Tally {noun} available",
                         bg="white",
-                    ).pack(pady=(10, 5), padx=20)
-                    # tk.Label(menu_frame, text="Arkham sylum batman joker harley quinn aquamna cyborg flash", font=header_font, bg="white").pack(pady=(20, 5), padx=20)
-                    tk.Label(
-                        menu_frame, text="Map With", font=label_font2, bg="white"
-                    ).pack(anchor="n", pady=(0, 20), padx=20)
-
-                    options = remaining_branch
-
-                    if len(options) > 10:
-                        canvas2 = tk.Canvas(
-                            menu_frame,
-                            bg="white",
-                            bd=0,
-                            highlightthickness=0,
-                            relief="ridge",
-                        )
-                        # scrollbar = ttk.Scrollbar(menu_frame, orient="vertical", command=canvas.yview, style="Custom.Vertical.TScrollbar")
-                        scrollbar2 = ttk.Scrollbar(
-                            menu_frame, orient="vertical", command=canvas2.yview
-                        )
-                        scrollable_frame2 = tk.Frame(canvas2, bg="white")
-
-                        # Configure the canvas
-                        scrollable_frame2.bind(
-                            "<Configure>",
-                            lambda e: canvas2.configure(
-                                scrollregion=canvas2.bbox("all")
-                            ),
-                        )
-
-                        canvas2.create_window(
-                            (0, 0), window=scrollable_frame2, anchor="nw"
-                        )
-                        canvas2.configure(yscrollcommand=scrollbar2.set)
-
-                        # Pack canvas and scrollbar
-                        canvas2.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-                        scrollbar2.pack(side=tk.RIGHT, fill=tk.Y)
-                    else:
-                        scrollable_frame2 = menu_frame
-
-                    def on_scroll2(event):
-                        """Enable scrolling inside the frame without dragging the app."""
-                        if len(options) > 10:
-                            if event.delta:  # Windows scrolling
-                                canvas2.yview_scroll(-1 * (event.delta // 120), "units")
-                            elif event.num == 4:  # Linux scroll up
-                                canvas2.yview_scroll(-1, "units")
-                            elif event.num == 5:  # Linux scroll down
-                                canvas2.yview_scroll(1, "units")
-
-                    s = ttk.Style()  # Creating style element
-                    s.configure(
-                        "Wild.TRadiobutton",  # First argument is the name of style. Needs to end with: .TRadiobutton
-                        background="white",  # Setting background to our specified color above
-                        foreground="black",
-                        indicatormargin=100,
-                        # padding=(10,5),
+                        fg=MUTED,
                         font=label_font,
+                        anchor=tk.W,
+                    ).pack(fill=tk.X, padx=20, pady=(14, 4))
+
+                    list_wrapper = tk.Frame(
+                        menu_frame,
+                        bg=LIST_BG,
+                        highlightbackground=BORDER,
+                        highlightthickness=1,
+                    )
+                    list_wrapper.pack(fill=tk.X, padx=20, pady=(0, 16))
+
+                    canvas2 = tk.Canvas(
+                        list_wrapper, bg=LIST_BG, bd=0, highlightthickness=0, relief="flat"
+                    )
+                    scrollbar2 = ttk.Scrollbar(
+                        list_wrapper, orient="vertical", command=canvas2.yview
+                    )
+                    scrollable_frame2 = tk.Frame(canvas2, bg=LIST_BG)
+
+                    scrollable_frame2.bind(
+                        "<Configure>",
+                        lambda e: canvas2.configure(scrollregion=canvas2.bbox("all")),
                     )
 
-                    selected = tk.StringVar(value="")
+                    has_scrollbar = len(options) > MAX_VISIBLE_ROWS
+                    list_height = min(
+                        MAX_LIST_HEIGHT, len(options) * (ROW_HEIGHT + ROW_PAD_Y)
+                    )
+                    list_width = MENU_WIDTH - 40 if not has_scrollbar else MENU_WIDTH - 58
+                    canvas2.configure(width=MENU_WIDTH - 40, height=list_height)
+                    canvas2.create_window(
+                        (0, 0), window=scrollable_frame2, anchor="nw", width=list_width
+                    )
+                    canvas2.configure(yscrollcommand=scrollbar2.set)
+
+                    canvas2.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+                    scrollbar2.pack(side=tk.RIGHT, fill=tk.Y)
+                    if not has_scrollbar:
+                        scrollbar2.pack_forget()
+
+                    tip_states = []
+
+                    row_inner_width = list_width - 12
+                    bullet_total = label_font.measure("●") + 26
+                    chevron_total = label_font.measure("→") + 14
+                    name_avail = row_inner_width - bullet_total - chevron_total
+
+                    def on_scroll2(event):
+                        for st in tip_states:
+                            if st["after"] is not None:
+                                try:
+                                    st["widget"].after_cancel(st["after"])
+                                except tk.TclError:
+                                    pass
+                                st["after"] = None
+                            if st["win"] is not None:
+                                try:
+                                    st["win"].destroy()
+                                except tk.TclError:
+                                    pass
+                                st["win"] = None
+                        if event.delta:  # Windows scrolling
+                            canvas2.yview_scroll(-1 * (event.delta // 120), "units")
+                        elif event.num == 4:  # Linux scroll up
+                            canvas2.yview_scroll(-1, "units")
+                        elif event.num == 5:  # Linux scroll down
+                            canvas2.yview_scroll(1, "units")
 
                     for option in options:
-                        rb = ttk.Radiobutton(
+                        row = tk.Frame(
                             scrollable_frame2,
-                            text=option,
-                            value=option,
-                            variable=selected,
-                            style="Wild.TRadiobutton",
-                            command=lambda opt=option, overlay=overlay: (
-                                map_branch_action(opt, overlay)
-                            ),
+                            bg="white",
+                            cursor="hand2",
+                            highlightbackground=BORDER,
+                            highlightthickness=1,
                         )
-                        rb.pack(anchor="w", padx=(80, 20), pady=5, fill="x")
+                        row.configure(height=ROW_HEIGHT)
+                        row.pack(fill=tk.X, padx=6, pady=3)
+                        row.pack_propagate(False)
+
+                        needs_tip = label_font.measure(option) > name_avail
+                        if needs_tip:
+                            shown_name = option
+                            while (
+                                len(shown_name) > 1
+                                and label_font.measure(shown_name + "…") > name_avail
+                            ):
+                                shown_name = shown_name[:-1]
+                            shown_name += "…"
+                        else:
+                            shown_name = option
+                        bullet = tk.Label(
+                            row, text="●", bg="white", fg=ACCENT, font=label_font
+                        )
+                        bullet.pack(side=tk.LEFT, padx=(14, 12))
+                        name = tk.Label(
+                            row,
+                            text=shown_name,
+                            bg="white",
+                            fg=TEXT,
+                            font=label_font,
+                            anchor=tk.W,
+                        )
+                        name.pack(side=tk.LEFT, fill=tk.X, expand=True)
+                        chevron = tk.Label(
+                            row, text="→", bg="white", fg=CHEVRON, font=label_font
+                        )
+                        chevron.pack(side=tk.RIGHT, padx=14)
+
+                        tip_state = {"after": None, "win": None, "widget": None}
+                        tip_states.append(tip_state)
+
+                        def show_tip(e, option=option, row=row, tip_state=tip_state):
+                            try:
+                                if tip_state["win"] is not None:
+                                    return
+                                x = row.winfo_rootx()
+                                y = row.winfo_rooty() + row.winfo_height() + 4
+                                screen_h = overlay.winfo_screenheight()
+                                if y + 100 > screen_h:
+                                    y = row.winfo_rooty() - 8
+                                tip = tk.Toplevel(overlay)
+                                tip.wm_overrideredirect(True)
+                                tip.wm_geometry(f"+{x}+{y}")
+                                tip.configure(bg=TEXT)
+                                tk.Label(
+                                    tip,
+                                    text=option,
+                                    bg=TEXT,
+                                    fg="white",
+                                    font=small_font,
+                                    justify=tk.LEFT,
+                                    wraplength=380,
+                                    padx=10,
+                                    pady=6,
+                                ).pack()
+                                tip_state["win"] = tip
+                            except tk.TclError:
+                                return
+
+                        def on_row_enter(
+                            e,
+                            row=row,
+                            bullet=bullet,
+                            name=name,
+                            chevron=chevron,
+                            option=option,
+                            needs_tip=needs_tip,
+                            tip_state=tip_state,
+                        ):
+                            row.configure(bg=HOVER_BG, highlightbackground=ACCENT)
+                            bullet.configure(bg=HOVER_BG)
+                            name.configure(bg=HOVER_BG)
+                            chevron.configure(bg=HOVER_BG, fg=ACCENT)
+                            if needs_tip:
+                                if tip_state["after"] is not None:
+                                    try:
+                                        tip_state["widget"].after_cancel(tip_state["after"])
+                                    except tk.TclError:
+                                        pass
+                                tip_state["widget"] = e.widget
+                                tip_state["after"] = e.widget.after(
+                                    500,
+                                    lambda: show_tip(
+                                        None, option=option, row=row, tip_state=tip_state
+                                    ),
+                                )
+
+                        def on_row_leave(
+                            e,
+                            row=row,
+                            bullet=bullet,
+                            name=name,
+                            chevron=chevron,
+                            tip_state=tip_state,
+                        ):
+                            row.configure(bg="white", highlightbackground=BORDER)
+                            bullet.configure(bg="white")
+                            name.configure(bg="white")
+                            chevron.configure(bg="white", fg=CHEVRON)
+                            if tip_state["after"] is not None:
+                                try:
+                                    tip_state["widget"].after_cancel(tip_state["after"])
+                                except tk.TclError:
+                                    pass
+                                tip_state["after"] = None
+                            if tip_state["win"] is not None:
+                                try:
+                                    tip_state["win"].destroy()
+                                except tk.TclError:
+                                    pass
+                                tip_state["win"] = None
+
+                        for widget in (row, bullet, name, chevron):
+                            widget.bind("<Enter>", on_row_enter)
+                            widget.bind("<Leave>", on_row_leave)
+                            widget.bind(
+                                "<Button-1>",
+                                lambda e, opt=option: map_branch_action(opt, overlay),
+                            )
+                            if has_scrollbar:
+                                widget.bind("<MouseWheel>", on_scroll2)
+                                widget.bind("<Button-4>", on_scroll2)
+                                widget.bind("<Button-5>", on_scroll2)
 
                     # Function to close the overlay when clicking outside
                     def on_click_outside(event):
-                        # Only destroy if click is outside of both the overlay and the menu_frame
-                        if not overlay.winfo_containing(
-                            event.x_root, event.y_root
-                        ) == overlay and (
-                            event.widget not in menu_frame.winfo_children()
-                            and event.widget not in scrollable_frame2.winfo_children()
+                        try:
+                            mx = menu_frame.winfo_rootx()
+                            my = menu_frame.winfo_rooty()
+                            mw = menu_frame.winfo_width()
+                            mh = menu_frame.winfo_height()
+                        except tk.TclError:
+                            return
+                        if not (
+                            mx <= event.x_root <= mx + mw
+                            and my <= event.y_root <= my + mh
                         ):
                             overlay.destroy()
 
-                    if len(options) > 10:
-                        canvas2.bind_all("<MouseWheel>", on_scroll2)  # Windows
-                        canvas2.bind_all("<Button-4>", on_scroll2)  # Linux Scroll Up
-                        canvas2.bind_all("<Button-5>", on_scroll2)
-                    # Bind click outside the menu to close the overlay
+                    # Bind click outside the menu and Escape to close the overlay
                     overlay.bind("<Button-1>", on_click_outside)
+                    overlay.bind("<Escape>", lambda e: overlay.destroy())
+                    overlay.focus_set()
 
                 canvas.bind_all("<MouseWheel>", on_scroll)  # Windows
                 canvas.bind_all("<Button-4>", on_scroll)  # Linux Scroll Up
@@ -1200,6 +1481,24 @@ class Dashboard(tk.Frame):
                         )
                         mapped_status.pack(anchor=tk.W, padx=(5, 10), side=tk.LEFT)
 
+                        remove_label = tk.Label(
+                            branch_left_frame,
+                            text="Remove",
+                            fg="red",
+                            bg="white",
+                            cursor="hand2",
+                            font=label_font,
+                        )
+                        remove_label.pack(
+                            anchor=tk.E, padx=(10, 5), fill=tk.X, side=tk.LEFT
+                        )
+                        remove_label.bind(
+                            "<Button-1>",
+                            lambda event, branch_data=branch: remove_branch_mapping(
+                                branch_data
+                            ),
+                        )
+
                     branch_right_frame = tk.Frame(branch_frame, bg="white")
                     branch_right_frame.pack(
                         side=tk.RIGHT, fill=tk.X, padx=(custom_padding, 0)
@@ -1227,9 +1526,9 @@ class Dashboard(tk.Frame):
 
                 tk.Label(
                     left_top,
-                    text="Target Company",
+                    text="Target Tally Company",
                     bg="white",
-                    fg="#666",
+                    fg="#444",
                     font=header_font3,
                 ).pack(anchor="w", padx=(0, 10))
 
@@ -1295,17 +1594,24 @@ class Dashboard(tk.Frame):
                     print(f"Selected company: {company_var.get()}")
                     constants.COMPANY_NAME = company_var.get()
 
-                dropdown_wrapper = tk.Frame(company_row, bg="#0CA1F6")
-                dropdown_wrapper.pack(side=tk.LEFT, padx=(0, 10))
+                dropdown_wrapper = tk.Frame(
+                    company_row,
+                    bg="white",
+                    highlightbackground="#C4C7CC",
+                    highlightcolor="#C4C7CC",
+                    highlightthickness=1,
+                    bd=0,
+                )
+                dropdown_wrapper.pack(side=tk.LEFT, padx=(0, 5))
 
                 company_dropdown = tk.OptionMenu(
                     dropdown_wrapper, company_var, *company_options.values()
                 )
                 company_dropdown.config(
-                    bg="#0CA1F6",
-                    fg="white",
-                    activebackground="#0CA1F6",
-                    activeforeground="white",
+                    bg="white",
+                    fg="#333",
+                    activebackground="white",
+                    activeforeground="#333",
                     font=("Segoe UI", 10),
                     bd=0,
                     highlightthickness=0,
@@ -1313,54 +1619,286 @@ class Dashboard(tk.Frame):
                     cursor="hand2",
                     indicatoron=False,
                     width=20,
+                    padx=4,
+                    pady=2,
+                    anchor=tk.W,
                 )
-                company_dropdown.pack(side=tk.LEFT, padx=(10, 0), pady=2)
+                company_dropdown.pack(
+                    side=tk.LEFT, padx=(10, 0), pady=3
+                )
 
                 arrow = tk.Label(
                     dropdown_wrapper,
-                    text="▼",
-                    bg="#0CA1F6",
-                    fg="white",
-                    font=("Segoe UI", 8),
+                    text="▾",
+                    bg="white",
+                    fg="#0CA1F6",
+                    cursor="hand2",
+                    font=("Segoe UI", 10, "bold"),
                 )
-                arrow.pack(side=tk.RIGHT, padx=8)
+                arrow.pack(side=tk.RIGHT, padx=(4, 10))
+
+                # Sync button in its own box right after the dropdown (single-company sync)
+                sync_box = tk.Frame(
+                    company_row,
+                    bg="white",
+                    cursor="hand2",
+                    highlightbackground="#C4C7CC",
+                    highlightcolor="#C4C7CC",
+                    highlightthickness=1,
+                    bd=0,
+                )
+                sync_box.pack(side=tk.LEFT, padx=(0, 10), pady=3)
+
+                branch_image_path = ".\\lib\\images\\sync_btn.png"
+                try:
+                    branch_image = Image.open(branch_image_path).convert("RGBA")
+                    branch_image = branch_image.resize(
+                        (24, 24), Image.Resampling.LANCZOS
+                    )
+                    branch_image_tk = ImageTk.PhotoImage(branch_image)
+                except Exception as e:
+                    print(f"Error loading image: {e}")
+                    branch_image_tk = None
+
+                if branch_image_tk:
+                    sync_icon = tk.Canvas(
+                        sync_box,
+                        width=29,
+                        height=29,
+                        bg="white",
+                        cursor="hand2",
+                        highlightthickness=0,
+                    )
+                    sync_icon.pack(padx=5, pady=2)
+                    image_id = sync_icon.create_image(
+                        int(sync_icon["width"]) / 2,
+                        int(sync_icon["height"]) / 2,
+                        image=branch_image_tk,
+                    )
+                    sync_icon.image = branch_image_tk
+                    sync_icon.tag_bind(
+                        image_id, "<Button-1>", lambda event: show_sync_frame(True)
+                    )
+
+                    def sync_box_enter(e):
+                        sync_box.config(
+                            highlightbackground="#0CA1F6", highlightcolor="#0CA1F6"
+                        )
+                        schedule_tooltip(
+                            "Sync data to the selected tally company",
+                            e.widget.winfo_rootx() + 10,
+                            e.widget.winfo_rooty() + 24,
+                        )
+
+                    def sync_box_leave(e):
+                        sync_box.config(
+                            highlightbackground="#C4C7CC", highlightcolor="#C4C7CC"
+                        )
+                        hide_tooltip()
+
+                    for widget in (sync_box, sync_icon):
+                        widget.bind("<Enter>", sync_box_enter)
+                        widget.bind("<Leave>", sync_box_leave)
+                        widget.bind(
+                            "<Button-1>", lambda event: show_sync_frame(True)
+                        )
+                else:
+                    branch_image_label = tk.Label(
+                        sync_box,
+                        text="[IMG]",
+                        bg="white",
+                        fg="black",
+                        font=label_font,
+                    )
+                    branch_image_label.pack(padx=6, pady=4)
+
+                dd_menu = company_dropdown["menu"]
+                dd_menu.config(
+                    tearoff=0,
+                    bg="white",
+                    fg="#333",
+                    activebackground="#E7F6FF",
+                    activeforeground="#0CA1F6",
+                    font=("Segoe UI", 10),
+                    bd=0,
+                    relief=tk.FLAT,
+                )
+
+                # Replace radio entries (they add a checkmark column that shifts the
+                # list to the right) with plain command entries so the list aligns
+                # straight under the button
+                dd_menu.delete(0, "end")
+                for _name in company_options.values():
+                    dd_menu.add_command(
+                        label=_name,
+                        command=lambda v=_name: company_var.set(v),
+                    )
+
+                def fit_menu_width():
+                    f = tk.font.Font(font=("Segoe UI", 10))
+                    btn_w = company_dropdown.winfo_width()
+                    try:
+                        max_w = (
+                            max(f.measure(v) for v in company_options.values()) + 40
+                        )
+                    except ValueError:
+                        max_w = 0
+                    target = max(btn_w, max_w)
+                    last = dd_menu.index("end")
+                    if last is None:
+                        return
+                    for i in range(last + 1):
+                        txt = dd_menu.entrycget(i, "label")
+                        if f.measure(txt) < target:
+                            pad = " " * max(
+                                1, int((target - f.measure(txt)) / f.measure(" "))
+                            )
+                            dd_menu.entryconfigure(i, label=txt + pad)
+
+                dd_menu.configure(postcommand=fit_menu_width)
+
+                tooltip = None
+                tip_job = None
+
+                def show_tooltip(text, x, y):
+                    nonlocal tooltip, tip_job
+                    if tooltip is not None and getattr(tooltip, "_tip_text", None) == text:
+                        tooltip.wm_geometry(f"+{x}+{y}")
+                        return
+                    hide_tooltip()
+                    if not text:
+                        return
+                    screen_w = company_row.winfo_screenwidth()
+                    screen_h = company_row.winfo_screenheight()
+                    if x + 20 > screen_w:
+                        x = screen_w - 20
+                    if y + 20 > screen_h:
+                        y = screen_h - 20
+                    tip = tk.Toplevel(company_row)
+                    tip.wm_overrideredirect(True)
+                    tip.wm_attributes("-topmost", True)
+                    tip.configure(bg="#333")
+                    tk.Label(
+                        tip,
+                        text=text,
+                        bg="#333",
+                        fg="white",
+                        font=("Segoe UI", 10),
+                        padx=10,
+                        pady=5,
+                        justify=tk.LEFT,
+                    ).pack()
+                    tip._tip_text = text
+                    tip.wm_geometry(f"+{x}+{y}")
+                    tip_job = None
+                    tooltip = tip
+
+                def hide_tooltip(event=None):
+                    nonlocal tooltip, tip_job
+                    if tip_job is not None:
+                        try:
+                            company_dropdown.after_cancel(tip_job)
+                        except Exception:
+                            pass
+                        tip_job = None
+                    if tooltip is not None:
+                        tooltip.destroy()
+                        tooltip = None
+
+                def schedule_tooltip(text, x, y, delay=500):
+                    nonlocal tip_job
+                    hide_tooltip()
+                    if not text:
+                        return
+                    tip_job = company_dropdown.after(
+                        delay, lambda: show_tooltip(text, x, y)
+                    )
+
+                def show_button_tooltip(event):
+                    full = company_var.get()
+                    if full and len(full) > 22:
+                        schedule_tooltip(
+                            full, event.x_root + 10, event.y_root + 22
+                        )
+                    else:
+                        hide_tooltip()
+
+                def show_menu_tooltip(event):
+                    try:
+                        idx = int(dd_menu.index(f"@{event.x},{event.y}"))
+                    except (tk.TclError, ValueError):
+                        hide_tooltip()
+                        return
+                    if idx < 0 or idx >= len(company_options):
+                        hide_tooltip()
+                        return
+                    name = list(company_options.values())[idx]
+                    schedule_tooltip(name, event.x_root + 20, event.y_root + 15)
+
+                dd_menu.bind("<Motion>", show_menu_tooltip)
+                dd_menu.bind("<Leave>", hide_tooltip)
+                dd_menu.bind("<Map>", hide_tooltip)
+                dd_menu.bind("<Unmap>", hide_tooltip)
 
                 def on_enter(e):
-                    dropdown_wrapper.config(bg="#0CA1F6")
-                    company_dropdown.config(bg="#0CA1F6")
-                    arrow.config(bg="#0CA1F6")
+                    dropdown_wrapper.config(
+                        highlightbackground="#0CA1F6", highlightcolor="#0CA1F6"
+                    )
+                    company_dropdown.config(bg="white")
+                    arrow.config(bg="white")
 
                 def on_leave(e):
-                    dropdown_wrapper.config(bg="#0CA1F6")
-                    company_dropdown.config(bg="#0CA1F6")
-                    arrow.config(bg="#0CA1F6")
+                    dropdown_wrapper.config(
+                        highlightbackground="#C4C7CC", highlightcolor="#C4C7CC"
+                    )
+                    company_dropdown.config(bg="white")
+                    arrow.config(bg="white")
 
                 dropdown_wrapper.bind("<Enter>", on_enter)
                 dropdown_wrapper.bind("<Leave>", on_leave)
                 company_dropdown.bind("<Enter>", on_enter)
                 company_dropdown.bind("<Leave>", on_leave)
+                company_dropdown.bind("<Motion>", show_button_tooltip)
+                company_dropdown.bind("<Leave>", hide_tooltip)
                 arrow.bind("<Enter>", on_enter)
                 arrow.bind("<Leave>", on_leave)
                 company_var.trace_add("write", update_company)
 
                 def open_dropdown(event):
+                    hide_tooltip()
                     menu = company_dropdown["menu"]
 
                     # Get widget position on screen
                     x = company_dropdown.winfo_rootx()
-                    y = company_dropdown.winfo_rooty() + company_dropdown.winfo_height()
+                    y = company_dropdown.winfo_rooty() + company_dropdown.winfo_height() + 1
 
-                    menu.tk_popup(x, y)
+                    # Keep the menu aligned and inside the screen
+                    fit_menu_width()
+                    menu.update_idletasks()
+                    mw = menu.winfo_reqwidth()
+                    mh = menu.winfo_reqheight()
+                    screen_w = self.winfo_screenwidth()
+                    screen_h = self.winfo_screenheight()
+                    if x + mw > screen_w:
+                        x = screen_w - mw
+                    if y + mh > screen_h:
+                        y = company_dropdown.winfo_rooty() - mh - 1
+
+                    try:
+                        menu.tk_popup(x, y)
+                    finally:
+                        menu.grab_release()
 
                 arrow.bind("<Button-1>", open_dropdown)
                 dropdown_wrapper.bind("<Button-1>", open_dropdown)
+                company_dropdown.bind("<Button-1>", hide_tooltip)
 
                 DATE_FORMAT = "%d-%m-%y"  # adjust if your DateEntry format differs
 
                 def validate_dates(*args):
                     try:
-                        start_str = constants.SYNC_START_DATE.get()
-                        end_str = constants.SYNC_END_DATE.get()
+                        start_str = get_sync_date_value(constants.SYNC_START_DATE)
+                        end_str = get_sync_date_value(constants.SYNC_END_DATE)
 
                         if not start_str or not end_str:
                             return
@@ -1410,60 +1948,7 @@ class Dashboard(tk.Frame):
                     except Exception as e:
                         print("Date validation error:", e)
 
-                # tk.Label(company_row, text="Sync Branch", bg="white", fg="#666", font=header_font3).pack(anchor=tk.W)
-                branch_image_path = ".\\lib\\images\\sync_btn.png"
-
-                try:
-                    branch_image = Image.open(branch_image_path).convert("RGBA")
-                    branch_image = branch_image.resize(
-                        (20, 20), Image.Resampling.LANCZOS
-                    )
-                    branch_image_tk = ImageTk.PhotoImage(branch_image)
-                    print("image loaded")
-                except Exception as e:
-                    print(f"Error loading image: {e}")
-                    branch_image_tk = None
-
-                # Check the correct variable: branch_image_tk, not branch_image
-                if branch_image_tk:
-                    size = int(max(branch_image.size) * 1.5)
-
-                    # Create canvas
-                    canvas2 = tk.Canvas(
-                        company_row,
-                        width=size,
-                        height=size,
-                        bg="white",
-                        highlightthickness=0,
-                    )
-                    canvas2.pack(anchor=tk.W, padx=(10, 0), side=tk.LEFT)
-
-                    # Center coordinates
-                    center_x = size // 2
-                    center_y = size // 2
-
-                    # Use the already-created PhotoImage and keep a reference
-                    image_id = canvas2.create_image(
-                        center_x, center_y, image=branch_image_tk
-                    )
-                    canvas2.image = branch_image_tk  # Keep a reference to prevent garbage collection
-
-                    # Bind click event to the image
-                    canvas2.tag_bind(
-                        image_id, "<Button-1>", lambda event: show_sync_frame(True)
-                    )
-                else:
-                    branch_image_label = tk.Label(
-                        company_row,
-                        text="[IMG]",
-                        bg="white",
-                        fg="black",
-                        font=label_font,
-                        justify=tk.RIGHT,
-                    )
-                    branch_image_label.pack(anchor=tk.E, padx=(10, 0), side=tk.LEFT)
-
-                    #     if "Map Now" not in branch["status"]:
+                #     if "Map Now" not in branch["status"]:
 
                     #         size = int(max(branch_image.size) * 1.5)  # Add padding for smooth rotation
 
@@ -1513,9 +1998,9 @@ class Dashboard(tk.Frame):
                     right_top,
                     text="Sync Period",
                     bg="white",
-                    fg="#666",
+                    fg="#444",
                     font=header_font3,
-                ).pack(anchor="w")
+                ).pack(anchor="w", padx=(5, 0))
 
                 date_row = tk.Frame(right_top, bg="white")
                 date_row.pack(pady=(5, 0), padx=(5, 10))
@@ -1604,6 +2089,7 @@ class Dashboard(tk.Frame):
                             text=module,
                             variable=var,
                             style="info.TCheckbutton",
+                            cursor="hand2",
                             command=update_module_selection,
                         )
 
@@ -1660,7 +2146,7 @@ class Dashboard(tk.Frame):
                         top,
                         date_pattern="dd-mm-yy",
                         firstweekday="sunday",
-                        # --- Colors matching Tally Sync theme ---
+                        # --- Colors matching eVital<>Tally Connects theme ---
                         background="#004494",  # deep blue matching sidebar
                         headersbackground="#004494",  # match the blue header in calendar
                         headersforeground="white",
@@ -1710,7 +2196,14 @@ class Dashboard(tk.Frame):
                 def create_date_input(parent, var, open_calendar):
                     wrapper = tk.Frame(parent, bg="#D9D9D9", bd=0)
 
-                    inner = tk.Frame(wrapper, bg="white", bd=1, relief="solid")
+                    inner = tk.Frame(
+                        wrapper,
+                        bg="white",
+                        bd=0,
+                        highlightbackground="#C4C7CC",
+                        highlightcolor="#C4C7CC",
+                        highlightthickness=1,
+                    )
                     inner.pack(fill="both", expand=True)
 
                     entry = tk.Entry(
@@ -1784,15 +2277,15 @@ class Dashboard(tk.Frame):
             parent.destroy()
 
         def sync_single_branch(data):
-            if constants.SELECTED_MODULES == []:
-                messagebox.showerror(
-                    "Sync Issue", "Please select at least one module to sync."
-                )
-                return 0
+            # if constants.SELECTED_MODULES == []:
+            #     messagebox.showerror(
+            #         "Sync Issue", "Please select at least one module to sync."
+            #     )
+            #     return 0
 
             if (
-                constants.SYNC_START_DATE.get() == "dd-mm-yy"
-                or constants.SYNC_END_DATE.get() == "dd-mm-yy"
+                get_valid_sync_date(constants.SYNC_START_DATE) is None
+                or get_valid_sync_date(constants.SYNC_END_DATE) is None
             ):
                 messagebox.showerror("Invalid Date", "Please enter valid date.")
                 return 0
@@ -1814,6 +2307,12 @@ class Dashboard(tk.Frame):
             #         "branch_name" : data["name"]
             #     }
             # ]
+            if constants.SYNC_RUNNING:
+                messagebox.showerror(
+                    "Sync Issue", "A sync is already running. Please wait."
+                )
+                return 0
+
             thread1 = threading.Thread(
                 target=start_background_thread, args=(True, True), daemon=True
             )
@@ -1844,6 +2343,46 @@ class Dashboard(tk.Frame):
             print(f"Mapping branch: {branch_name}")
             overlay.destroy()
             create_main_content()
+
+        def get_branch_apikey(chemist_id):
+            businesses = constants.LOGIN_RESPONSE["data"]["business_details"]
+            logged_in = businesses["logged_in_business"]
+            if logged_in["id"] == chemist_id and logged_in.get("apikey", "") != "":
+                return logged_in["apikey"]
+            for x in businesses.get("child_businesses", []):
+                if x["id"] == chemist_id and x.get("apikey", "") != "":
+                    return x["apikey"]
+            return ""
+
+        def remove_branch_mapping(branch_data):
+            if not messagebox.askyesno(
+                "Remove Mapping",
+                f"Are you sure you want to remove the tally mapping for '{branch_data['name']}'?",
+            ):
+                return
+
+            branch_apikey = get_branch_apikey(branch_data["chemist_id"])
+            if branch_apikey == "":
+                messagebox.showerror(
+                    "Remove Mapping", "No API key found for this branch."
+                )
+                return
+
+            res = remove_company_mapping(branch_apikey)
+            success = isinstance(res, dict) and res.get("status_code") in [
+                1,
+                "1",
+                "1.0",
+            ]
+            if success:
+                messagebox.showinfo(
+                    "Remove Mapping", "Tally company mapping removed successfully."
+                )
+            else:
+                messagebox.showerror(
+                    "Remove Mapping", "Error while removing the mapping."
+                )
+            re_create_main_content()
 
         def re_create_main_content():
             constants.STOP_THREAD = True
@@ -1895,17 +2434,22 @@ class Dashboard(tk.Frame):
                 # Widget was destroyed, stop animation
                 return
 
+        rebuild_scheduled = False
+
         def check_thread_status():
+            nonlocal rebuild_scheduled
             while not constants.STOP_THREAD:
                 # print("thead alive")
 
                 time.sleep(0.5)
-            re_create_main_content()
+            if not rebuild_scheduled:
+                rebuild_scheduled = True
+                self.after(0, re_create_main_content)
 
         def check_if_require_reboot():
             while not constants.REQUIRE_REBOOT:
                 time.sleep(1)
-            create_main_content()
+            self.after(0, create_main_content)
             constants.REQUIRE_REBOOT = False
             check_if_require_reboot()
 
@@ -1924,7 +2468,7 @@ class Dashboard(tk.Frame):
                 ]
                 if len(mapped_current) <= 0:
                     messagebox.showerror(
-                        "Map Comany", "Please map your current company"
+                        "Map Comany", "Please map any of your current company(s)"
                     )
                 else:
                     constants.SYNC_STAGE = 1
@@ -1946,26 +2490,35 @@ class Dashboard(tk.Frame):
                     return 0
 
                 if (
-                    constants.SYNC_START_DATE.get() == "dd-mm-yy"
-                    or constants.SYNC_END_DATE.get() == "dd-mm-yy"
+                    get_valid_sync_date(constants.SYNC_START_DATE) is None
+                    or get_valid_sync_date(constants.SYNC_END_DATE) is None
                 ):
                     messagebox.showerror("Invalid Date", "Please enter valid date.")
                     return 0
 
-                if (
-                    "Ledgers" in constants.SELECTED_MODULES
-                    and len(constants.SELECTED_MODULES) == 1
-                ):
-                    messagebox.showerror(
-                        "Sync Issue",
-                        "Please select at least one more module along with Ledgers for sync.",
-                    )
-                    return 0
+                # if (
+                #     "Ledgers" in constants.SELECTED_MODULES
+                #     and len(constants.SELECTED_MODULES) == 1
+                # ):
+                #     messagebox.showerror(
+                #         "Sync Issue",
+                #         "Please select at least one more module along with Ledgers for sync.",
+                #     )
+                #     return 0
 
                 def stop_thread_process():
+                    nonlocal rebuild_scheduled
+                    constants.STOP_THREAD = True
+                    messagebox.showerror("eVital<>Tally Connects", "Sync Stopped Abnormally !!")
+                    if not rebuild_scheduled:
+                        rebuild_scheduled = True
+                        re_create_main_content()
 
-                    messagebox.showerror("Tally Sync", "Sync Stopped Abnormally !!")
-                    re_create_main_content()
+                if constants.SYNC_RUNNING:
+                    messagebox.showerror(
+                        "Sync Issue", "A sync is already running. Please wait."
+                    )
+                    return 0
 
                 constants.STOP_THREAD = False
                 thread1 = threading.Thread(
@@ -1983,6 +2536,9 @@ class Dashboard(tk.Frame):
                 # check_thread_status()
                 thread1.start()
 
+                if getattr(self, "_logout_label", None) is not None:
+                    self._logout_label.pack_forget()
+
                 # right_panel.config(background="#E7F6FF")
                 right_panel2 = tk.Frame(right_panel, width=900, bg="#E7F6FF")
                 right_panel2.pack(fill=tk.X)
@@ -1994,7 +2550,7 @@ class Dashboard(tk.Frame):
                 # sync_frame.pack(fill=tk.BOTH, expand=True, pady=0)
 
                 # Load GIF and create frames
-                gif_path = "lib\images\GIF.gif"  # Update with your gif path
+                gif_path = r"lib\images\GIF.gif"  # Update with your gif path
                 try:
                     gif = Image.open(gif_path)
                     frames = []
@@ -2031,10 +2587,10 @@ class Dashboard(tk.Frame):
                     text="Stop",
                     fg_color="#ED5A4A",
                     text_color="white",
-                    hover_color="#ED5A4A",
+                    hover_color="#C93A2B",
                     font=CTkFont(family="Manrope", size=16, weight="bold"),
-                    height=42,
-                    width=110,
+                    height=35,
+                    width=85,
                     command=stop_thread_process,
                 )
                 sync_all_button.pack(pady=(10, 120), padx=40, anchor=tk.N)
@@ -2162,34 +2718,39 @@ class Dashboard(tk.Frame):
             upper_left_panel = tk.Frame(left_panel, bg="#033D7E", height=150, width=200)
             upper_left_panel.pack(anchor=tk.N, fill=tk.X)
 
-            # Tally Sync Utility header
+            # "eVital<>Tally Connects" header
             header_label = tk.Label(
                 upper_left_panel,
-                text="Tally Sync",
+                text="eVital<>Tally",
                 bg="#033D7E",
                 fg="white",
                 font=header_font,
                 justify=tk.LEFT,
             )
-            header_label.pack(pady=(35, 0), padx=30, anchor=tk.W)
-            header_label = tk.Label(
+            connects_label = tk.Label(
                 upper_left_panel,
-                text="Utility",
+                text="Connects",
                 bg="#033D7E",
                 fg="white",
                 font=header_font,
                 justify=tk.LEFT,
             )
-            header_label.pack(pady=(0, 5), padx=30, anchor=tk.W)
 
             version_label = tk.Label(
                 upper_left_panel,
-                text="Version 3.0",
+                text="Version 3.10.7",
                 bg="#033D7E",
                 fg="#7E878C",
                 font=small_font,
             )
-            version_label.pack(pady=(0, 20), padx=30, anchor=tk.W)
+
+            upper_left_panel.grid_propagate(False)
+            upper_left_panel.grid_rowconfigure(0, weight=2)
+            upper_left_panel.grid_rowconfigure(4, weight=1)
+            upper_left_panel.grid_columnconfigure(0, weight=1)
+            header_label.grid(row=1, column=0, sticky="w", padx=30)
+            connects_label.grid(row=2, column=0, sticky="w", padx=30, pady=(0, 5))
+            version_label.grid(row=3, column=0, sticky="w", padx=30)
             upper_left_panel.pack_propagate(False)
 
             lower_left_panel = tk.Frame(left_panel, bg="#004BA8", height=150, width=200)
@@ -2514,7 +3075,6 @@ class Dashboard(tk.Frame):
                 font=header_font2,
                 justify=tk.LEFT,
             )
-            user_label.pack(pady=(210, 2), padx=30, anchor=tk.W)
 
             # logout_label = tk.Button(left_panel, text="Logout >", bg="#004BA8", fg="white",
             #                         highlightbackground='#004BA8', highlightcolor='#004BA8', borderwidth=0,font=label_font2, justify=tk.LEFT, relief=tk.SUNKEN, command=show_logout_popup)
@@ -2524,11 +3084,21 @@ class Dashboard(tk.Frame):
                 text="Logout >",
                 bg="#004BA8",
                 fg="white",
+                cursor="hand2",
                 font=label_font2,
                 justify=tk.LEFT,
             )
-            logout_label.pack(pady=(0, 2), padx=30, anchor=tk.W)
+            logout_label.pack(
+                side=tk.BOTTOM, anchor=tk.W, pady=(0, 50), padx=30
+            )
             logout_label.bind("<Button-1>", show_logout_popup)
+
+            user_label.pack(
+                side=tk.BOTTOM, anchor=tk.W, pady=(0, 8), padx=30
+            )
+
+            self._logout_label = logout_label
+            self._user_label = user_label
 
             left_panel.pack_propagate(False)
 
@@ -2567,7 +3137,7 @@ class Dashboard(tk.Frame):
         # Title (left side)
         # title_label = tk.Label(
         #     drag_layer,
-        #     text="Tally Sync Utility",
+        #     text="eVital<>Tally Connects",
         #     # bg="#0CA1F6",
         #     bg="white",
         #     # fg="white",
@@ -2632,6 +3202,7 @@ class LogViewerApp:
         self.log_manager = LogManagerObj
         self.root = None
         self.main_app = main_app
+        self._refresh_job = None
 
         # Register the hotkey to show the viewer
         # keyboard.add_hotkey('shift+l', self.show_log_viewer)
@@ -2649,144 +3220,215 @@ class LogViewerApp:
 
         # Create a new window
         self.root = tk.Toplevel() if self.main_app else tk.Tk()
-        self.root.title("Log Manager")
-        self.root.geometry("800x600")
-        self.root.iconbitmap("./lib/images/logo2.ico")
+        self.root.title("Logs | eVital<>Tally Connects")
+        self.root.geometry("950x650")
+        self.root.minsize(640, 420)
+        self.root.configure(bg="#E7F6FF")
+        try:
+            self.root.iconbitmap("./lib/images/logo2.ico")
+        except tk.TclError:
+            pass
 
-        # style = ThemedStyle(self.root)
-        # print(style.get_themes())
-        # style.theme_use("adapta")
-        self.root.configure(bg="white")  # Set background to blue
-        # self.overrideredirect(True)
+        self.root.protocol("WM_DELETE_WINDOW", self.hide_log_viewer)
 
         # Set up the widgets
         self.create_widgets()
+        self._schedule_auto_refresh()
 
-        # Handle window close event
-        # self.root.protocol("WM_DELETE_WINDOW", self.)
+    def _font(self, size=10, bold=False):
+        return font.Font(
+            family="Manrope", size=size, weight="bold" if bold else "normal"
+        )
 
     def hide_log_viewer(self):
         """Hide the log viewer window"""
-        if self.root:
-            # self.root.withdraw()
-            self.root.destroy()
+        self._cancel_refresh_job()
+        if self.root is not None:
+            try:
+                self.root.destroy()
+            except tk.TclError:
+                pass
+            self.root = None
 
     def create_widgets(self):
-        # Create notebook with tabs
-        notebook = ttk.Notebook(self.root)
-        notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        # ================= HEADER =================
+        header = tk.Frame(self.root, bg="#044C9D")
+        header.pack(fill=tk.X)
 
-        # notebook.configure(bg="white")
+        tk.Label(
+            header,
+            text="Logs Manager",
+            bg="#044C9D",
+            fg="white",
+            font=self._font(size=14, bold=True),
+        ).pack(side=tk.LEFT, padx=16, pady=12)
 
-        # Create decrypt logs tab
-        # decrypt_frame = ttk.Frame(notebook)
-        # notebook.add(decrypt_frame, text="View Decrypted Logs")
+        # ================= TOOLBAR =================
+        toolbar = tk.Frame(self.root, bg="white")
+        toolbar.pack(fill=tk.X, padx=14, pady=(14, 4))
 
-        # Create management tab
-        # manage_frame = ttk.Frame(notebook)
-        # notebook.add(manage_frame, text="Log Management")
-
-        # Configure decrypt logs tab
-        self.setup_decrypt_tab(notebook)
-
-        # Configure management tab
-        # self.setup_management_tab(manage_frame)
-
-    def setup_decrypt_tab(self, parent):
-        # Log text area
-        frame = ttk.Frame(parent)
-        frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        # frame.configure(bg="white")
-
-        # Buttons
-        btn_frame = ttk.Frame(frame)
-        btn_frame.pack(fill=tk.X, pady=(0, 10))
-
-        refresh_btn = ttk.Button(
-            btn_frame, text="Refresh Logs", command=self.refresh_logs
+        ttk.Style().configure(
+            "Logs.TCheckbutton",
+            background="white",
+            foreground="black",
+            focuscolor="white",
+            lightcolor="white",
+            darkcolor="white",
         )
-        refresh_btn.pack(side=tk.LEFT, padx=5)
 
-        clear_btn = ttk.Button(btn_frame, text="Clear Logs", command=self.clear_logs)
-        clear_btn.pack(side=tk.RIGHT)
+        self.auto_scroll_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            toolbar,
+            text="Auto-scroll",
+            variable=self.auto_scroll_var,
+            style="Logs.TCheckbutton",
+            cursor="hand2",
+        ).pack(side=tk.LEFT, padx=(0, 10))
 
-        # Last cleared info
-        # self.last_cleared_label = ttk.Label(frame, text="")
-        # self.last_cleared_label.pack(pady=10)
-        # self.update_last_cleared_info()
+        self.auto_refresh_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            toolbar,
+            text="Auto-refresh",
+            variable=self.auto_refresh_var,
+            style="Logs.TCheckbutton",
+            cursor="hand2",
+            command=self._on_auto_refresh_toggle,
+        ).pack(side=tk.LEFT, padx=(0, 10))
 
-        # Log text area
-        self.log_text = scrolledtext.ScrolledText(frame, wrap=tk.WORD, bg="white")
+        refresh_btn = CTkButton(
+            toolbar,
+            text="Refresh",
+            fg_color="#0CA1F6",
+            hover_color="#033D7E",
+            text_color="white",
+            font=CTkFont(family="Manrope", size=12, weight="bold"),
+            height=30,
+            width=90,
+            corner_radius=6,
+            command=self.refresh_logs,
+        )
+        refresh_btn.pack(side=tk.RIGHT, padx=(0, 8), pady=6)
+
+        clear_btn = CTkButton(
+            toolbar,
+            text="Clear",
+            fg_color="#ED5A4A",
+            hover_color="#C93A2B",
+            text_color="white",
+            font=CTkFont(family="Manrope", size=12, weight="bold"),
+            height=30,
+            width=90,
+            corner_radius=6,
+            command=self.clear_logs,
+        )
+        clear_btn.pack(side=tk.RIGHT, padx=(0, 14), pady=6)
+
+        # ================= LOG TEXT =================
+        text_frame = tk.Frame(self.root, bg="white", bd=1, relief="solid")
+        text_frame.pack(fill=tk.BOTH, expand=True, padx=14, pady=(8, 6))
+
+        self.log_text = scrolledtext.ScrolledText(
+            text_frame,
+            wrap=tk.WORD,
+            bg="white",
+            fg="#333",
+            insertbackground="#0CA1F6",
+            selectbackground="#0CA1F6",
+            selectforeground="white",
+            font=self._font(size=10),
+            padx=8,
+            pady=6,
+            highlightthickness=0,
+            bd=0,
+        )
         self.log_text.pack(fill=tk.BOTH, expand=True)
 
-        # Initial load of logs
-        self.refresh_logs()
-        self.log_text.configure(state=tk.DISABLED)
+        # ================= STATUS BAR =================
+        status = tk.Frame(self.root, bg="#E7F6FF")
+        status.pack(fill=tk.X, side=tk.BOTTOM)
 
-    def setup_management_tab(self, parent):
-        # frame = ttk.Frame(parent)
-        # frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        # frame.configure(bg="white")
+        self.count_label = tk.Label(
+            status,
+            text="",
+            bg="#E7F6FF",
+            fg="#7E878C",
+            font=self._font(size=9),
+        )
+        self.count_label.pack(side=tk.LEFT, padx=14, pady=6)
 
-        # Clear logs button
-        clear_btn = ttk.Button(parent, text="Clear Logs", command=self.clear_logs)
-        clear_btn.pack(pady=10)
+        self.last_cleared_label = tk.Label(
+            status,
+            text="",
+            bg="#E7F6FF",
+            fg="#7E878C",
+            font=self._font(size=9),
+        )
+        self.last_cleared_label.pack(side=tk.RIGHT, padx=14, pady=6)
 
-        # Last cleared info
-        self.last_cleared_label = ttk.Label(parent, text="")
-        self.last_cleared_label.pack(pady=10)
         self.update_last_cleared_info()
 
-        # Add a log entry frame
-        entry_frame = ttk.LabelFrame(parent, text="Add Log Entry")
-        entry_frame.pack(fill=tk.X, pady=20, padx=10)
+    def _on_auto_refresh_toggle(self):
+        if self.auto_refresh_var.get():
+            self._schedule_auto_refresh()
+        else:
+            self._cancel_refresh_job()
 
-        self.log_entry = ttk.Entry(entry_frame, width=50)
-        self.log_entry.pack(side=tk.LEFT, padx=5, pady=10, fill=tk.X, expand=True)
+    def _cancel_refresh_job(self):
+        if self._refresh_job is not None:
+            try:
+                if self.root is not None and self.root.winfo_exists():
+                    self.root.after_cancel(self._refresh_job)
+            except (tk.TclError, AttributeError):
+                pass
+            self._refresh_job = None
 
-        add_btn = ttk.Button(entry_frame, text="Add Log", command=self.add_log)
-        add_btn.pack(side=tk.RIGHT, padx=5, pady=10)
+    def _schedule_auto_refresh(self):
+        self._cancel_refresh_job()
+        if (
+            self.root is not None
+            and self.root.winfo_exists()
+            and self.auto_refresh_var.get()
+        ):
+            self.refresh_logs()
+            self._refresh_job = self.root.after(3000, self._schedule_auto_refresh)
 
     def refresh_logs(self):
+        if not hasattr(self, "log_text") or not self.log_text.winfo_exists():
+            return
+        self.all_logs = self.log_manager.read_logs()
+        self._render_logs()
+
+    def _render_logs(self):
         self.log_text.configure(state=tk.NORMAL)
         self.log_text.delete(1.0, tk.END)
-        logs = self.log_manager.read_logs()
-        for log in logs:
-            self.log_text.insert(tk.END, f"{log}\n")
+        for log in self.all_logs:
+            self.log_text.insert(tk.END, log + "\n")
         self.log_text.configure(state=tk.DISABLED)
 
-        self.log_text.see(tk.END)
+        if self.auto_scroll_var.get():
+            self.log_text.see(tk.END)
+
+        if self.count_label.winfo_exists():
+            self.count_label.config(
+                text=f"{len(self.all_logs)} entries"
+            )
 
     def clear_logs(self):
-        if messagebox.askyesno(
-            "Confirmation", "Are you sure you want to clear all logs?"
-        ):
+        if messagebox.askyesno("Clear Logs", "Are you sure you want to clear all logs?"):
             if self.log_manager.clear_logs():
-                messagebox.showinfo("Success", "Logs cleared successfully")
-
-                self.log_text.configure(state=tk.NORMAL)
                 self.refresh_logs()
                 self.update_last_cleared_info()
-                self.log_text.configure(state=tk.DISABLED)
+                messagebox.showinfo("Success", "Logs cleared successfully")
             else:
                 messagebox.showerror("Error", "Failed to clear logs")
 
-    def add_log(self):
-        message = self.log_entry.get()
-        if not message:
-            messagebox.showwarning("Warning", "Please enter a log message")
-            return
-
-        if self.log_manager.write_log(message):
-            self.log_entry.delete(0, tk.END)
-            self.refresh_logs()
-            messagebox.showinfo("Success", "Log added successfully")
-        else:
-            messagebox.showerror("Error", "Failed to add log")
-
     def update_last_cleared_info(self):
-        last_date = self.log_manager.get_last_clear_date_formatted()
-        # self.last_cleared_label.config(text=f"Logs last cleared on: {last_date}")
+        if (
+            hasattr(self, "last_cleared_label")
+            and self.last_cleared_label.winfo_exists()
+        ):
+            last_date = self.log_manager.get_last_clear_date_formatted()
+            self.last_cleared_label.config(text=f"Last cleared: {last_date}")
 
 
 # LogViewerApp()

@@ -1,4 +1,4 @@
-# eVitalConnects (Tally Sync Utility)
+# eVitalConnects (eVital<>Tally Connects)
 
 A desktop application that synchronizes accounting data between **TallyPrime** (an Indian accounting software) and the **eVitalRx / eVitalSupply** cloud platform. It extracts financial reports and vouchers from Tally, transforms them, and pushes them to the eVitalRx API — and vice-versa for importing eVitalRx data back into Tally.
 

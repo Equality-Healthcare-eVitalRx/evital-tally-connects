@@ -22,7 +22,7 @@ def login_thread():
     def show_mapping_screen(account_window):
         tally_status = check_if_tally_running()
         if tally_status == False:
-            messagebox.showerror("Tally is offline", "Make sure tally is running.")
+            messagebox.showerror("Tally is offline", "Make sure your tally is running.")
             # logging.error("Tally is offline on mapping")
             LogManagerObj.write_log("Tally is offline on mapping")
             return 0
@@ -270,7 +270,7 @@ def login_thread():
     def show_single_account_selection(account_window):
         tally_status = check_if_tally_running()
         if tally_status == False:
-            messagebox.showerror("Tally is offline", "Make sure tally is running.")
+            messagebox.showerror("Tally is offline", "Make sure your tally is running.")
             return 0
         get_tally_companies()
         account_window.destroy()
@@ -541,14 +541,14 @@ def login_thread():
 
     # Bind the title bar to the move window function
     root = tk.Tk()
-    root.title("Sync Utility Login")
+    root.title("eVital<>Tally Connects")
     root.geometry("900x600")
     root.configure(bg="#044C9D")  # Set background to blue
     root.overrideredirect(True)
     root.geometry("+300+200")
     root.resizable(0, 0)
     root.iconbitmap("./lib/images/logo2.ico")
-    root.title("Login Screen")
+    root.title("eVital<>Tally Connects")
 
     root.bind("<Button-1>", start_move)
     root.bind("<ButtonRelease-1>", stop_move)

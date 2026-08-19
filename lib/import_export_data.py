@@ -144,7 +144,7 @@ def send_login_request(mobile_no, password, entity="chemist"):
     error_message = "Invalid mobile number or password."
     try:
         LogManagerObj.write_log(
-            f"🔑 Login request sent to {constants.EVITAL_RX_URL}v2/master/tally_data/v3/login"
+            f"🔑 Request sent to {constants.EVITAL_RX_URL}"
         )
         # LogManagerObj.write_log(json.dumps(json_request))
         response = requests.post(
@@ -323,6 +323,26 @@ def map_rx_companies():
     return 0
 
 
+def remove_company_mapping(branch_apikey=""):
+    headers = {"Content-Type": "application/json"}
+    json_request = {"apikey": branch_apikey}
+
+    try:
+        response = requests.post(
+            url=constants.EVITAL_RX_URL + "v2/master/tally_data/v3/reset_application_mappings",
+            data=json.dumps(json_request),
+            headers=headers,
+            timeout=constants.REQUEST_TIMEOUT,
+        )
+        return json.loads(response.content)
+    except:
+        LogManagerObj.write_log(traceback.format_exc())
+        messagebox.showerror(
+            "Remove Company Mapping", "Internet issues. Please try again later."
+        )
+    return 0
+
+
 def reset_mapping_from_rx():
     headers = {"Content-Type": "application/json"}
     json_request = {
@@ -398,7 +418,7 @@ def get_mapping_details():
         traceback.print_exc()
         LogManagerObj.write_log(traceback.format_exc())
         messagebox.showerror(
-            "Tally Sync", "Connection problem. Please try again later."
+            "eVital<>Tally Connects", "Connection problem. Please try again later."
         )
         sys.exit(1)
     return 0
@@ -434,7 +454,7 @@ def check_if_tally_running():
         return True
     except:
         LogManagerObj.write_log(traceback.format_exc())
-        messagebox.showerror("Tally Sync", "Tally is not running")
+        messagebox.showerror("eVital<>Tally Connects", "Tally is not running")
         sys.exit(1)
 
 

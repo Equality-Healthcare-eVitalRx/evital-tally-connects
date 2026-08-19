@@ -73,6 +73,9 @@ class TallyService:
         MAX_CONSECUTIVE_FAIL = 3
 
         for i in range(0, total, batch_size):
+            if constants.STOP_THREAD:
+                break
+
             batch = xml_list[i : i + batch_size]
             timeout = get_timeout(len(batch))
             envelope = self.build_envelope(
@@ -150,6 +153,8 @@ class TallyService:
                 # log_callback(f"🔄 Retrying batch {batch_num} in smaller chunks...")
                 half = max(1, len(batch) // 2)
                 for j in range(0, len(batch), half):
+                    if constants.STOP_THREAD:
+                        break
                     sub_batch = batch[j : j + half]
                     sub_envelope = self.build_envelope(
                         sub_batch, report_name=report_name, company_name=company_name

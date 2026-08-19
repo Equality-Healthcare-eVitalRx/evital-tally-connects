@@ -6,7 +6,7 @@ TALLY_PORT = 9000
 
 COMPANY_NAME = "abc"
 
-envtype = "staging"
+envtype = "local"
 
 env_config = {
     "local": {
@@ -43,6 +43,7 @@ MAPPING_TYPE = ""
 ACCESS_TOKEN = ""
 THREAD = None
 STOP_THREAD = False
+SYNC_RUNNING = False
 DISPLAY_SYNC_LOADER = False
 REQUEST_TIMEOUT = 2000
 
