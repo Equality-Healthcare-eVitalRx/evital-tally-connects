@@ -243,7 +243,7 @@ uv run python build.py --env local --skip-zip --clean
 2. For each environment:
    - Temporarily sets `envtype` in `lib/constants.py` to the target environment.
    - Runs PyInstaller with the configured arguments (one-file, windowed, no console, version file, icon, splash, fonts, babel).
-   - Creates a versioned zip archive: `app-v{version}-{env}.zip` in `dist/`.
+   - Creates a versioned zip archive: `evital-tally-connects-v{version}-{env}.zip` in `dist/`.
    - Restores the original `envtype` in `lib/constants.py`.
 3. Prints a summary of all created archives.
 

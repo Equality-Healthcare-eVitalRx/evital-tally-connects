@@ -141,7 +141,7 @@ def zip_build(version: str, env: str, skip_zip: bool = False) -> Path | None:
             "Did PyInstaller complete successfully?"
         )
 
-    zip_name = f"app-v{version}-{env}.zip"
+    zip_name = f"evital-tally-connects-v{version}-{env}.zip"
     zip_path = dist_dir / zip_name
 
     if skip_zip:
