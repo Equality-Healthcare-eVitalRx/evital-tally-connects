@@ -2456,15 +2456,11 @@ class Dashboard(tk.Frame):
         def show_sync_frame(one_sync=False):
 
             if constants.SYNC_STAGE == 0:
-                
-                current_chemist = constants.LOGIN_RESPONSE["data"][
-                    "business_details"
-                ]["logged_in_business"]["id"]
+
                 mapped_current = [
                     x
                     for x in constants.MAPPING_HISTORY["results"]
                     if x["is_mapped"] in ["True", True, "True"]
-                    and x["entity_id"] == current_chemist
                 ]
                 if len(mapped_current) <= 0:
                     messagebox.showerror(
