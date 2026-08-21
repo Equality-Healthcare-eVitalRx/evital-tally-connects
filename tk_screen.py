@@ -2534,6 +2534,7 @@ class Dashboard(tk.Frame):
 
                 if getattr(self, "_logout_label", None) is not None:
                     self._logout_label.pack_forget()
+                    self._user_label.pack_forget()
 
                 # right_panel.config(background="#E7F6FF")
                 right_panel2 = tk.Frame(right_panel, width=900, bg="#E7F6FF")
@@ -3069,7 +3070,9 @@ class Dashboard(tk.Frame):
                 bg="#004BA8",
                 fg="white",
                 font=header_font2,
+                anchor=tk.W,
                 justify=tk.LEFT,
+                wraplength=160,
             )
 
             # logout_label = tk.Button(left_panel, text="Logout >", bg="#004BA8", fg="white",
@@ -3082,7 +3085,9 @@ class Dashboard(tk.Frame):
                 fg="white",
                 cursor="hand2",
                 font=label_font2,
+                anchor=tk.W,
                 justify=tk.LEFT,
+                wraplength=160,
             )
             logout_label.pack(
                 side=tk.BOTTOM, anchor=tk.W, pady=(0, 50), padx=30
@@ -3217,7 +3222,7 @@ class LogViewerApp:
         # Create a new window
         self.root = tk.Toplevel() if self.main_app else tk.Tk()
         self.root.title("Logs | eVital<>Tally Connects")
-        self.root.geometry("950x650")
+        self.root.geometry("800x600")
         self.root.minsize(640, 420)
         self.root.configure(bg="#E7F6FF")
         try:
