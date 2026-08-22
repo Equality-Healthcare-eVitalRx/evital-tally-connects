@@ -15,7 +15,7 @@ from tkinter import font, ttk
 from tkinter import messagebox
 from tkinter import scrolledtext
 from PIL import Image, ImageTk, ImageSequence, ImageGrab, ImageFilter
-from customtkinter import CTkButton, CTkFont
+from customtkinter import CTkButton, CTkFont, CTkLabel
 import pyglet
 from functions import (
     login,
@@ -32,7 +32,7 @@ from functions import (
     decrypt_data,
     LogManagerObj,
 )
-from lib.import_export_data import get_tally_companies
+from lib.import_export_data import get_tally_companies, get_entity_sync_history
 
 pyglet.options["win32_gdi_font"] = True
 fontpath = Path(__file__).parent / "lib/fonts/static/Manrope-Regular.ttf"
@@ -236,6 +236,8 @@ class App(tk.Tk):
         self.destroy()
 
     def initialize_screens(self):
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
         self.frames["LoginScreen"] = LoginScreen(self, self)
         self.frames["Dashboard"] = Dashboard(self, self)
 
@@ -252,6 +254,8 @@ class App(tk.Tk):
             self.frames[frame_name] = LoginScreen(self, self)
         elif frame_name == "Dashboard":
             self.frames[frame_name] = Dashboard(self, self)
+        elif frame_name == "SyncHistory":
+            self.frames[frame_name] = SyncHistoryScreen(self, self)
 
         frame = self.frames[frame_name]
         # self.clear_frame_inputs(frame)
@@ -853,7 +857,7 @@ class Dashboard(tk.Frame):
 
             top_right_panel = tk.Frame(upper_right_panel, bg="#E7F6FF")
             top_right_panel.pack(
-                side=tk.RIGHT, fill=tk.BOTH, expand=True, pady=(60, 5), padx=(0, 20)
+                side=tk.RIGHT, fill=tk.BOTH, expand=True, pady=(50, 15), padx=(0, 20)
             )
 
             # Last Sync header and time
@@ -897,8 +901,27 @@ class Dashboard(tk.Frame):
             )
             last_sync_time.pack(pady=(0, 10), padx=30, anchor=tk.W)
 
+            btn_row = tk.Frame(top_right_panel, bg="#E7F6FF")
+            btn_row.pack(pady=(10, 10), padx=40, anchor=tk.E)
+
+            history_button = CTkButton(
+                btn_row,
+                text="🕘 History",
+                hover_color="#F3FAFF",
+                font=CTkFont(family="Manrope", size=15),
+                text_color="#004BA8",
+                fg_color="white",
+                border_width=2,
+                border_color="#B3D9F2",
+                height=42,
+                width=120,
+                corner_radius=6,
+                command=lambda: parent.show_frame("SyncHistory"),
+            )
+            history_button.pack(side=tk.LEFT, padx=(0, 12))
+
             sync_all_button = CTkButton(
-                top_right_panel,
+                btn_row,
                 text=constants.SYNC_BTN_TEXT,
                 hover_color="#033D7E",
                 font=CTkFont(family="Manrope", size=16, weight="bold"),
@@ -909,7 +932,7 @@ class Dashboard(tk.Frame):
                 corner_radius=6,
                 command=show_sync_frame,
             )
-            sync_all_button.pack(pady=(5, 20), padx=40, anchor=tk.E)
+            sync_all_button.pack(side=tk.LEFT)
 
             # Lower right panel (contains branch data)
             lower_right_panel = tk.Frame(right_panel, bg="white")
@@ -2056,15 +2079,17 @@ class Dashboard(tk.Frame):
                         header, text=title, bg="white", fg="#1a73e8", font=header_font3
                     ).pack(side=tk.LEFT)
 
-                    # Select All label (clickable)
-                    select_all_lbl = tk.Label(
-                        header,
-                        text="Select All",
-                        bg="white",
-                        fg="#1a73e8",
-                        cursor="hand2",
-                    )
-                    select_all_lbl.pack(side=tk.RIGHT)
+                    # Select All label (only for multi-module groups)
+                    select_all_lbl = None
+                    if len(modules) > 1:
+                        select_all_lbl = tk.Label(
+                            header,
+                            text="Select All",
+                            bg="white",
+                            fg="#1a73e8",
+                            cursor="hand2",
+                        )
+                        select_all_lbl.pack(side=tk.RIGHT)
 
                     # Grid
                     grid = tk.Frame(section, bg="white")
@@ -2116,7 +2141,8 @@ class Dashboard(tk.Frame):
                         constants.SELECTED_MODULES = selected_modules
                         print("Selected modules:", constants.SELECTED_MODULES)
 
-                    select_all_lbl.bind("<Button-1>", toggle_all)
+                    if select_all_lbl is not None:
+                        select_all_lbl.bind("<Button-1>", toggle_all)
 
                 # ================= DATA MAPPING =================
                 modules = list(constants.EXPORT_MODULES.items())
@@ -3196,6 +3222,806 @@ class Dashboard(tk.Frame):
         #     )
         #     # check_thread_status()
         #     thread1.start()
+
+
+class SyncHistoryScreen(tk.Frame):
+    RANGE_CHIPS = [
+        ("last_7_days", "Last 7 days"),
+        ("last_15_days", "Last 15 days"),
+        ("last_30_days", "Last 30 days"),
+        ("last_60_days", "Last 60 days"),
+        ("last_90_days", "Last 90 days"),
+    ]
+    MODULE_LABELS = {"accounts": "Ledgers"}
+
+    HEAD_H = 44
+    ROW_H = 58
+    PAD_L = 20
+    PAD_R = 22
+
+    def __init__(self, parent, controller):
+        super().__init__(parent, bg="white")
+        self.controller = controller
+        self.parent = parent
+        parent.title("eVital<>Tally Connects")
+
+        ACCENT = "#0CA1F6"
+        HEADER_BG = "#004BA8"
+        HEADER_HOVER = "#003A80"
+        HOVER_BG = "#E7F6FF"
+        TEXT = "#1F2430"
+        MUTED = "#7E878C"
+        BORDER = "#E3E8EF"
+        ZEBRA_BG = "#F7FAFC"
+        HEAD_BG = "#EEF4FA"
+
+        f_title = font.Font(family="Manrope", size=15, weight="bold")
+        f_eyebrow = font.Font(family="Manrope", size=9, weight="bold")
+        f_h3 = font.Font(family="Manrope", size=11, weight="bold")
+        f_body = font.Font(family="Manrope", size=10)
+        f_body_b = font.Font(family="Manrope", size=10, weight="bold")
+        f_small = font.Font(family="Manrope", size=9)
+        f_small_b = font.Font(family="Manrope", size=9, weight="bold")
+        f_empty = font.Font(family="Segoe UI Emoji", size=26)
+
+        state = {
+            "page": 1,
+            "rpp": 20,
+            "total": 0,
+            "loading": False,
+            "range": "last_7_days",
+            "records": [],
+            "err": None,
+        }
+        dots_job = {"id": None}
+        resize_job = {"id": None}
+        btn_state = {"prev": False, "next": False}
+        retry_holder = {"btn": None}
+        tip_holder = {"win": None, "after": None}
+
+        def go_back(e=None):
+            controller.show_frame("Dashboard")
+
+        def range_label(value):
+            for v, lbl in self.RANGE_CHIPS:
+                if v == value:
+                    return lbl
+            return str(value)
+
+        def module_label(v):
+            s = str(v or "").strip()
+            if not s:
+                return "-"
+            low = s.lower()
+            if low in self.MODULE_LABELS:
+                return self.MODULE_LABELS[low]
+            return s.title() if s.islower() else s
+
+        def fmt_date_str(value):
+            raw = str(value or "")
+            for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%Y/%m/%d"):
+                try:
+                    return datetime.strptime(raw, fmt).strftime("%d %b %Y")
+                except ValueError:
+                    continue
+            return raw if raw else "-"
+
+        def split_sync_dt(value):
+            parts = str(value or "").split(" ")
+            if len(parts) >= 2:
+                return fmt_date_str(parts[0]), " ".join(parts[1:])
+            raw = str(value or "")
+            return (raw, "") if raw else ("-", "")
+
+        def fmt_count(value):
+            try:
+                return f"{int(value):,}"
+            except (TypeError, ValueError):
+                return str(value) if value not in (None, "") else "-"
+
+        def status_style(v):
+            s = str(v or "").strip().lower()
+            if s in ("success", "successful", "completed", "done", "ok"):
+                return "#E6F6EC", "#1E9E5A"
+            if s in ("failed", "failure", "error", "aborted", "stopped"):
+                return "#FDECEA", "#D93025"
+            if s in ("pending", "partial", "in_progress", "processing", "running"):
+                return "#FFF4E0", "#B7791F"
+            return "#EEF1F4", "#5A6572"
+
+        def status_icon(v):
+            s = str(v or "").strip().lower()
+            if s in ("success", "successful", "completed", "done", "ok"):
+                return "✓"
+            if s in ("failed", "failure", "error", "aborted", "stopped"):
+                return "✕"
+            if s in ("pending", "partial", "in_progress", "processing", "running"):
+                return "◐"
+            return "•"
+
+        def ellipsize(txt, fnt, maxw):
+            if fnt.measure(txt) <= maxw:
+                return txt
+            while len(txt) > 1 and fnt.measure(txt + "…") > maxw:
+                txt = txt[:-1]
+            return txt + "…"
+
+        header = tk.Frame(self, bg=HEADER_BG)
+        header.pack(fill=tk.X)
+
+        back_wrap = tk.Frame(header, bg=HEADER_BG)
+        back_wrap.pack(side=tk.LEFT, fill=tk.Y, padx=(20, 8))
+        back_btn = tk.Label(
+            back_wrap,
+            text="←",
+            bg=HEADER_BG,
+            fg="white",
+            font=("Manrope", 16, "bold"),
+            cursor="hand2",
+            padx=6,
+        )
+        back_btn.pack(expand=True)
+        back_btn.bind("<Button-1>", go_back)
+        back_btn.bind("<Enter>", lambda e: back_btn.configure(bg=HEADER_HOVER))
+        back_btn.bind("<Leave>", lambda e: back_btn.configure(bg=HEADER_BG))
+
+        title_block = tk.Frame(header, bg=HEADER_BG)
+        title_block.pack(side=tk.LEFT, pady=(12, 12))
+        tk.Label(
+            title_block,
+            text="SYNC HISTORY",
+            bg=HEADER_BG,
+            fg="#9DD3FF",
+            font=f_eyebrow,
+            anchor=tk.W,
+        ).pack(anchor=tk.W)
+        tk.Label(
+            title_block,
+            text="Module-wise Sync Activity",
+            bg=HEADER_BG,
+            fg="white",
+            font=f_title,
+            anchor=tk.W,
+        ).pack(anchor=tk.W)
+
+        badge_wrap = tk.Frame(header, bg=HEADER_BG)
+        badge_wrap.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 26))
+        total_badge = CTkLabel(
+            badge_wrap,
+            text="",
+            corner_radius=2,
+            bg_color=HEADER_BG,
+            fg_color="#033D7E",
+            text_color="#BFE3FF",
+            font=("Manrope", 12, "bold"),
+            padx=16,
+            pady=7,
+        )
+        total_badge.pack(expand=True)
+
+        toolbar = tk.Frame(self, bg="white")
+        toolbar.pack(fill=tk.X, padx=26, pady=(12, 8))
+
+        tk.Label(
+            toolbar, text="Period", bg="white", fg=MUTED, font=f_body
+        ).pack(side=tk.LEFT)
+
+        chips_frame = tk.Frame(toolbar, bg="white")
+        chips_frame.pack(side=tk.LEFT, padx=(14, 0))
+        chips = {}
+        chip_font = CTkFont(family="Manrope", size=12, weight="bold")
+
+        for value, label in self.RANGE_CHIPS:
+            chip = CTkButton(
+                chips_frame,
+                text=label,
+                height=34,
+                width=max(104, chip_font.measure(label) + 34),
+                corner_radius=16,
+                border_width=1,
+                border_color=BORDER,
+                fg_color="white",
+                text_color=TEXT,
+                hover_color="#F3FAFF",
+                font=chip_font,
+                command=lambda v=value: select_range(v),
+            )
+            chip.pack(side=tk.LEFT, padx=(0, 8))
+
+            def paint_chip(c=chip, v=value):
+                sel = state["range"] == v
+                c.configure(
+                    fg_color=ACCENT if sel else "white",
+                    text_color="white" if sel else TEXT,
+                    border_color=ACCENT if sel else BORDER,
+                    hover_color="#0A90DC" if sel else "#F3FAFF",
+                )
+
+            chips[value] = paint_chip
+
+        def paint_all_chips():
+            for paint in chips.values():
+                paint()
+
+        footer = tk.Frame(self, bg="white")
+        footer.pack(side=tk.BOTTOM, fill=tk.X, padx=26, pady=(8, 12))
+
+        card = tk.Frame(
+            self, bg="white", highlightbackground=BORDER, highlightthickness=1
+        )
+        card.pack(fill=tk.BOTH, expand=True, padx=26)
+
+        inner = tk.Frame(card, bg="white")
+        inner.pack(fill=tk.BOTH, expand=True)
+        inner.grid_rowconfigure(1, weight=1)
+        inner.grid_columnconfigure(0, weight=1)
+
+        head_cv = tk.Canvas(
+            inner, bg=HEAD_BG, height=self.HEAD_H, bd=0, highlightthickness=0
+        )
+        body = tk.Canvas(inner, bg="white", bd=0, highlightthickness=0)
+        sb = ttk.Scrollbar(inner, orient="vertical", command=body.yview)
+        body.configure(yscrollcommand=sb.set)
+        head_cv.grid(row=0, column=0, sticky="ew")
+        body.grid(row=1, column=0, sticky="nsew")
+        sb.grid(row=0, column=1, rowspan=2, sticky="ns")
+
+        COL_FR = [0.22, 0.17, 0.12, 0.17, 0.32]
+
+        def compute_cols(w):
+            usable = w - self.PAD_L - self.PAD_R
+            xs = []
+            cur = self.PAD_L
+            for frac in COL_FR:
+                xs.append(cur)
+                cur += usable * frac
+            mids = [xs[i] + usable * COL_FR[i] / 2 for i in range(5)]
+            widths = [usable * frac - 18 for frac in COL_FR]
+            return xs, mids, widths, w
+
+        range_lbl = tk.Label(footer, text="", bg="white", fg=MUTED, font=f_small)
+        range_lbl.pack(side=tk.LEFT)
+
+        def nav_button(key, text, cmd):
+            lbl = tk.Label(
+                footer,
+                text=text,
+                bg="white",
+                fg=MUTED,
+                font=f_small_b,
+                cursor="arrow",
+                padx=14,
+                pady=6,
+                highlightbackground=BORDER,
+                highlightthickness=1,
+            )
+
+            def click(e):
+                if btn_state[key]:
+                    cmd(e)
+
+            lbl.bind("<Button-1>", click)
+            lbl.bind(
+                "<Enter>",
+                lambda e: lbl.configure(bg=HOVER_BG) if btn_state[key] else None,
+            )
+            lbl.bind("<Leave>", lambda e: lbl.configure(bg="white"))
+            return lbl
+
+        def go_prev(e=None):
+            if state["loading"] or state["page"] <= 1:
+                return
+            state["page"] -= 1
+            load_data()
+
+        def go_next(e=None):
+            if state["loading"] or state["page"] >= total_pages():
+                return
+            state["page"] += 1
+            load_data()
+
+        next_btn = nav_button("next", "Next ›", go_next)
+        next_btn.pack(side=tk.RIGHT)
+
+        page_info = tk.Label(footer, text="", bg="white", fg=TEXT, font=f_small_b)
+        page_info.pack(side=tk.RIGHT, padx=16)
+
+        prev_btn = nav_button("prev", "‹ Prev", go_prev)
+        prev_btn.pack(side=tk.RIGHT)
+
+        rpp_btn = tk.Menubutton(
+            footer,
+            text=f"{state['rpp']} / page ▾",
+            bg="white",
+            fg=TEXT,
+            font=f_small,
+            cursor="hand2",
+            relief=tk.FLAT,
+            bd=0,
+            padx=8,
+        )
+        rpp_menu = tk.Menu(
+            rpp_btn,
+            tearoff=0,
+            bg="white",
+            fg="#333",
+            font=f_small,
+            bd=0,
+            activebackground=HOVER_BG,
+            activeforeground=ACCENT,
+        )
+        for v in (20, 50, 100):
+            rpp_menu.add_command(label=str(v), command=lambda vv=v: set_rpp(vv))
+        rpp_btn["menu"] = rpp_menu
+        rpp_btn.pack(side=tk.RIGHT, padx=(0, 14))
+
+        def set_rpp(v):
+            if state["loading"] or v == state["rpp"]:
+                return
+            state["rpp"] = v
+            state["page"] = 1
+            rpp_btn.configure(text=f"{v} / page ▾")
+            load_data()
+
+        def total_pages():
+            rpp = state["rpp"] if state["rpp"] else 20
+            return max(1, (state["total"] + rpp - 1) // rpp)
+
+        def update_pagination():
+            pages = total_pages()
+            page_info.configure(text=f"Page {state['page']} of {pages}")
+            can_prev = state["page"] > 1 and not state["loading"]
+            can_next = state["page"] < pages and not state["loading"]
+            btn_state["prev"] = can_prev
+            btn_state["next"] = can_next
+            prev_btn.configure(
+                fg=TEXT if can_prev else MUTED,
+                cursor="hand2" if can_prev else "arrow",
+            )
+            next_btn.configure(
+                fg=TEXT if can_next else MUTED,
+                cursor="hand2" if can_next else "arrow",
+            )
+            if state["total"] > 0:
+                start_i = (state["page"] - 1) * state["rpp"] + 1
+                end_i = min(state["page"] * state["rpp"], state["total"])
+                range_lbl.configure(
+                    text=f"Showing {start_i}–{end_i} of {state['total']:,}"
+                )
+            else:
+                range_lbl.configure(text="No records")
+
+        def cancel_anim():
+            if dots_job["id"] is not None:
+                try:
+                    self.after_cancel(dots_job["id"])
+                except Exception:
+                    pass
+                dots_job["id"] = None
+
+        def hide_tip():
+            if tip_holder["after"] is not None:
+                try:
+                    self.after_cancel(tip_holder["after"])
+                except Exception:
+                    pass
+                tip_holder["after"] = None
+            if tip_holder["win"] is not None:
+                try:
+                    tip_holder["win"].destroy()
+                except Exception:
+                    pass
+                tip_holder["win"] = None
+
+        def schedule_tip(e, msg):
+            hide_tip()
+
+            def show():
+                tip_holder["after"] = None
+                if not self.winfo_exists():
+                    return
+                win = tk.Toplevel(self)
+                win.wm_overrideredirect(True)
+                win.attributes("-topmost", True)
+                tk.Label(
+                    win,
+                    text=msg,
+                    bg="#2B3440",
+                    fg="white",
+                    font=f_small,
+                    justify=tk.LEFT,
+                    wraplength=420,
+                    padx=10,
+                    pady=6,
+                ).pack()
+                x = e.x_root + 14
+                y = e.y_root + 18
+                win.update_idletasks()
+                if x + win.winfo_reqwidth() > self.winfo_screenwidth() - 8:
+                    x = e.x_root - win.winfo_reqwidth() - 10
+                win.wm_geometry(f"+{x}+{y}")
+                tip_holder["win"] = win
+
+            tip_holder["after"] = self.after(450, show)
+
+        def on_destroy(e):
+            if e.widget is self:
+                hide_tip()
+
+        self.bind("<Destroy>", on_destroy)
+
+        def clear_canvas():
+            cancel_anim()
+            hide_tip()
+            if retry_holder["btn"] is not None:
+                try:
+                    retry_holder["btn"].destroy()
+                except Exception:
+                    pass
+                retry_holder["btn"] = None
+            head_cv.delete("all")
+            body.delete("all")
+
+        def draw_loading(W, H):
+            cy0 = max(H / 2 - 16, 100)
+            item = body.create_text(
+                W / 2,
+                cy0,
+                text="Loading sync history",
+                font=f_body,
+                fill=MUTED,
+            )
+
+            def anim(n=0):
+                try:
+                    if not body.winfo_exists():
+                        return
+                    body.itemconfig(item, text="Loading sync history" + "." * (n % 4))
+                    dots_job["id"] = self.after(350, lambda: anim(n + 1))
+                except tk.TclError:
+                    return
+
+            def show_hint():
+                try:
+                    if not body.winfo_exists() or not state["loading"]:
+                        return
+                    body.create_text(
+                        W / 2,
+                        cy0 + 26,
+                        text="Fetching records from server — this may take a moment",
+                        font=f_small,
+                        fill="#A6ADB3",
+                    )
+                except tk.TclError:
+                    pass
+
+            anim()
+            self.after(4000, show_hint)
+
+        def draw_error(W, H):
+            cy0 = max(H / 2 - 46, 90)
+            body.create_text(
+                W / 2, cy0, text="⚠", font=("Segoe UI Emoji", 24), fill="#D93025"
+            )
+            body.create_text(
+                W / 2,
+                cy0 + 40,
+                text=state["err"],
+                font=f_body,
+                fill="#D93025",
+                width=min(W - 120, 620),
+                justify=tk.CENTER,
+            )
+            btn = CTkButton(
+                self,
+                text="Retry",
+                hover_color="#033D7E",
+                text_color="white",
+                fg_color=ACCENT,
+                font=CTkFont(family="Manrope", size=12, weight="bold"),
+                height=32,
+                width=96,
+                corner_radius=6,
+                command=lambda: on_refresh(),
+            )
+            retry_holder["btn"] = btn
+            body.create_window(W / 2, cy0 + 94, window=btn)
+
+        def draw_empty(W, H):
+            cy0 = max(H / 2 - 40, 100)
+            body.create_text(W / 2, cy0, text="🕘", font=f_empty, fill="#B9C4CE")
+            body.create_text(
+                W / 2, cy0 + 46, text="No sync history found", font=f_h3, fill=TEXT
+            )
+            body.create_text(
+                W / 2,
+                cy0 + 72,
+                text="Try a different period using the filters above.",
+                font=f_small,
+                fill=MUTED,
+            )
+
+        def draw_rows(records, W):
+            xs, mids, widths, _ = compute_cols(W)
+            cy_step = self.ROW_H
+            y = 0
+            for i, rec in enumerate(records):
+                bgc = "white" if i % 2 == 0 else ZEBRA_BG
+                tag = f"r{i}"
+                bgtag = f"r{i}_bg"
+                cy = y + cy_step / 2
+                body.create_rectangle(
+                    0, y, W, y + cy_step, fill=bgc, outline="", tags=(tag, bgtag)
+                )
+
+                name = module_label(rec.get("module_name"))
+                mod_item = body.create_text(
+                    mids[0],
+                    cy,
+                    text=ellipsize(name, f_body_b, widths[0]),
+                    font=f_body_b,
+                    fill=TEXT,
+                    tags=tag,
+                )
+
+                d_str, t_str = split_sync_dt(rec.get("sync_datetime"))
+                if t_str:
+                    body.create_text(
+                        mids[1], cy - 8, text=d_str, font=f_body, fill=TEXT, tags=tag
+                    )
+                    body.create_text(
+                        mids[1],
+                        cy + 10,
+                        text=t_str,
+                        font=f_small,
+                        fill=MUTED,
+                        tags=tag,
+                    )
+                else:
+                    body.create_text(
+                        mids[1], cy, text=d_str, font=f_body, fill=TEXT, tags=tag
+                    )
+
+                pbg, pfg = status_style(rec.get("status"))
+                err_msg = str(rec.get("error_message") or "").strip()
+                icon = status_icon(rec.get("status"))
+                stag = f"{tag}_st"
+                bd = 26
+                bcx, bcy = mids[2], cy
+                body.create_oval(
+                    bcx - bd / 2,
+                    bcy - bd / 2,
+                    bcx + bd / 2,
+                    bcy + bd / 2,
+                    fill=pbg,
+                    outline="",
+                    tags=(tag, stag),
+                )
+                body.create_text(
+                    bcx,
+                    bcy - 1,
+                    text=icon,
+                    font=("Segoe UI Symbol", 11, "bold"),
+                    fill=pfg,
+                    tags=(tag, stag),
+                )
+
+                body.create_text(
+                    mids[3],
+                    cy,
+                    text=fmt_count(rec.get("records_count")),
+                    font=f_body,
+                    fill=TEXT,
+                    tags=tag,
+                )
+
+                s_d, e_d = rec.get("start_date"), rec.get("end_date")
+                if not s_d and not e_d:
+                    period_txt = "—"
+                    period_fill = MUTED
+                else:
+                    period_txt = (
+                        f"{fmt_date_str(s_d)}  →  {fmt_date_str(e_d)}"
+                    )
+                    period_fill = "#444444"
+                body.create_text(
+                    mids[4],
+                    cy,
+                    text=ellipsize(period_txt, f_body, widths[4]),
+                    font=f_body,
+                    fill=period_fill,
+                    tags=tag,
+                )
+
+                def on_enter(e, t=bgtag, m=mod_item):
+                    body.itemconfig(t, fill=HOVER_BG)
+                    try:
+                        body.itemconfig(m, fill=ACCENT)
+                    except tk.TclError:
+                        pass
+
+                def on_leave(e, t=bgtag, b=bgc, m=mod_item):
+                    hide_tip()
+                    body.itemconfig(t, fill=b)
+                    try:
+                        body.itemconfig(m, fill=TEXT)
+                    except tk.TclError:
+                        pass
+
+                body.tag_bind(tag, "<Enter>", on_enter)
+                body.tag_bind(tag, "<Leave>", on_leave)
+                if err_msg:
+                    body.tag_bind(
+                        stag, "<Enter>", lambda e: body.configure(cursor="hand2")
+                    )
+                    body.tag_bind(
+                        stag,
+                        "<Motion>",
+                        lambda e, m=err_msg: schedule_tip(e, m),
+                    )
+                    body.tag_bind(
+                        stag,
+                        "<Leave>",
+                        lambda e: (body.configure(cursor=""), hide_tip()),
+                    )
+                y += cy_step
+
+            line_h = max(y, body.winfo_height())
+            for bx in (xs[1], xs[2], xs[3], xs[4]):
+                body.create_line(bx, 6, bx, line_h - 6, fill="#EEF2F6")
+            body.configure(scrollregion=(0, 0, W, max(y, 1)))
+
+        def draw_all():
+            W = body.winfo_width()
+            H = body.winfo_height()
+            if W < 60:
+                return
+            clear_canvas()
+            xs, mids, widths, _ = compute_cols(W)
+            head_cv.create_rectangle(0, 0, W, self.HEAD_H, fill=HEAD_BG, outline="")
+            head_cv.create_line(
+                0, self.HEAD_H - 1, W, self.HEAD_H - 1, fill="#D7E2EE"
+            )
+            texts = ["MODULE", "SYNCED AT", "STATUS", "RECORDS", "PERIOD"]
+            for i, txt in enumerate(texts):
+                head_cv.create_text(
+                    mids[i],
+                    self.HEAD_H / 2,
+                    text=txt,
+                    font=f_small_b,
+                    fill=MUTED,
+                )
+            if state["loading"]:
+                draw_loading(W, H)
+            elif state["err"]:
+                draw_error(W, H)
+            elif state["records"]:
+                for bx in (xs[1], xs[2], xs[3], xs[4]):
+                    head_cv.create_line(bx, 8, bx, self.HEAD_H - 8, fill="#E2EAF2")
+                draw_rows(state["records"], W)
+            else:
+                draw_empty(W, H)
+            body.yview_moveto(0)
+
+        def on_resize(e):
+            if resize_job["id"] is not None:
+                try:
+                    self.after_cancel(resize_job["id"])
+                except Exception:
+                    pass
+
+            def do_resize():
+                resize_job["id"] = None
+                draw_all()
+
+            resize_job["id"] = self.after(80, do_resize)
+
+        body.bind("<Configure>", on_resize)
+        head_cv.bind("<Configure>", on_resize)
+
+        def on_wheel(e):
+            if state["loading"]:
+                return
+            if getattr(e, "delta", 0):
+                body.yview_scroll(-1 * (e.delta // 120), "units")
+            elif getattr(e, "num", None) == 4:
+                body.yview_scroll(-1, "units")
+            elif getattr(e, "num", None) == 5:
+                body.yview_scroll(1, "units")
+
+        body.bind("<MouseWheel>", on_wheel)
+        body.bind("<Button-4>", on_wheel)
+        body.bind("<Button-5>", on_wheel)
+
+        def select_range(v):
+            if state["loading"] or state["range"] == v:
+                return
+            state["range"] = v
+            state["page"] = 1
+            paint_all_chips()
+            load_data()
+
+        def render_response(res):
+            state["loading"] = False
+            if not isinstance(res, dict) or str(res.get("status_code")) not in (
+                "1",
+                "1.0",
+            ):
+                state["err"] = (
+                    str(
+                        res.get("error_message")
+                        or res.get("status_message")
+                        or "Failed to fetch sync history."
+                    )
+                    if isinstance(res, dict)
+                    else "Failed to fetch sync history."
+                )
+                state["records"] = []
+                state["total"] = 0
+            else:
+                state["err"] = None
+                data = res.get("data") or {}
+                state["records"] = data.get("results") or []
+                try:
+                    state["total"] = int(data.get("total_records") or 0)
+                except (TypeError, ValueError):
+                    state["total"] = 0
+                try:
+                    state["rpp"] = int(data.get("rpp") or state["rpp"])
+                except (TypeError, ValueError):
+                    pass
+                try:
+                    state["page"] = int(data.get("page") or state["page"])
+                except (TypeError, ValueError):
+                    pass
+            total_badge.configure(
+                text=f"{state['total']:,} RECORDS" if state["total"] else "",
+                fg_color="#033D7E" if state["total"] else "transparent",
+            )
+            update_pagination()
+            draw_all()
+
+        def load_data():
+            if state["loading"]:
+                return
+            state["loading"] = True
+            state["records"] = []
+            state["err"] = None
+            update_pagination()
+            draw_all()
+
+            date_range = state["range"]
+            page = state["page"]
+            rpp = state["rpp"]
+
+            def worker():
+                res = get_entity_sync_history(date_range, page=page, rpp=rpp)
+
+                def done():
+                    try:
+                        if not self.winfo_exists():
+                            return
+                    except tk.TclError:
+                        return
+                    render_response(res)
+
+                try:
+                    self.after(0, done)
+                except RuntimeError:
+                    pass
+
+            threading.Thread(target=worker, daemon=True).start()
+
+        def on_refresh():
+            if state["loading"]:
+                return
+            state["page"] = 1
+            load_data()
+
+        self.bind("<Escape>", go_back)
+        paint_all_chips()
+        update_pagination()
+        load_data()
 
 
 class LogViewerApp:

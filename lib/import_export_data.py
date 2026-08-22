@@ -568,6 +568,53 @@ def get_data_from_evitalrx(start, end, api_key, type_, applicable_from_date=""):
         return {"error": f"Status code {response.status_code}"}
 
 
+def get_entity_sync_history(date_range="last_7_days", page=1, rpp=20):
+    res = {"status_code": 0, "status_message": "Couldn't fetch sync history."}
+    if constants.EVITAL_RX_API_KEY == "":
+        res["status_message"] = "No API key found. Please login again."
+        return res
+    url = constants.EVITAL_RX_URL + "v2/master/reports/get_entity_sync_history"
+    payload = {
+        "apikey": constants.EVITAL_RX_API_KEY,
+        "date_range": date_range,
+        "rpp": str(rpp),
+        "page": str(page),
+    }
+    try:
+        logging.info(url + " API called")
+        response = requests.post(
+            url,
+            files={k: (None, v) for k, v in payload.items()},
+            timeout=300,
+        )
+        logging.info(url + f" API called - Status {response.status_code}")
+        if response.status_code == 200:
+            api_res = json.loads(response.content)
+            if isinstance(api_res, dict):
+                if "data" in api_res and isinstance(api_res["data"], dict):
+                    data = api_res["data"]
+                    data.setdefault("results", data.get("results", []))
+                    data.setdefault("total_records", data.get("total_records", len(data["results"])))
+                    data.setdefault("rpp", rpp)
+                    data.setdefault("page", page)
+                else:
+                    api_res.setdefault("status_code", "1")
+                    api_res.setdefault("data", {})
+                    api_res["data"].setdefault("results", api_res.get("results", []))
+                    api_res["data"].setdefault("total_records", api_res.get("total_records", len(api_res["data"]["results"])))
+                    api_res["data"].setdefault("rpp", rpp)
+                    api_res["data"].setdefault("page", page)
+            return api_res
+        res["status_message"] = f"API Error: {response.text}"
+    except requests.exceptions.Timeout:
+        LogManagerObj.write_log(traceback.format_exc())
+        res["status_message"] = "Internet issue. Please try again later."
+    except Exception:
+        LogManagerObj.write_log(traceback.format_exc())
+        res["status_message"] = "Internet issue. Please try again later."
+    return res
+
+
 def send_reconciliation(
     file_content: str, start_date: str, end_date: str, api_keys=[]
 ) -> dict:
