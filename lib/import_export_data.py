@@ -137,9 +137,12 @@ def send_data_to_evitalrx(request_params):
     return res
 
 
-def send_login_request(mobile_no, password, entity="chemist"):
+def send_login_request(mobile_no=None, password=None, entity="chemist", apikey=None):
     headers = {"Content-Type": "application/json"}
-    json_request = {"mobile": mobile_no, "password": password, "login_entity": entity}
+    if apikey:
+        json_request = {"apikey": apikey, "login_entity": entity}
+    else:
+        json_request = {"mobile": mobile_no, "password": password, "login_entity": entity}
     response_dict = {"status_code": 0, "status_message": "Couldn't send request."}
     error_message = "Invalid mobile number or password."
     try:
@@ -271,11 +274,19 @@ def get_tally_companies():
     except requests.exceptions.Timeout:
         traceback.print_exc()
         LogManagerObj.write_log(traceback.format_exc())
+        if constants.LOGIN_MODE == "apikey":
+            # Debug session: keep the app usable even without Tally running.
+            LogManagerObj.write_log("⚠ Debug mode: Tally connection timed out, continuing.")
+            return 0
         error_message = "Connection timed out. Please try again later."
         messagebox.showerror("Tally Company", error_message)
         sys.exit(1)
     except requests.exceptions.RequestException as e:
         LogManagerObj.write_log(traceback.format_exc())
+        if constants.LOGIN_MODE == "apikey":
+            # Debug session: keep the app usable even without Tally running.
+            LogManagerObj.write_log("⚠ Debug mode: Tally is not running, continuing.")
+            return 0
         error_message = str(e)
         messagebox.showerror("Tally Company", "Tally is not running.")
         # import os
@@ -284,6 +295,10 @@ def get_tally_companies():
         sys.exit(1)
     except:
         LogManagerObj.write_log(traceback.format_exc())
+        if constants.LOGIN_MODE == "apikey":
+            # Debug session: keep the app usable even without Tally running.
+            LogManagerObj.write_log("⚠ Debug mode: Tally is not running, continuing.")
+            return 0
         messagebox.showerror("Tally Company", "Tally is not running.")
         # import os
 
@@ -551,6 +566,11 @@ def get_data_from_evitalrx(start, end, api_key, type_, applicable_from_date=""):
             "is_tally": "true",
             "xml_import": "true",
         }
+
+    if constants.LOGIN_MODE == "apikey":
+        # Debug session - don't store this request in the entity's
+        # API request log.
+        payload["store_api_request_log"] = "no"
 
     try:
         response = requests.post(

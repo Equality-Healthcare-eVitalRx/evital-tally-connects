@@ -56,6 +56,7 @@ def login(mobile_number, password, entity="chemist"):
         print(res)
 
         if "status_code" in res.keys() and res["status_code"] in [1, "1"]:
+            constants.LOGIN_MODE = "password"
             if_chain_pharmacy = res["data"]["business_details"]["is_chain_business"]
             LogManagerObj.write_log(res.get("status_message", ""))
 
@@ -103,6 +104,66 @@ def login(mobile_number, password, entity="chemist"):
             return 0
 
 
+def login_with_apikey(apikey, entity="chemist"):
+    if len(apikey) < 1:
+        messagebox.showerror("Login Failed", "Invalid API Key")
+        return 0
+    else:
+        res = send_login_request(entity=entity, apikey=apikey)
+        print(res)
+
+        if "status_code" in res.keys() and res["status_code"] in [1, "1"]:
+            constants.LOGIN_MODE = "apikey"
+            if_chain_pharmacy = res["data"]["business_details"]["is_chain_business"]
+            LogManagerObj.write_log(res.get("status_message", ""))
+
+            constants.COMPANY_MAPPING = []
+            if (
+                len(
+                    res["data"]["business_details"]["logged_in_business"][
+                        "tally_mapping_details"
+                    ]
+                )
+                > 0
+            ):
+                constants.COMPANY_MAPPING.append(
+                    res["data"]["business_details"]["logged_in_business"][
+                        "tally_mapping_details"
+                    ][0]
+                )
+
+            if len(res["data"]["business_details"].get("child_businesses", [])) > 0:
+                for x in res["data"]["business_details"]["child_businesses"]:
+                    if len(x["tally_mapping_details"]) > 0:
+                        constants.COMPANY_MAPPING.append(x["tally_mapping_details"][0])
+
+            if "accesstoken" in res["data"]["business_details"]["logged_in_business"]:
+                constants.ACCESS_TOKEN = res["data"]["business_details"][
+                    "logged_in_business"
+                ]["accesstoken"]
+            if "apikey" in res["data"]["business_details"]["logged_in_business"]:
+                constants.EVITAL_RX_API_KEY = res["data"]["business_details"][
+                    "logged_in_business"
+                ]["apikey"]
+
+            # No mobile number in API-key sessions - show entity_code in the
+            # side panel instead.
+            constants.MOBILE = res["data"]["business_details"][
+                "logged_in_business"
+            ].get("entity_code", "")
+
+            # Debug session (API key login) - never persisted, so closing the
+            # app always requires logging in again.
+            LogManagerObj.write_log("Debug session active (not cached).")
+
+            return 1
+        elif "status_code" in res.keys() and res["status_code"] in [0, "0"]:
+            LogManagerObj.write_log("Login Failed")
+            LogManagerObj.write_log(res.get("status_message", ""))
+
+            return 0
+
+
 def logout():
     # with open("./lib/app_cache.txt", "w") as json_file:
     #     json.dump({}, json_file)
@@ -137,6 +198,7 @@ def logout():
     constants.SYNC_STAGE = 0
     # SYNC_STAGE = 0
     constants.SYNC_BTN_TEXT = "Next"
+    constants.LOGIN_MODE = "password"
     constants.LAST_SYNC_HEADER_VAR = ""
     reset_sync_dates()
     LogManagerObj.write_log("Logout Successful")
@@ -169,7 +231,7 @@ def startprocess(one_sync=False):
                 "company_guid": x["tally_company_guid"],
                 "branch_name": x["branch_name"],
             }
-            for x in constants.MAPPING_HISTORY["results"]
+            for x in constants.MAPPING_HISTORY.get("results", [])
             if x["is_mapped"] in ["true", True, "True"]
             and x["tally_company_guid"] in tally_guids
             # if x["tally_company_name"] == constants.COMPANY_NAME
@@ -182,10 +244,44 @@ def startprocess(one_sync=False):
                 "company_guid": x["tally_company_guid"],
                 "branch_name": x["branch_name"],
             }
-            for x in constants.MAPPING_HISTORY["results"]
+            for x in constants.MAPPING_HISTORY.get("results", [])
             if x["is_mapped"] in ["true", True, "True"]
             if x["tally_company_name"] == constants.COMPANY_NAME
         ]
+
+    if len(companies) <= 0 and constants.LOGIN_MODE == "apikey":
+        # Debug session: the client's mapped company does not exist on this
+        # machine - build a stand-in target from the locally selected Tally
+        # company so sync can still be tested end-to-end.
+        standin = next(
+            (
+                x
+                for x in constants.TALLY_ACCOUNTS
+                if x["company_name"] == constants.COMPANY_NAME
+            ),
+            constants.TALLY_ACCOUNTS[0] if constants.TALLY_ACCOUNTS else None,
+        )
+        if standin is not None:
+            logged_in = constants.LOGIN_RESPONSE["data"]["business_details"][
+                "logged_in_business"
+            ]
+            branch_name = (
+                logged_in.get("pharmacy_name")
+                or logged_in.get("name")
+                or logged_in.get("business_name")
+                or ""
+            )
+            companies = [
+                {
+                    "chemist_id": logged_in["id"],
+                    "company_name": standin["company_name"],
+                    "company_guid": standin["company_guid"],
+                    "branch_name": branch_name,
+                }
+            ]
+            LogManagerObj.write_log(
+                f"⚠ Debug mode: using local company '{standin['company_name']}' as stand-in sync target."
+            )
 
     if len(companies) <= 0:
         messagebox.showerror("Tally Sync", "Please Map Your Company First.")
@@ -202,9 +298,12 @@ def startprocess(one_sync=False):
             constants.STOP_THREAD = False
             return 0
         LogManagerObj.write_log("+" * 50)
-        LogManagerObj.write_log(
-            f"🔑 Syncing '{company['company_name']}' from '{company['branch_name']}'"
-        )
+        if company.get("branch_name"):
+            LogManagerObj.write_log(
+                f"🔑 Syncing '{company['company_name']}' from '{company['branch_name']}'"
+            )
+        else:
+            LogManagerObj.write_log(f"🔑 Syncing '{company['company_name']}'")
 
         current_apikey = ""
         current_from_date = ""
@@ -378,23 +477,31 @@ def startprocess(one_sync=False):
         LogManagerObj.write_log("+" * 50)
 
         # ── Call ERP reconciliation API ────────────────────────────
-        print("🔄 Organizing reconciliation data...")
-        LogManagerObj.write_log("🔄 Organizing reconciliation data...")
+        if constants.LOGIN_MODE == "apikey":
+            # Debug session: never push reconciliation data to the server -
+            # it would update the client's production reports.
+            print("⏭ Debug mode: reconciliation upload skipped")
+            LogManagerObj.write_log(
+                "⏭ Debug mode: reconciliation upload skipped (client data protected)"
+            )
+        else:
+            print("🔄 Organizing reconciliation data...")
+            LogManagerObj.write_log("🔄 Organizing reconciliation data...")
 
-        results = send_reconciliation(
-            file_content=txt_data,
-            start_date=from_date.strftime("%Y-%m-%d"),
-            end_date=to_date.strftime("%Y-%m-%d"),
-            api_keys=[current_apikey],
-        )
+            results = send_reconciliation(
+                file_content=txt_data,
+                start_date=from_date.strftime("%Y-%m-%d"),
+                end_date=to_date.strftime("%Y-%m-%d"),
+                api_keys=[current_apikey],
+            )
 
-        for _, res in results.items():
-            if "error" in res:
-                print(f"❌ Reconciliation failed: {res['error']}")
-                LogManagerObj.write_log(f"❌ Reconciliation failed: {res['error']}")
-            else:
-                LogManagerObj.write_log("✅ Reconciliation completed successfully")
-                print("✅ Reconciliation completed successfully")
+            for _, res in results.items():
+                if "error" in res:
+                    print(f"❌ Reconciliation failed: {res['error']}")
+                    LogManagerObj.write_log(f"❌ Reconciliation failed: {res['error']}")
+                else:
+                    LogManagerObj.write_log("✅ Reconciliation completed successfully")
+                    print("✅ Reconciliation completed successfully")
 
         if constants.CURRENT_BRANCH_SYNC is not None:
             constants.CURRENT_BRANCH_SYNC.set("Exporting Balance Sheet")
@@ -490,14 +597,22 @@ def startprocess(one_sync=False):
         LogManagerObj.write_log("+" * 50)
         constants.STOP_THREAD = False
         return 0
-    LogManagerObj.write_log("🔄 Sending Tally data to eVital...")
-    res = send_data_to_evitalrx(request_array)
-    LogManagerObj.write_log("✅ " + res.get("status_message", ""))
+    if constants.LOGIN_MODE == "apikey":
+        # Debug session: skip all server-side uploads - the client's
+        # last-synced history and reports on production stay untouched.
+        print("⏭ Debug mode: Tally data upload to eVital skipped")
+        LogManagerObj.write_log(
+            "⏭ Debug mode: sync report upload to eVital skipped (client data protected)"
+        )
+    else:
+        LogManagerObj.write_log("🔄 Sending Tally data to eVital...")
+        res = send_data_to_evitalrx(request_array)
+        LogManagerObj.write_log("✅ " + res.get("status_message", ""))
 
-    init_response = send_init_data_to_evital_rx(
-        init_data_array, from_date.strftime("%Y-%m-%d"), to_date.strftime("%Y-%m-%d")
-    )
-    LogManagerObj.write_log("✅ " + init_response.get("status_message", ""))
+        init_response = send_init_data_to_evital_rx(
+            init_data_array, from_date.strftime("%Y-%m-%d"), to_date.strftime("%Y-%m-%d")
+        )
+        LogManagerObj.write_log("✅ " + init_response.get("status_message", ""))
     LogManagerObj.write_log("✅ All data syncing processes have been completed successfully")
     
     # elif constants.THREAD is None:

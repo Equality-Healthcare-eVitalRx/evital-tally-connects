@@ -58,6 +58,11 @@ REQUIRE_REBOOT = False
 SYNC_TIMER = 0
 CURRENT_BRANCH_SYNC_JSON = {}
 
+# Tracks how the current session was authenticated: "password" or "apikey".
+# "apikey" sessions are internal debug sessions - they get a DEBUG MODE UI,
+# local stand-in Tally company fallback, and all server-side uploads blocked.
+LOGIN_MODE = "password"
+
 VOUCHERS = {
     "company_data": {"list_of_companies": {}, "active_company": {}},
     "vouchers_data": {

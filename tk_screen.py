@@ -19,6 +19,7 @@ from customtkinter import CTkButton, CTkFont, CTkLabel
 import pyglet
 from functions import (
     login,
+    login_with_apikey,
     logout,
     get_all_mapping_details,
     constants,
@@ -159,6 +160,16 @@ class App(tk.Tk):
         self.geometry(f"+{str(int(x))}+{str(int(y))}")
 
         self.resizable(0, 0)
+
+        # The OS/CustomTkinter can silently rescale the window (e.g. when it
+        # is dragged onto a monitor with a different DPI). Remember the
+        # intended size and snap back to it whenever the real size drifts.
+        self._intended_geometry = "950x650"
+        self._geometry_check_job = None
+        self._follow_overlays = []
+        self._last_root_pos = None
+        self.bind("<Configure>", self._on_root_configure)
+
         self.iconbitmap("./lib/images/logo2.ico")
         self.title("eVitalRx Tally Connects")
         # self.bind("<Button-1>", start_move)
@@ -200,6 +211,67 @@ class App(tk.Tk):
         _log_exception(exc, val, tb)
         super().report_callback_exception(exc, val, tb)
 
+    def apply_intended_geometry(self, geometry):
+        """Set the window size and remember it as the size to enforce."""
+        self._intended_geometry = geometry
+        self.geometry(geometry)
+
+    def register_follow_overlay(self, win):
+        """Keep a borderless Toplevel dialog (blurred popup etc.) glued to
+        the main window while it is dragged around the screen."""
+        if win not in self._follow_overlays:
+            self._follow_overlays.append(win)
+
+    def _on_root_configure(self, event):
+        # Only react to the root window itself, and debounce so a burst of
+        # Configure events (drag/resize/DPI change) triggers one check.
+        if event.widget is not self:
+            return
+
+        try:
+            x, y = self.winfo_x(), self.winfo_y()
+        except tk.TclError:
+            return
+        prev = self._last_root_pos
+        self._last_root_pos = (x, y)
+        if prev is not None and (x, y) != prev:
+            dx, dy = x - prev[0], y - prev[1]
+            for overlay in list(self._follow_overlays):
+                try:
+                    if overlay.winfo_exists():
+                        overlay.geometry(
+                            f"+{overlay.winfo_x() + dx}+{overlay.winfo_y() + dy}"
+                        )
+                    else:
+                        self._follow_overlays.remove(overlay)
+                except tk.TclError:
+                    try:
+                        self._follow_overlays.remove(overlay)
+                    except ValueError:
+                        pass
+
+        if self._geometry_check_job is not None:
+            return
+        try:
+            self._geometry_check_job = self.after(250, self._enforce_geometry)
+        except tk.TclError:
+            # App shutting down - nothing to enforce anymore.
+            pass
+
+    def _enforce_geometry(self):
+        self._geometry_check_job = None
+        try:
+            cur_w, cur_h = self.winfo_width(), self.winfo_height()
+            intended_w, intended_h = (
+                int(part) for part in self._intended_geometry.split("x")
+            )
+            # Ignore tiny deviations from Tk/CustomTkinter scaling rounding -
+            # enforcing those would fight the toolkit in a resize loop.
+            if abs(cur_w - intended_w) > 4 or abs(cur_h - intended_h) > 4:
+                self.geometry(self._intended_geometry)
+        except (tk.TclError, ValueError):
+            pass
+
     def start_move(self, event):
         self.x_offset = event.x_root - self.winfo_x()
         self.y_offset = event.y_root - self.winfo_y()
@@ -223,11 +295,9 @@ class App(tk.Tk):
     def add_shadow(self):
         """Applies a drop shadow effect to the window without making it fully white."""
         hwnd = ctypes.windll.user32.GetForegroundWindow()
-        style = ctypes.windll.user32.GetWindowLongW(hwnd, -20)  # GWL_EXSTYLE
-        style |= 0x00020000  # WS_EX_LAYERED (For transparency)
-        ctypes.windll.user32.SetWindowLongW(hwnd, -20, style)
-
-        # Apply the shadow effect
+        # Do NOT set WS_EX_LAYERED here - layered windows are composited in
+        # software on Windows, which makes dragging the window extremely
+        # laggy. DWM draws the shadow without needing the layered style.
         ctypes.windll.dwmapi.DwmSetWindowAttribute(
             hwnd, 2, ctypes.byref(ctypes.c_int(2)), ctypes.sizeof(ctypes.c_int(2))
         )
@@ -311,21 +381,79 @@ class LoginScreen(tk.Frame):
             parent.destroy()
 
         def check_login():
+            if self.login_mode.get() == "apikey":
+                check_apikey_login()
+            else:
+                entity = (
+                    "chemist" if str(selected_entity.get()) == "eVitalRx" else "distributor"
+                )
+                res = login(mobile_entry.get(), password_entry.get(), entity)
+                print(res, "login response")
+                if res == 1:
+                    show_port_popup()
+                    print("port popup")
+
+        def check_apikey_login():
             entity = (
                 "chemist" if str(selected_entity.get()) == "eVitalRx" else "distributor"
             )
-            res = login(mobile_entry.get(), password_entry.get(), entity)
-            print(res, "login response")
+            res = login_with_apikey(apikey_entry.get(), entity)
+            print(res, "apikey login response")
             if res == 1:
                 show_port_popup()
                 print("port popup")
+
+        def toggle_login_mode():
+            current = self.login_mode.get()
+            if current == "password":
+                self.login_mode.set("apikey")
+                mobile_label.pack_forget()
+                mobile_frame.pack_forget()
+                mobile_line.pack_forget()
+                password_label.pack_forget()
+                password_frame.pack_forget()
+                password_line.pack_forget()
+                apikey_label.pack(pady=(20, 0), padx=(60, 55), anchor=tk.W)
+                apikey_frame.pack(pady=4, padx=65, anchor=tk.W, fill=tk.X)
+                apikey_line.pack(pady=(0, 20), padx=65, anchor=tk.W, fill=tk.X)
+                login_label.config(text="API Key Login")
+            else:
+                self.login_mode.set("password")
+                apikey_label.pack_forget()
+                apikey_frame.pack_forget()
+                apikey_line.pack_forget()
+                mobile_label.pack(pady=(20, 0), padx=(60, 55), anchor=tk.W)
+                mobile_frame.pack(pady=4, padx=65, anchor=tk.W, fill=tk.X)
+                mobile_line.pack(pady=(0, 10), padx=65, anchor=tk.W, fill=tk.X)
+                password_label.pack(pady=(10, 0), padx=(60, 55), anchor=tk.W)
+                password_frame.pack(pady=4, padx=65, anchor=tk.W, fill=tk.X)
+                password_line.pack(pady=(0, 20), padx=65, anchor=tk.W, fill=tk.X)
+                login_label.config(text="Login with")
 
         def update_tally_port(overlay, port, host):
             constants.TALLY_PORT = port
             constants.HOST = host
             print(constants.TALLY_URL + str(constants.TALLY_PORT), "changed")
-            constants.MOBILE = mobile_entry.get()
 
+            if constants.LOGIN_MODE == "apikey":
+                # Debug session (API key login) is not persisted - keep
+                # connection settings in memory only. MOBILE stays as the
+                # entity_code captured at login.
+                if constants.MOBILE_VAR is not None:
+                    constants.MOBILE_VAR.set(constants.MOBILE)
+                overlay.destroy()
+                [
+                    widget.delete(0, tk.END)
+                    for widget in parent.winfo_children()
+                    if isinstance(widget, tk.Entry)
+                ]
+                get_all_mapping_details()
+                get_tally_companies()
+                # parent.update()
+                parent.show_frame("Dashboard")
+                return
+
+            constants.MOBILE = mobile_entry.get()
             with open("./lib/app_cache.txt") as data_file:
                 # data = json.load(data_file)
                 data = decrypt_data(data_file.read())
@@ -398,6 +526,7 @@ class LoginScreen(tk.Frame):
             overlay = tk.Toplevel(self)
             overlay.geometry(f"{w}x{h}+{x}+{y}")
             overlay.overrideredirect(True)
+            self.winfo_toplevel().register_follow_overlay(overlay)
 
             # Display blurred background
             bg_image = ImageTk.PhotoImage(blurred_screen)
@@ -685,8 +814,11 @@ class LoginScreen(tk.Frame):
 
         vcmd = (self.register(validate), "%d", "%i", "%P", "%s", "%S", "%v", "%V", "%W")
 
+        form_container = tk.Frame(right_panel, bg="white")
+        form_container.pack(pady=0, padx=0, fill=tk.X)
+
         mobile_label = tk.Label(
-            right_panel,
+            form_container,
             text="Mobile Number",
             bg="white",
             fg="#044C9D",
@@ -694,7 +826,7 @@ class LoginScreen(tk.Frame):
         )
         mobile_label.pack(pady=(20, 0), padx=(60, 55), anchor=tk.W)
 
-        mobile_frame = tk.Frame(right_panel, bg="white")
+        mobile_frame = tk.Frame(form_container, bg="white")
         mobile_frame.pack(pady=4, padx=65, anchor=tk.W, fill=tk.X)
 
         mobile_entry = tk.Entry(
@@ -707,12 +839,12 @@ class LoginScreen(tk.Frame):
         )
         mobile_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
         mobile_line = tk.Canvas(
-            right_panel, height=1, bg="#004BA8", highlightthickness=0
+            form_container, height=1, bg="#004BA8", highlightthickness=0
         )
         mobile_line.pack(pady=(0, 10), padx=65, anchor=tk.W, fill=tk.X)
 
         password_label = tk.Label(
-            right_panel,
+            form_container,
             text="Password",
             bg="white",
             fg="#044C9D",
@@ -723,13 +855,8 @@ class LoginScreen(tk.Frame):
         )
         password_label.pack(pady=(10, 0), padx=(60, 55), anchor=tk.W)
 
-        password_frame = tk.Frame(right_panel, bg="white")
+        password_frame = tk.Frame(form_container, bg="white")
         password_frame.pack(pady=4, padx=65, anchor=tk.W, fill=tk.X)
-
-        password_entry = tk.Entry(
-            password_frame, bg="white", font=header_font2, bd=0, show="*"
-        )
-        password_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
 
         eye_label = tk.Label(
             password_frame,
@@ -740,6 +867,11 @@ class LoginScreen(tk.Frame):
             font=header_font4,
         )
         eye_label.pack(side=tk.RIGHT)
+
+        password_entry = tk.Entry(
+            password_frame, bg="white", font=header_font2, bd=0, show="*"
+        )
+        password_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
 
         def on_eye_enter(event):
             eye_label.config(fg="#033D7E")
@@ -760,11 +892,68 @@ class LoginScreen(tk.Frame):
         eye_label.bind("<Leave>", on_eye_leave)
 
         password_line = tk.Canvas(
-            right_panel, height=1, bg="#004BA8", highlightthickness=0
+            form_container, height=1, bg="#004BA8", highlightthickness=0
         )
         password_line.pack(pady=(0, 20), padx=65, anchor=tk.W, fill=tk.X)
 
-        password_entry.bind("<Return>", lambda e: login_button.invoke())
+        # API Key login fields (hidden by default)
+        self.login_mode = tk.StringVar(value="password")
+
+        apikey_label = tk.Label(
+            form_container,
+            text="API Key",
+            bg="white",
+            fg="#044C9D",
+            font=header_font3,
+            width=40,
+            justify=tk.LEFT,
+            anchor="w",
+        )
+
+        apikey_frame = tk.Frame(form_container, bg="white")
+
+        apikey_eye_label = tk.Label(
+            apikey_frame,
+            text="Show",
+            bg="white",
+            fg="#0CA1F6",
+            cursor="hand2",
+            font=header_font4,
+        )
+        apikey_eye_label.pack(side=tk.RIGHT)
+
+        apikey_entry = tk.Entry(
+            apikey_frame, bg="white", font=header_font2, bd=0, show="*"
+        )
+        apikey_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+
+        def on_apikey_eye_enter(event):
+            apikey_eye_label.config(fg="#033D7E")
+
+        def on_apikey_eye_leave(event):
+            apikey_eye_label.config(fg="#0CA1F6")
+
+        def toggle_apikey_visibility():
+            if apikey_entry.cget("show") == "*":
+                apikey_entry.config(show="")
+                apikey_eye_label.config(text="Hide")
+            else:
+                apikey_entry.config(show="*")
+                apikey_eye_label.config(text="Show")
+
+        apikey_eye_label.bind("<Button-1>", lambda e: toggle_apikey_visibility())
+        apikey_eye_label.bind("<Enter>", on_apikey_eye_enter)
+        apikey_eye_label.bind("<Leave>", on_apikey_eye_leave)
+
+        apikey_line = tk.Canvas(
+            form_container, height=1, bg="#004BA8", highlightthickness=0
+        )
+
+        # Lock the form height (measured in password mode) so the Login
+        # button stays at the same position in both login modes
+        self.update_idletasks()
+        form_container.pack_propagate(False)
+        form_container.configure(height=form_container.winfo_reqheight())
 
         login_button = CTkButton(
             right_panel,
@@ -779,6 +968,11 @@ class LoginScreen(tk.Frame):
             command=check_login,
         )
         login_button.pack(pady=20, padx=65)
+
+        apikey_entry.bind("<Return>", lambda e: login_button.invoke())
+        password_entry.bind("<Return>", lambda e: login_button.invoke())
+
+        self.bind_all("<Control-k>", lambda e: toggle_login_mode())
 
 
 class Dashboard(tk.Frame):
@@ -846,6 +1040,25 @@ class Dashboard(tk.Frame):
             style.configure(
                 "TCheckbutton", foreground="black"
             )  # Checkbutton text color
+
+            # Debug mode banner for internal API-key sessions
+            if constants.LOGIN_MODE == "apikey":
+                debug_banner = tk.Label(
+                    right_panel,
+                    text="⚠ DEBUG MODE — API Key Session · server uploads disabled",
+                    bg="#FFF3CD",
+                    fg="#856404",
+                    font=("Manrope", 11, "bold"),
+                )
+                debug_banner.pack(side=tk.TOP, fill=tk.X)
+                # The window is fixed-size - grow it by the banner height so
+                # the bottom-most module checkboxes are not clipped.
+                parent.update_idletasks()
+                parent.apply_intended_geometry(
+                    f"950x{650 + debug_banner.winfo_reqheight()}"
+                )
+            else:
+                parent.apply_intended_geometry("950x650")
 
             # Upper right panel (contains last sync and button)
             upper_right_panel = tk.Frame(right_panel, bg="#E7F6FF")
@@ -1068,6 +1281,7 @@ class Dashboard(tk.Frame):
                     overlay = tk.Toplevel(self)
                     overlay.geometry(f"{w}x{h}+{x}+{y}")
                     overlay.overrideredirect(True)
+                    self.winfo_toplevel().register_follow_overlay(overlay)
 
                     # Display blurred background
                     bg_image = ImageTk.PhotoImage(blurred_screen)
@@ -1597,15 +1811,28 @@ class Dashboard(tk.Frame):
                             # # re_create_main_content()
 
                         if len(company_options) <= 0:
-                            messagebox.showerror(
-                                "Tally Comapny",
-                                "eVitalRx Mapped Tally company is not loaded.\nPlease open the mapped company in Tally and try again.",
-                            )
-                            # logout()
-                            parent.quit()
-                            import sys
+                            if constants.LOGIN_MODE == "apikey":
+                                # Debug session: the client's mapped company does
+                                # not exist on this machine - fall back to all
+                                # local Tally companies as stand-in targets.
+                                LogManagerObj.write_log(
+                                    "⚠ Debug mode: mapped company not found locally,"
+                                    " using local Tally companies as stand-ins."
+                                )
+                                company_options = {
+                                    x["company_guid"]: x["company_name"]
+                                    for x in constants.TALLY_ACCOUNTS
+                                }
+                            else:
+                                messagebox.showerror(
+                                    "Tally Comapny",
+                                    "eVital Mapped Tally company is not loaded.\nPlease open the mapped company in Tally and try again.",
+                                )
+                                # logout()
+                                parent.quit()
+                                import sys
 
-                            sys.exit(1)
+                                sys.exit(1)
 
                 company_var = tk.StringVar(
                     company_row,
@@ -2345,6 +2572,13 @@ class Dashboard(tk.Frame):
             thread1.start()
 
         def map_branch_action(branch_name, overlay, branch={}):
+            if constants.LOGIN_MODE == "apikey":
+                messagebox.showwarning(
+                    "Debug Mode",
+                    "Saving mappings is disabled in debug mode.\n"
+                    "This protects the client's production Tally mapping.",
+                )
+                return
             # print(branch_name)
             company_guid = ""
             if branch == {}:
@@ -2381,6 +2615,13 @@ class Dashboard(tk.Frame):
             return ""
 
         def remove_branch_mapping(branch_data):
+            if constants.LOGIN_MODE == "apikey":
+                messagebox.showwarning(
+                    "Debug Mode",
+                    "Removing mappings is disabled in debug mode.\n"
+                    "This protects the client's production Tally mapping.",
+                )
+                return
             if not messagebox.askyesno(
                 "Remove Mapping",
                 f"Are you sure you want to remove the tally mapping for '{branch_data['name']}'?",
@@ -2483,6 +2724,15 @@ class Dashboard(tk.Frame):
 
             if constants.SYNC_STAGE == 0:
 
+                if constants.LOGIN_MODE == "apikey":
+                    # Debug session: mappings are server-side and read-only
+                    # here - allow proceeding; sync uses a local stand-in.
+                    constants.SYNC_STAGE = 1
+                    constants.SYNC_BTN_TEXT = "Sync All"
+                    print("sync increased")
+                    self.after(100, re_create_main_content)
+                    return
+
                 mapped_current = [
                     x
                     for x in constants.MAPPING_HISTORY["results"]
@@ -2564,7 +2814,7 @@ class Dashboard(tk.Frame):
 
                 # right_panel.config(background="#E7F6FF")
                 right_panel2 = tk.Frame(right_panel, width=900, bg="#E7F6FF")
-                right_panel2.pack(fill=tk.X)
+                right_panel2.pack(fill=tk.BOTH, expand=True)
                 # title_bar = tk.Frame(right_panel2, width=900, bg="#E7F6FF")
                 # title_bar.pack(fill=tk.X)
                 # close_button = tk.Button(title_bar, text='x', font=header_font, command=close_window, bg='#E7F6FF', fg='#044C9D', borderwidth=0, relief=tk.SUNKEN)
@@ -2588,12 +2838,6 @@ class Dashboard(tk.Frame):
                     # root.destroy()
                     # retu
 
-                gif_label = tk.Label(right_panel2, bg="#E7F6FF")
-                gif_label.pack(expand=True, anchor=tk.N, pady=(60, 20))
-
-                # gif_label = tk.Label(right_panel2, bg="white")
-                # gif_label.pack(expand=True, anchor=tk.N, pady=0)
-
                 constants.CURRENT_BRANCH_SYNC = tk.StringVar(value="")
                 # print('➡ tk_screen.py:731 constants.CURRENT_BRANCH_SYNC:', constants.CURRENT_BRANCH_SYNC)
                 version_label = tk.Label(
@@ -2603,7 +2847,6 @@ class Dashboard(tk.Frame):
                     fg="Black",
                     font=header_font2,
                 )
-                version_label.pack(pady=(0, 20), padx=40, anchor=tk.N)
 
                 sync_all_button = CTkButton(
                     right_panel2,
@@ -2616,7 +2859,13 @@ class Dashboard(tk.Frame):
                     width=85,
                     command=stop_thread_process,
                 )
-                sync_all_button.pack(pady=(10, 120), padx=40, anchor=tk.N)
+
+                gif_label = tk.Label(right_panel2, bg="#E7F6FF")
+                gif_label.pack(anchor=tk.N, pady=(60, 20))
+
+                version_label.pack(pady=(0, 20), padx=40, anchor=tk.N)
+
+                sync_all_button.pack(padx=40)
                 # sync_all_button.config(r)
 
                 # Start animation
@@ -2674,6 +2923,7 @@ class Dashboard(tk.Frame):
                 overlay = tk.Toplevel(self)
                 overlay.geometry(f"{w}x{h}+{x}+{y}")
                 overlay.overrideredirect(True)
+                self.winfo_toplevel().register_follow_overlay(overlay)
 
                 # Display blurred background
                 bg_image = ImageTk.PhotoImage(blurred_screen)
@@ -2761,7 +3011,7 @@ class Dashboard(tk.Frame):
 
             version_label = tk.Label(
                 upper_left_panel,
-                text="Version 3.10.7",
+                text="Version 3.10.8",
                 bg="#033D7E",
                 fg="#7E878C",
                 font=small_font,
@@ -2896,6 +3146,7 @@ class Dashboard(tk.Frame):
                 overlay = tk.Toplevel(self)
                 overlay.geometry(f"{w}x{h}+{x}+{y}")
                 overlay.overrideredirect(True)
+                self.winfo_toplevel().register_follow_overlay(overlay)
 
                 # Display blurred background
                 bg_image = ImageTk.PhotoImage(blurred_screen)
@@ -3229,8 +3480,8 @@ class SyncHistoryScreen(tk.Frame):
         ("last_7_days", "Last 7 days"),
         ("last_15_days", "Last 15 days"),
         ("last_30_days", "Last 30 days"),
-        ("last_60_days", "Last 60 days"),
-        ("last_90_days", "Last 90 days"),
+        # ("last_60_days", "Last 60 days"),
+        # ("last_90_days", "Last 90 days"),
     ]
     MODULE_LABELS = {"accounts": "Ledgers"}
 
@@ -3403,7 +3654,7 @@ class SyncHistoryScreen(tk.Frame):
         toolbar.pack(fill=tk.X, padx=26, pady=(12, 8))
 
         tk.Label(
-            toolbar, text="Period", bg="white", fg=MUTED, font=f_body
+            toolbar, text="Period: ", bg="white", fg=MUTED, font=f_body
         ).pack(side=tk.LEFT)
 
         chips_frame = tk.Frame(toolbar, bg="white")
