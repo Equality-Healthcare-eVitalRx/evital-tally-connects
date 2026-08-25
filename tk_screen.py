@@ -15,7 +15,7 @@ from tkinter import font, ttk
 from tkinter import messagebox
 from tkinter import scrolledtext
 from PIL import Image, ImageTk, ImageSequence, ImageGrab, ImageFilter
-from customtkinter import CTkButton, CTkFont, CTkLabel
+from customtkinter import CTkButton, CTkFont, CTkFrame, CTkLabel
 import pyglet
 from functions import (
     login,
@@ -3653,7 +3653,7 @@ class SyncHistoryScreen(tk.Frame):
         TEXT = "#1F2430"
         MUTED = "#7E878C"
         BORDER = "#E3E8EF"
-        ZEBRA_BG = "#F7FAFC"
+        ZEBRA_BG = "#F0F4F8"
         HEAD_BG = "#EEF4FA"
 
         f_title = font.Font(family="Manrope", size=15, weight="bold")
@@ -3747,33 +3747,34 @@ class SyncHistoryScreen(tk.Frame):
                 txt = txt[:-1]
             return txt + "…"
 
-        header = tk.Frame(self, bg=HEADER_BG)
+        header_wrap = tk.Frame(self, bg="white")
+        header_wrap.pack(fill=tk.X, padx=14, pady=(14, 0))
+
+        header = CTkFrame(header_wrap, fg_color=HEADER_BG, corner_radius=14)
         header.pack(fill=tk.X)
 
-        back_wrap = tk.Frame(header, bg=HEADER_BG)
-        back_wrap.pack(side=tk.LEFT, fill=tk.Y, padx=(20, 8))
-        back_btn = tk.Label(
-            back_wrap,
-            text="←",
-            bg=HEADER_BG,
-            fg="white",
-            font=("Manrope", 16, "bold"),
-            cursor="hand2",
-            padx=6,
+        back_btn = CTkButton(
+            header,
+            text="←  Back",
+            fg_color="#033D7E",
+            hover_color="#022D5E",
+            text_color="white",
+            font=("Manrope", 12, "bold"),
+            width=90,
+            height=32,
+            corner_radius=8,
+            command=go_back,
         )
-        back_btn.pack(expand=True)
-        back_btn.bind("<Button-1>", go_back)
-        back_btn.bind("<Enter>", lambda e: back_btn.configure(bg=HEADER_HOVER))
-        back_btn.bind("<Leave>", lambda e: back_btn.configure(bg=HEADER_BG))
+        back_btn.pack(side=tk.LEFT, padx=(16, 12), pady=14)
 
         title_block = tk.Frame(header, bg=HEADER_BG)
-        title_block.pack(side=tk.LEFT, pady=(12, 12))
+        title_block.pack(side=tk.LEFT, fill=tk.Y, pady=14)
         tk.Label(
             title_block,
             text="SYNC HISTORY",
             bg=HEADER_BG,
-            fg="#9DD3FF",
-            font=f_eyebrow,
+            fg="#7EC8F8",
+            font=("Manrope", 9, "bold"),
             anchor=tk.W,
         ).pack(anchor=tk.W)
         tk.Label(
@@ -3781,22 +3782,22 @@ class SyncHistoryScreen(tk.Frame):
             text="Module-wise Sync Activity",
             bg=HEADER_BG,
             fg="white",
-            font=f_title,
+            font=("Manrope", 15, "bold"),
             anchor=tk.W,
-        ).pack(anchor=tk.W)
+        ).pack(anchor=tk.W, pady=(2, 0))
 
         badge_wrap = tk.Frame(header, bg=HEADER_BG)
-        badge_wrap.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 26))
+        badge_wrap.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 20))
         total_badge = CTkLabel(
             badge_wrap,
             text="",
-            corner_radius=2,
+            corner_radius=8,
             bg_color=HEADER_BG,
-            fg_color="#033D7E",
-            text_color="#BFE3FF",
+            fg_color="#022D5E",
+            text_color="white",
             font=("Manrope", 12, "bold"),
-            padx=16,
-            pady=7,
+            padx=14,
+            pady=8,
         )
         total_badge.pack(expand=True)
 
@@ -4269,7 +4270,7 @@ class SyncHistoryScreen(tk.Frame):
 
             line_h = max(y, body.winfo_height())
             for bx in (xs[1], xs[2], xs[3], xs[4]):
-                body.create_line(bx, 6, bx, line_h - 6, fill="#EEF2F6")
+                body.create_line(bx, 6, bx, line_h - 6, fill="#D8E1EA")
             body.configure(scrollregion=(0, 0, W, max(y, 1)))
 
         def draw_all():
@@ -4290,7 +4291,7 @@ class SyncHistoryScreen(tk.Frame):
                     self.HEAD_H / 2,
                     text=txt,
                     font=f_small_b,
-                    fill=MUTED,
+                    fill="#5A6572",
                 )
             if state["loading"]:
                 draw_loading(W, H)
@@ -4298,7 +4299,7 @@ class SyncHistoryScreen(tk.Frame):
                 draw_error(W, H)
             elif state["records"]:
                 for bx in (xs[1], xs[2], xs[3], xs[4]):
-                    head_cv.create_line(bx, 8, bx, self.HEAD_H - 8, fill="#E2EAF2")
+                    head_cv.create_line(bx, 8, bx, self.HEAD_H - 8, fill="#D0DCE9")
                 draw_rows(state["records"], W)
             else:
                 draw_empty(W, H)
@@ -4376,8 +4377,8 @@ class SyncHistoryScreen(tk.Frame):
                 except (TypeError, ValueError):
                     pass
             total_badge.configure(
-                text=f"{state['total']:,} RECORDS" if state["total"] else "",
-                fg_color="#033D7E" if state["total"] else "transparent",
+                text=f"  {state['total']:,}  \n  RECORDS  " if state["total"] else "",
+                fg_color="#022D5E" if state["total"] else "transparent",
             )
             update_pagination()
             draw_all()
