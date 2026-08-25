@@ -4481,16 +4481,32 @@ class LogViewerApp:
 
     def create_widgets(self):
         # ================= HEADER =================
-        header = tk.Frame(self.root, bg="#044C9D")
+        HEADER_BG = "#004BA8"
+
+        header_wrap = tk.Frame(self.root, bg="white")
+        header_wrap.pack(fill=tk.X, padx=14, pady=(14, 0))
+
+        header = CTkFrame(header_wrap, fg_color=HEADER_BG, corner_radius=14)
         header.pack(fill=tk.X)
 
+        title_block = tk.Frame(header, bg=HEADER_BG)
+        title_block.pack(side=tk.LEFT, fill=tk.Y, pady=14, padx=(20, 0))
         tk.Label(
-            header,
-            text="Logs Manager",
-            bg="#044C9D",
+            title_block,
+            text="LOG MANAGER",
+            bg=HEADER_BG,
+            fg="#7EC8F8",
+            font=("Manrope", 9, "bold"),
+            anchor=tk.W,
+        ).pack(anchor=tk.W)
+        tk.Label(
+            title_block,
+            text="Application Logs & Activity",
+            bg=HEADER_BG,
             fg="white",
-            font=self._font(size=14, bold=True),
-        ).pack(side=tk.LEFT, padx=16, pady=12)
+            font=("Manrope", 15, "bold"),
+            anchor=tk.W,
+        ).pack(anchor=tk.W, pady=(2, 0))
 
         # ================= TOOLBAR =================
         toolbar = tk.Frame(self.root, bg="white")
@@ -4512,7 +4528,7 @@ class LogViewerApp:
             variable=self.auto_scroll_var,
             style="Logs.TCheckbutton",
             cursor="hand2",
-        ).pack(side=tk.LEFT, padx=(0, 10))
+        ).pack(side=tk.LEFT, padx=(20, 10))
 
         self.auto_refresh_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(
