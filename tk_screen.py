@@ -419,7 +419,10 @@ class LoadingScreen(tk.Frame):
         # pending after() callback spams "invalid command name" errors.
         def _on_destroy(event):
             if event.widget is self:
-                progress.stop()
+                try:
+                    progress.stop()
+                except tk.TclError:
+                    pass
 
         self.bind("<Destroy>", _on_destroy)
 

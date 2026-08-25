@@ -630,7 +630,7 @@ def get_entity_sync_history(date_range="last_7_days", page=1, rpp=20):
                     api_res["data"].setdefault("rpp", rpp)
                     api_res["data"].setdefault("page", page)
             return api_res
-        res["status_message"] = f"API Error: {response.text}"
+        res["status_message"] = f"🚨 API Error: {response.text}"
     except requests.exceptions.Timeout:
         LogManagerObj.write_log(traceback.format_exc())
         res["status_message"] = "Internet issue. Please try again later."

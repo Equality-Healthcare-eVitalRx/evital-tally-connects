@@ -935,7 +935,7 @@ def extract_vouchers(multi_key_response: dict, ledgers_selected: bool) -> list:
         status_code = str(response.get("status_code", "") or "")
         if status_code not in ("", "1"):
             LogManagerObj.write_log(
-                "⚠ eVitalRx API error: "
+                "🚨 eVitalRx API error: "
                 + str(response.get("status_message", "unknown error"))
             )
             continue
@@ -967,7 +967,7 @@ def extract_party_xmls(multi_key_response:dict) -> list:
         status_code = str(response.get("status_code", "") or "")
         if status_code not in ("", "1"):
             LogManagerObj.write_log(
-                "⚠ eVitalRx API error: "
+                "🚨 eVitalRx API error: "
                 + str(response.get("status_message", "unknown error"))
             )
             continue

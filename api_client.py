@@ -19,7 +19,7 @@ class APIClient:
         print("📡 RESPONSE DATA:", response)
 
         if response.status_code != 200:
-            raise Exception(f"API Error: {response.text}")
+            raise Exception(f"🚨 API Error: {response.text}")
 
         try:
             return response.json()
