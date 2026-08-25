@@ -400,34 +400,21 @@ def get_mapping_details():
     if constants.EVITAL_RX_API_KEY == "":
         return {}
     try:
-        logging.info(
-            constants.EVITAL_RX_URL
-            + "v2/master/tally_data/v3/get_mapping_details "
-            + "API called "
-        )
         response = requests.post(
             url=constants.EVITAL_RX_URL + "v2/master/tally_data/v3/get_mapping_details",
             data=json.dumps(json_request),
             headers=headers,
             timeout=constants.REQUEST_TIMEOUT,
         )
-        logging.info(
-            constants.EVITAL_RX_URL
-            + "v2/master/tally_data/v3/get_mapping_details "
-            + "API called - Status "
-            + str(response.status_code)
-        )
-        logging.info(
-            constants.EVITAL_RX_URL
-            + "v2/master/tally_data/v3/get_mapping_details "
-            + "API called - Response "
-            + str(response.content)
-        )
         response_josn = json.loads(response.content)
         if "data" in response_josn.keys():
-            constants.MAPPING_HISTORY = response_josn["data"]
+            constants.MAPPING_HISTORY = (
+                response_josn["data"]
+                if isinstance(response_josn["data"], dict)
+                else {}
+            )
 
-        return json.loads(response.content)
+        return response_josn
 
     except:
         traceback.print_exc()
@@ -450,6 +437,24 @@ def get_last_synced_date():
         ]
         timestamps.sort()
         return timestamps[len(timestamps) - 1]
+
+
+def is_tally_reachable(host=None, port=None):
+    """Non-fatal connectivity check against Tally. Returns True/False."""
+    try_host = constants.HOST if host is None else host
+    try_port = constants.TALLY_PORT if port is None else port
+    headers = {"Content-Type": "application/xml"}
+    try:
+        response = requests.post(
+            url=f"http://{try_host}:{try_port}",
+            data="",
+            headers=headers,
+            timeout=3,
+        )
+        return response.status_code == 200
+    except Exception:
+        LogManagerObj.write_log(traceback.format_exc())
+        return False
 
 
 def check_if_tally_running():

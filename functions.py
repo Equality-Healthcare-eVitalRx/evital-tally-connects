@@ -5,6 +5,7 @@ import json
 import multiprocessing
 import threading
 import time
+import traceback
 import tkinter as tk
 from tkinter import messagebox
 
@@ -96,6 +97,8 @@ def login(mobile_number, password, entity="chemist"):
             with open("./lib/app_cache.txt", "w") as json_file:
                 json_file.write(encrypt_data(data))
 
+            log_business_apikey_status()
+
             return 1
         elif "status_code" in res.keys() and res["status_code"] in [0, "0"]:
             LogManagerObj.write_log("Login Failed")
@@ -156,12 +159,91 @@ def login_with_apikey(apikey, entity="chemist"):
             # app always requires logging in again.
             LogManagerObj.write_log("Debug session active (not cached).")
 
+            log_business_apikey_status()
+
             return 1
         elif "status_code" in res.keys() and res["status_code"] in [0, "0"]:
             LogManagerObj.write_log("Login Failed")
             LogManagerObj.write_log(res.get("status_message", ""))
 
             return 0
+
+
+def log_business_apikey_status():
+    """Log businesses (HO + children) that have no API key."""
+    try:
+        details = constants.LOGIN_RESPONSE["data"]["business_details"]
+        entities = [details["logged_in_business"]] + details.get(
+            "child_businesses", []
+        )
+        for biz in entities:
+            name = (
+                biz.get("pharmacy_name")
+                or biz.get("entity_business_name")
+                or biz.get("name")
+                or ("id " + str(biz.get("id")))
+            )
+            if biz.get("apikey", "") == "":
+                LogManagerObj.write_log(
+                    "⚠ apikey not found for \"" + str(name) + "\""
+                )
+    except Exception:
+        LogManagerObj.write_log(traceback.format_exc())
+
+
+def report_skipped_pharmacies(companies):
+    """Log every pharmacy from the login session that is not part of this
+    sync run, together with the reason why it is excluded."""
+    try:
+        details = constants.LOGIN_RESPONSE["data"]["business_details"]
+        entities = [details["logged_in_business"]] + details.get(
+            "child_businesses", []
+        )
+        synced_ids = [str(c["chemist_id"]) for c in companies]
+        results = (
+            constants.MAPPING_HISTORY.get("results", [])
+            if isinstance(constants.MAPPING_HISTORY, dict)
+            else []
+        )
+        for biz in entities:
+            entity_id = str(biz.get("id"))
+            if entity_id in synced_ids:
+                continue
+            name = (
+                biz.get("entity_business_name")
+                or biz.get("pharmacy_name")
+                or biz.get("name")
+                or ""
+            )
+            label = ('"' + name + '"')
+            row = next(
+                (
+                    r
+                    for r in results
+                    if isinstance(r, dict)
+                    and str(r.get("entity_id")) == entity_id
+                ),
+                None,
+            )
+            if row is None:
+                reason = "Mapping details unavailable"
+            elif row.get("is_mapped") not in ["true", True, "True"]:
+                reason = "Tally company not mapped"
+            else:
+                # Mapped per server - find out why sync still skipped it
+                mapped_guid = str(row.get("tally_company_guid") or "")
+                available_guids = [
+                    str(t.get("company_guid"))
+                    for t in getattr(constants, "TALLY_ACCOUNTS", [])
+                    if isinstance(t, dict)
+                ]
+                if mapped_guid and available_guids and mapped_guid not in available_guids:
+                    reason = "Tally company with evital mapping details not found"
+                else:
+                    reason = "Skipped due to unknown reason"
+            LogManagerObj.write_log("⚠ " + reason + " for " + str(label))
+    except Exception:
+        LogManagerObj.write_log(traceback.format_exc())
 
 
 def logout():
@@ -209,7 +291,16 @@ def get_all_mapping_details():
     res = get_mapping_details()
     print(res, "mapping res")
     if "status_code" in res and res["status_code"] in [1, "1"]:
-        constants.MAPPING_HISTORY = res["data"]
+        constants.MAPPING_HISTORY = (
+            res["data"] if isinstance(res["data"], dict) else {}
+        )
+    elif isinstance(res, dict) and "status_message" in res:
+        LogManagerObj.write_log(
+            "get mapping details failed ("
+            + str(res.get("status_code"))
+            + "): "
+            + str(res.get("status_message"))
+        )
 
 
 def startprocess(one_sync=False):
@@ -283,6 +374,9 @@ def startprocess(one_sync=False):
                 f"⚠ Debug mode: using local company '{standin['company_name']}' as stand-in sync target."
             )
 
+    if not one_sync:
+        report_skipped_pharmacies(companies)
+
     if len(companies) <= 0:
         messagebox.showerror("Tally Sync", "Please Map Your Company First.")
         constants.STOP_THREAD = True
@@ -307,31 +401,42 @@ def startprocess(one_sync=False):
 
         current_apikey = ""
         current_from_date = ""
+
+        # get_mapping_details is the source of truth - prefer the apikey
+        # from its rows over the (possibly stale) cached login_response
+        if isinstance(constants.MAPPING_HISTORY, dict):
+            for r in constants.MAPPING_HISTORY.get("results", []):
+                if (
+                    isinstance(r, dict)
+                    and str(r.get("entity_id")) == str(company["chemist_id"])
+                    and str(r.get("apikey", "") or "") != ""
+                ):
+                    current_apikey = r["apikey"]
+                    break
+
+        logged_in_business = constants.LOGIN_RESPONSE["data"]["business_details"][
+            "logged_in_business"
+        ]
         if (
-            constants.LOGIN_RESPONSE["data"]["business_details"]["logged_in_business"][
-                "id"
-            ]
-            == company["chemist_id"]
-            and constants.LOGIN_RESPONSE["data"]["business_details"][
-                "logged_in_business"
-            ]["apikey"]
-            != ""
+            current_apikey == ""
+            and logged_in_business["id"] == company["chemist_id"]
+            and logged_in_business.get("apikey", "") != ""
         ):
-            current_apikey = constants.LOGIN_RESPONSE["data"]["business_details"][
-                "logged_in_business"
-            ]["apikey"]
+            current_apikey = logged_in_business.get("apikey", "")
 
         if current_apikey == "":
-            for x in constants.LOGIN_RESPONSE["data"]["business_details"][
-                "child_businesses"
-            ]:
-                if x["id"] == company["chemist_id"] and x["apikey"] != "":
+            for x in constants.LOGIN_RESPONSE["data"]["business_details"].get(
+                "child_businesses", []
+            ):
+                if x["id"] == company["chemist_id"] and x.get("apikey", "") != "":
                     current_apikey = x["apikey"]
 
         print(current_apikey, "Api key")
         if current_apikey == "":
-            print("No Api key found")
-            LogManagerObj.write_log("No Api key found")
+            pharmacy_name = company.get("branch_name", "")
+            LogManagerObj.write_log(
+                "⚠ apikey not found for \"" + str(pharmacy_name) + "\""
+            )
             LogManagerObj.write_log("+" * 50)
             continue
         # continue
@@ -657,6 +762,14 @@ def start_background_thread(start_now=False, one_sync=False):
 
             else:
                 time.sleep(15 * 60)
+    except Exception:
+        constants.STOP_THREAD = True
+        LogManagerObj.write_log("❌ Sync stopped unexpectedly:")
+        LogManagerObj.write_log(traceback.format_exc())
+        messagebox.showerror(
+            "Sync Error",
+            "Something went wrong while syncing. Please check the logs.",
+        )
     finally:
         constants.SYNC_RUNNING = False
         constants.STOP_THREAD = True
@@ -813,9 +926,18 @@ def extract_vouchers(multi_key_response: dict, ledgers_selected: bool) -> list:
     vouchers = []
 
     for api_key, response in multi_key_response.items():
-        # Skip failed keys
+        # Report failed keys instead of silently skipping them
         if "error" in response:
-            # self.log_msg(f"  ⚠️  Key {api_key} failed: {response['error']}")
+            LogManagerObj.write_log(
+                "⚠ eVitalRx request failed: " + str(response["error"])
+            )
+            continue
+        status_code = str(response.get("status_code", "") or "")
+        if status_code not in ("", "1"):
+            LogManagerObj.write_log(
+                "⚠ eVitalRx API error: "
+                + str(response.get("status_message", "unknown error"))
+            )
             continue
 
         # print(response)
@@ -836,9 +958,18 @@ def extract_party_xmls(multi_key_response:dict) -> list:
     vouchers = []
 
     for api_key, response in multi_key_response.items():
-        # Skip failed keys
+        # Report failed keys instead of silently skipping them
         if "error" in response:
-            # self.log_msg(f"  ⚠️  Key {api_key} failed: {response['error']}")
+            LogManagerObj.write_log(
+                "⚠ eVitalRx request failed: " + str(response["error"])
+            )
+            continue
+        status_code = str(response.get("status_code", "") or "")
+        if status_code not in ("", "1"):
+            LogManagerObj.write_log(
+                "⚠ eVitalRx API error: "
+                + str(response.get("status_message", "unknown error"))
+            )
             continue
 
         # print(response)

@@ -33,7 +33,11 @@ from functions import (
     decrypt_data,
     LogManagerObj,
 )
-from lib.import_export_data import get_tally_companies, get_entity_sync_history
+from lib.import_export_data import (
+    get_tally_companies,
+    get_entity_sync_history,
+    is_tally_reachable,
+)
 
 pyglet.options["win32_gdi_font"] = True
 fontpath = Path(__file__).parent / "lib/fonts/static/Manrope-Regular.ttf"
@@ -308,6 +312,7 @@ class App(tk.Tk):
     def initialize_screens(self):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
+        self.frames["LoadingScreen"] = LoadingScreen(self, self)
         self.frames["LoginScreen"] = LoginScreen(self, self)
         self.frames["Dashboard"] = Dashboard(self, self)
 
@@ -322,6 +327,8 @@ class App(tk.Tk):
 
         if frame_name == "LoginScreen":
             self.frames[frame_name] = LoginScreen(self, self)
+        elif frame_name == "LoadingScreen":
+            self.frames[frame_name] = LoadingScreen(self, self)
         elif frame_name == "Dashboard":
             self.frames[frame_name] = Dashboard(self, self)
         elif frame_name == "SyncHistory":
@@ -353,6 +360,68 @@ class App(tk.Tk):
             #     widget.set("")  # Reset dropdown selection if applicable
             elif isinstance(widget, tk.Frame):
                 self.clear_frame_inputs(widget)  # Recursively clear nested frames
+
+
+class LoadingScreen(tk.Frame):
+    """Placeholder shown while the cached session is restored and Tally
+    connectivity is checked - keeps the window painted and responsive
+    instead of freezing on a blank login page. Reuses the login
+    screen's layout so it feels native."""
+
+    def __init__(self, parent, controller):
+        super().__init__(parent, bg="#044C9D")
+        self.controller = controller
+        parent.title("eVital<>Tally Connects")
+
+        header_font2b = font.Font(family="Manrope", size=13, weight="bold")
+        header_font3 = font.Font(family="Manrope", size=12)
+
+        # Left panel - same artwork as the login screen
+        left_panel = tk.Frame(self, bg="#044C9D")
+        left_panel.pack(side=tk.LEFT, fill=tk.Y)
+        try:
+            image = Image.open("./lib/images/login_panel.jpg").resize(
+                (500, 600), Image.Resampling.LANCZOS
+            )
+            image_tk = ImageTk.PhotoImage(image)
+            image_label = tk.Label(left_panel, image=image_tk, bg="#004BA8")
+            image_label.image = image_tk  # avoid garbage collection
+            image_label.pack(pady=(0, 10))
+        except Exception:
+            pass
+
+        # Right panel - matches the login form styling
+        right_panel = tk.Frame(self, bg="white", width=450, height=650)
+        right_panel.pack(side=tk.RIGHT, fill=tk.Y)
+        right_panel.pack_propagate(False)
+
+        tk.Label(
+            right_panel,
+            text="Please wait...",
+            bg="white",
+            font=header_font2b,
+            justify=tk.LEFT,
+        ).pack(pady=(85, 0), padx=(60, 55), anchor=tk.W)
+        tk.Label(
+            right_panel,
+            text="Checking Tally connection",
+            bg="white",
+            fg="#6B7280",
+            font=header_font3,
+            justify=tk.LEFT,
+        ).pack(pady=(6, 0), padx=(60, 55), anchor=tk.W)
+
+        progress = ttk.Progressbar(right_panel, mode="indeterminate", length=330)
+        progress.pack(pady=(30, 0), padx=(60, 55), anchor=tk.W)
+        progress.start(12)
+
+        # Stop the animation before the frame goes away, otherwise the
+        # pending after() callback spams "invalid command name" errors.
+        def _on_destroy(event):
+            if event.widget is self:
+                progress.stop()
+
+        self.bind("<Destroy>", _on_destroy)
 
 
 class LoginScreen(tk.Frame):
@@ -417,6 +486,7 @@ class LoginScreen(tk.Frame):
                 apikey_frame.pack(pady=4, padx=65, anchor=tk.W, fill=tk.X)
                 apikey_line.pack(pady=(0, 20), padx=65, anchor=tk.W, fill=tk.X)
                 login_label.config(text="API Key Login")
+                apikey_entry.focus_set()
             else:
                 self.login_mode.set("password")
                 apikey_label.pack_forget()
@@ -429,10 +499,23 @@ class LoginScreen(tk.Frame):
                 password_frame.pack(pady=4, padx=65, anchor=tk.W, fill=tk.X)
                 password_line.pack(pady=(0, 20), padx=65, anchor=tk.W, fill=tk.X)
                 login_label.config(text="Login with")
+                mobile_entry.focus_set()
 
         def update_tally_port(overlay, port, host):
+            if not is_tally_reachable(host=host, port=port):
+                messagebox.showerror(
+                    "Tally Configuration",
+                    "Could not connect to Tally at "
+                    + str(host)
+                    + ":"
+                    + str(port)
+                    + ".\nMake sure Tally is running and the Host/Port are correct.",
+                )
+                return
+
             constants.TALLY_PORT = port
             constants.HOST = host
+            constants.TALLY_URL = "http://" + str(host) + ":"
             print(constants.TALLY_URL + str(constants.TALLY_PORT), "changed")
 
             if constants.LOGIN_MODE == "apikey":
@@ -558,8 +641,6 @@ class LoginScreen(tk.Frame):
                 button_frame2,
                 textvariable=tally_host_var,
                 font=header_font3,
-                validate="key",
-                validatecommand=vcmd,
                 width=13,
                 justify="center",
                 bd=1,
@@ -593,21 +674,34 @@ class LoginScreen(tk.Frame):
             port_entry.pack_propagate(False)
 
             # YES button - Blue background with white text
-            yes_button2 = tk.Button(
+            yes_button2 = CTkButton(
                 menu_frame,
                 text="Update",
-                width=8,
-                bg="#007BFF",
-                fg="white",
-                activebackground="#0056b3",
-                activeforeground="white",
-                relief="flat",
-                font=header_font4,
+                width=100,
+                height=36,
+                corner_radius=6,
+                bg_color="white",
+                fg_color="#007BFF",
+                hover_color="#0056b3",
+                text_color="white",
+                font=CTkFont(family="Manrope", size=14),
                 command=lambda: update_tally_port(
                     overlay, tally_port_var.get(), tally_host_var.get()
                 ),
             )
             yes_button2.pack(pady=(0, 10), side="left", padx=20, fill=tk.X, expand=True)
+
+            def update_on_enter(event):
+                yes_button2.invoke()
+                return "break"
+
+            host_entry.bind("<Return>", update_on_enter)
+            port_entry.bind("<Return>", update_on_enter)
+
+            # Pull keyboard focus away from the login fields so Enter
+            # here updates the configuration instead of re-triggering
+            # the login API
+            host_entry.focus_set()
 
             # Function to close the overlay when clicking outside
             def on_click_outside(event):
@@ -974,6 +1068,11 @@ class LoginScreen(tk.Frame):
 
         self.bind_all("<Control-k>", lambda e: toggle_login_mode())
 
+        if self.login_mode.get() == "apikey":
+            apikey_entry.focus_set()
+        else:
+            mobile_entry.focus_set()
+
 
 class Dashboard(tk.Frame):
     def __init__(self, parent, controller):
@@ -1041,24 +1140,7 @@ class Dashboard(tk.Frame):
                 "TCheckbutton", foreground="black"
             )  # Checkbutton text color
 
-            # Debug mode banner for internal API-key sessions
-            if constants.LOGIN_MODE == "apikey":
-                debug_banner = tk.Label(
-                    right_panel,
-                    text="⚠ DEBUG MODE — API Key Session · server uploads disabled",
-                    bg="#FFF3CD",
-                    fg="#856404",
-                    font=("Manrope", 11, "bold"),
-                )
-                debug_banner.pack(side=tk.TOP, fill=tk.X)
-                # The window is fixed-size - grow it by the banner height so
-                # the bottom-most module checkboxes are not clipped.
-                parent.update_idletasks()
-                parent.apply_intended_geometry(
-                    f"950x{650 + debug_banner.winfo_reqheight()}"
-                )
-            else:
-                parent.apply_intended_geometry("950x650")
+            parent.apply_intended_geometry("950x650")
 
             # Upper right panel (contains last sync and button)
             upper_right_panel = tk.Frame(right_panel, bg="#E7F6FF")
@@ -1147,17 +1229,44 @@ class Dashboard(tk.Frame):
             )
             sync_all_button.pack(side=tk.LEFT)
 
+            # Debug mode banner for internal API-key sessions - sits
+            # between the action row and the mapping/sync section so it
+            # is clearly visible without displacing the top blocks.
+            if constants.LOGIN_MODE == "apikey":
+                debug_banner = tk.Label(
+                    right_panel,
+                    text="⚠ DEBUG MODE — Apikey Session · Server Uploads Disabled",
+                    bg="#FFF3CD",
+                    fg="#856404",
+                    font=("Manrope", 12, "bold"),
+                )
+                debug_banner.pack(
+                    side=tk.TOP, fill=tk.X, padx=14, pady=(18, 4)
+                )
+
             # Lower right panel (contains branch data)
             lower_right_panel = tk.Frame(right_panel, bg="white")
-            lower_right_panel.pack(
-                side=tk.TOP, fill=tk.X, expand=True, padx=30, pady=(0, 80)
-            )
+            if constants.LOGIN_MODE == "apikey":
+                # The DEBUG banner above consumes vertical space - reclaim
+                # part of the large bottom margin so the module checkboxes
+                # are not clipped (window size stays fixed).
+                lower_right_panel.pack(
+                    side=tk.TOP, fill=tk.X, expand=True, padx=30, pady=(0, 30)
+                )
+            else:
+                lower_right_panel.pack(
+                    side=tk.TOP, fill=tk.X, expand=True, padx=30, pady=(0, 80)
+                )
 
             if constants.SYNC_STAGE == 0:
+                mapping_results = (
+                    constants.MAPPING_HISTORY.get("results", [])
+                    if isinstance(constants.MAPPING_HISTORY, dict)
+                    else []
+                )
                 branches = (
                     []
                     if constants.EVITAL_RX_API_KEY == ""
-                    or constants.MAPPING_HISTORY is None
                     else [
                         {
                             "name": x["branch_name"],
@@ -1170,7 +1279,7 @@ class Dashboard(tk.Frame):
                             "chemist_id": x["entity_id"],
                             "company_guid": x["tally_company_guid"],
                         }
-                        for x in constants.MAPPING_HISTORY["results"]
+                        for x in mapping_results
                     ]
                 )
                 remaining_branch = [x["company_name"] for x in constants.TALLY_ACCOUNTS]
@@ -1755,7 +1864,7 @@ class Dashboard(tk.Frame):
             elif constants.SYNC_STAGE == 1:
                 # ================= TOP PANEL =================
                 top_panel = tk.Frame(lower_right_panel, bg="white")
-                top_panel.pack(fill=tk.X, pady=(10, 10), padx=0)
+                top_panel.pack(fill=tk.X, pady=(24, 12), padx=0)
 
                 # ---- LEFT: TARGET COMPANY ----
                 left_top = tk.Frame(top_panel, bg="white")
@@ -2605,6 +2714,16 @@ class Dashboard(tk.Frame):
             create_main_content()
 
         def get_branch_apikey(chemist_id):
+            # get_mapping_details is the source of truth - prefer its
+            # apikey over the (possibly stale) cached login_response
+            if isinstance(constants.MAPPING_HISTORY, dict):
+                for r in constants.MAPPING_HISTORY.get("results", []):
+                    if (
+                        isinstance(r, dict)
+                        and str(r.get("entity_id")) == str(chemist_id)
+                        and str(r.get("apikey", "") or "") != ""
+                    ):
+                        return r["apikey"]
             businesses = constants.LOGIN_RESPONSE["data"]["business_details"]
             logged_in = businesses["logged_in_business"]
             if logged_in["id"] == chemist_id and logged_in.get("apikey", "") != "":
@@ -2646,8 +2765,15 @@ class Dashboard(tk.Frame):
                     "Remove Mapping", "Tally company mapping removed successfully."
                 )
             else:
+                error_detail = (
+                    res.get("status_message")
+                    if isinstance(res, dict)
+                    else None
+                )
                 messagebox.showerror(
-                    "Remove Mapping", "Error while removing the mapping."
+                    "Remove Mapping",
+                    "Error while removing mapping details"
+                    + (": " + str(error_detail) if error_detail else "."),
                 )
             re_create_main_content()
 
@@ -2733,9 +2859,14 @@ class Dashboard(tk.Frame):
                     self.after(100, re_create_main_content)
                     return
 
+                mapping_results = (
+                    constants.MAPPING_HISTORY.get("results", [])
+                    if isinstance(constants.MAPPING_HISTORY, dict)
+                    else []
+                )
                 mapped_current = [
                     x
-                    for x in constants.MAPPING_HISTORY["results"]
+                    for x in mapping_results
                     if x["is_mapped"] in ["True", True, "True"]
                 ]
                 if len(mapped_current) <= 0:
@@ -2949,33 +3080,35 @@ class Dashboard(tk.Frame):
                 # print("2312")
 
                 # YES button - Blue background with white text
-                yes_button = tk.Button(
+                yes_button = CTkButton(
                     button_frame,
                     text="Yes",
-                    width=10,
-                    bg="#007BFF",
-                    fg="white",
-                    activebackground="#0056b3",
-                    activeforeground="white",
-                    relief="flat",
-                    font=label_font,
+                    width=100,
+                    height=34,
+                    corner_radius=6,
+                    bg_color="white",
+                    fg_color="#007BFF",
+                    hover_color="#0056b3",
+                    text_color="white",
+                    font=CTkFont(family="Manrope", size=13),
                     command=lambda x=overlay: logout_account(x),
                 )
                 yes_button.pack(side="left", padx=10)
 
                 # NO button - White background with blue border and text
-                no_button = tk.Button(
+                no_button = CTkButton(
                     button_frame,
                     text="No",
-                    width=10,
-                    bg="white",
-                    fg="#007BFF",
-                    activebackground="#e6f2ff",
-                    activeforeground="#0056b3",
-                    highlightbackground="#007BFF",
-                    highlightthickness=2,
-                    bd=2,
-                    font=label_font,
+                    width=100,
+                    height=34,
+                    corner_radius=6,
+                    bg_color="white",
+                    fg_color="white",
+                    hover_color="#e6f2ff",
+                    text_color="#007BFF",
+                    border_width=2,
+                    border_color="#007BFF",
+                    font=CTkFont(family="Manrope", size=13),
                     command=lambda x=overlay: x.destroy(),
                 )
                 no_button.pack(side="left", padx=10)
@@ -3340,6 +3473,20 @@ class Dashboard(tk.Frame):
             lower_left_panel.pack_propagate(False)
 
             # User Info Section
+            # Caches saved by older versions may not contain a "mobile"
+            # key - fall back to the logged-in business details so the
+            # side panel never renders an empty identity.
+            if str(constants.MOBILE).strip() == "":
+                try:
+                    logged_in = constants.LOGIN_RESPONSE["data"][
+                        "business_details"
+                    ]["logged_in_business"]
+                    constants.MOBILE = (
+                        logged_in.get("mobile", "")
+                        or logged_in.get("entity_code", "")
+                    )
+                except (KeyError, TypeError, AttributeError):
+                    pass
             constants.MOBILE_VAR = tk.StringVar(value=constants.MOBILE)
             user_label = tk.Label(
                 left_panel,

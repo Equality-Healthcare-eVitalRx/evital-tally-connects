@@ -3,10 +3,17 @@ from lib import constants
 constants.LOAD_COMPLETE = False
 
 import multiprocessing
+import threading
+import traceback
 from pathlib import Path
 import pyglet
-from functions import decrypt_data, LogManagerObj
-from lib.import_export_data import get_tally_companies
+from functions import (
+    decrypt_data,
+    LogManagerObj,
+    log_business_apikey_status,
+)
+from lib.import_export_data import get_tally_companies, is_tally_reachable
+from tkinter import messagebox
 from tk_screen import App
 import ctypes
 
@@ -36,10 +43,38 @@ LogManagerObj.write_log("Application started")
 
 my_file = Path("./lib/app_cache.txt")
 appObj = App()
+
+
+def finish_startup_restore():
+    """Runs on a worker thread while the Loading screen stays painted
+    and responsive. UI switches are marshaled back via after()."""
+    if not is_tally_reachable():
+        LogManagerObj.write_log("Tally is not running.")
+
+        def show_offline_error():
+            messagebox.showerror("Tally Company", "Tally is not running.")
+            appObj.destroy()
+
+        appObj.after(0, show_offline_error)
+        return
+
+    try:
+        get_tally_companies()
+    except SystemExit:
+        pass
+    except Exception:
+        LogManagerObj.write_log(traceback.format_exc())
+
+    appObj.after(0, lambda: appObj.show_frame("Dashboard"))
+
+
 if my_file.is_file():
-    json_data = open("./lib/app_cache.txt", "rb")
-    json_data = decrypt_data(json_data.read())
-    if "login_response" in json_data.keys() and json_data["login_response"][
+    json_data = {}
+    try:
+        json_data = decrypt_data(my_file.read_bytes())
+    except Exception:
+        LogManagerObj.write_log(traceback.format_exc())
+    if isinstance(json_data, dict) and "login_response" in json_data.keys() and json_data["login_response"][
         "status_code"
     ] in [1, "1"]:
         LogManagerObj.write_log("Previous Login Found.")
@@ -69,8 +104,12 @@ if my_file.is_file():
                 "business_details"
             ]["logged_in_business"]["apikey"]
 
-        get_tally_companies()
-        appObj.show_frame("Dashboard")
+        log_business_apikey_status()
+
+        # Show the loading placeholder immediately, then do the slow
+        # Tally check / company fetch off the UI thread.
+        appObj.show_frame("LoadingScreen")
+        threading.Thread(target=finish_startup_restore, daemon=True).start()
     else:
         appObj.show_frame("LoginScreen")
 
