@@ -23,7 +23,7 @@ env_config = {
     },
     "production": {
         "EVITAL_RX_HOST": "api.evitalrx.in",
-        "EVITAL_RX_URL": "https://api.evitalrx.in:4050/",
+        "EVITAL_RX_URL": "https://api.evitalrx.in/",
     },
 }
 EVITAL_RX_URL = env_config[envtype]["EVITAL_RX_URL"]
