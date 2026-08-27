@@ -1,5 +1,7 @@
 import requests
 
+from lib import constants
+
 
 class APIClient:
     def __init__(self):
@@ -69,6 +71,7 @@ class APIClient:
                 "opening_balance_date": opening_balance_date,
                 "is_tally": "true",
                 "xml_import": "true",
+                "app_version": constants.APP_VERSION,
             },
         )
 
@@ -82,6 +85,7 @@ class APIClient:
                 "type": type_,
                 "is_tally": "true",
                 "xml_import": "true",
+                "app_version": constants.APP_VERSION,
             },
         )
 
@@ -94,6 +98,7 @@ class APIClient:
                 "end_date": end,
                 "is_tally": "true",
                 "xml_import": "true",
+                "app_version": constants.APP_VERSION,
             },
         )
 
@@ -106,6 +111,7 @@ class APIClient:
                 "end_date": end,
                 "is_tally": "true",
                 "xml_import": "true",
+                "app_version": constants.APP_VERSION,
             },
         )
 

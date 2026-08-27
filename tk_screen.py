@@ -3546,7 +3546,7 @@ class Dashboard(tk.Frame):
                 header_bar.pack(fill="x")
                 header_bar.pack_propagate(False)
                 header_label = tk.Label(
-                    header_bar, text="Software Update", bg="#004BA8", fg="white",
+                    header_bar, text="Version Update", bg="#004BA8", fg="white",
                     font=font.Font(family="Manrope", size=13, weight="bold"),
                 )
                 header_label.pack(side="left", padx=20, pady=10)

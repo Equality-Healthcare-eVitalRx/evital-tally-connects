@@ -91,6 +91,7 @@ def send_data_to_evitalrx(request_params):
         ]["id"],
         "type": "fetch_data",
         "tally_data": request_params,
+        "app_version": constants.APP_VERSION,
     }
     if constants.ACCESS_TOKEN != "":
         json_request["accesstoken"] = constants.ACCESS_TOKEN
@@ -140,9 +141,18 @@ def send_data_to_evitalrx(request_params):
 def send_login_request(mobile_no=None, password=None, entity="chemist", apikey=None):
     headers = {"Content-Type": "application/json"}
     if apikey:
-        json_request = {"apikey": apikey, "login_entity": entity}
+        json_request = {
+            "apikey": apikey,
+            "login_entity": entity,
+            "app_version": constants.APP_VERSION,
+        }
     else:
-        json_request = {"mobile": mobile_no, "password": password, "login_entity": entity}
+        json_request = {
+            "mobile": mobile_no,
+            "password": password,
+            "login_entity": entity,
+            "app_version": constants.APP_VERSION,
+        }
     response_dict = {"status_code": 0, "status_message": "Couldn't send request."}
     error_message = "Invalid mobile number or password."
     try:
@@ -316,6 +326,7 @@ def map_rx_companies():
         ]["id"],
         "type": "map_companies",
         "companies_data": constants.COMPANY_MAPPING,
+        "app_version": constants.APP_VERSION,
     }
     if constants.ACCESS_TOKEN != "":
         json_request["accesstoken"] = constants.ACCESS_TOKEN
@@ -340,7 +351,10 @@ def map_rx_companies():
 
 def remove_company_mapping(branch_apikey=""):
     headers = {"Content-Type": "application/json"}
-    json_request = {"apikey": branch_apikey}
+    json_request = {
+        "apikey": branch_apikey,
+        "app_version": constants.APP_VERSION,
+    }
 
     try:
         response = requests.post(
@@ -364,6 +378,7 @@ def reset_mapping_from_rx():
         "chemist_id": constants.LOGIN_RESPONSE["data"]["business_details"][
             "logged_in_business"
         ]["id"],
+        "app_version": constants.APP_VERSION,
     }
     if constants.ACCESS_TOKEN != "":
         json_request["accesstoken"] = constants.ACCESS_TOKEN
@@ -397,6 +412,7 @@ def get_mapping_details():
     }
 
     json_request["apikey"] = constants.EVITAL_RX_API_KEY
+    json_request["app_version"] = constants.APP_VERSION
     if constants.EVITAL_RX_API_KEY == "":
         return {}
     try:
@@ -487,7 +503,8 @@ def send_init_data_to_evital_rx(request_array, from_date, to_date):
         # "end_date" : to_date,
         # "groups_data" : "",
         # "ledgers_data" : "",
-        "init_data": request_array
+        "init_data": request_array,
+        "app_version": constants.APP_VERSION,
         # "chemist_id" : constants.CHEMIST_ID
     }
     if constants.ACCESS_TOKEN != "":
@@ -544,6 +561,7 @@ def get_data_from_evitalrx(start, end, api_key, type_, applicable_from_date=""):
             "applicable_from_date" : applicable_from_date,
             "is_tally": "true",
             "xml_import": "true",
+            "app_version": constants.APP_VERSION,
         }
     elif primary_mapping_val in [
         "accounts",
@@ -562,6 +580,7 @@ def get_data_from_evitalrx(start, end, api_key, type_, applicable_from_date=""):
             "type": primary_mapping_val,
             "is_tally": "true",
             "xml_import": "true",
+            "app_version": constants.APP_VERSION,
         }
     elif type_ in ["payment", "receipt", "contra"]:
         payload = {
@@ -570,6 +589,7 @@ def get_data_from_evitalrx(start, end, api_key, type_, applicable_from_date=""):
             "end_date": end,
             "is_tally": "true",
             "xml_import": "true",
+            "app_version": constants.APP_VERSION,
         }
 
     if constants.LOGIN_MODE == "apikey":
@@ -604,6 +624,7 @@ def get_entity_sync_history(date_range="last_7_days", page=1, rpp=20):
         "date_range": date_range,
         "rpp": str(rpp),
         "page": str(page),
+        "app_version": constants.APP_VERSION,
     }
     try:
         logging.info(url + " API called")
@@ -644,7 +665,12 @@ def send_reconciliation(
     file_content: str, start_date: str, end_date: str, api_keys=[]
 ) -> dict:
     def build_payload(api_key):
-        return {"apikey": api_key, "start_date": start_date, "end_date": end_date}
+        return {
+            "apikey": api_key,
+            "start_date": start_date,
+            "end_date": end_date,
+            "app_version": constants.APP_VERSION,
+        }
 
     results = {}
 
