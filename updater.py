@@ -1,7 +1,7 @@
 """
 Auto-update module for eVitalConnects.
 Checks GitHub Releases for a newer production build, downloads the zip,
-replaces app.exe and lib/ (preserving user data), and relaunches the app.
+replaces the executable and lib/ (preserving user data), and relaunches the app.
 """
 
 import os
@@ -64,7 +64,7 @@ def _parse_version(version_str):
 
 
 def get_install_dir():
-    """Return the directory where app.exe is located."""
+    """Return the directory where the application executable is located."""
     if getattr(sys, "frozen", False):
         return Path(sys.executable).parent
     return Path(__file__).parent
@@ -345,7 +345,7 @@ def apply_update(zip_path):
     if getattr(sys, "frozen", False):
         current_exe = Path(sys.executable)
     else:
-        current_exe = install_dir / "app.exe"
+        current_exe = install_dir / "eVital-Tally Connects.exe"
 
     exe_name = current_exe.name
     old_exe = install_dir / (exe_name + ".old")

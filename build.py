@@ -30,6 +30,7 @@ CONSTANTS_FILE = PROJECT_ROOT / "lib" / "constants.py"
 VERSION_FILE = PROJECT_ROOT / "version.txt"
 VERSION_SOURCE = PROJECT_ROOT / "VERSION"
 ENTRY_POINT = "app.py"
+EXE_NAME = "eVital-Tally Connects"
 
 ICON_PATH = ".\\lib\\images\\logo2.ico"
 SPLASH_IMAGE = ".\\lib\\images\\login_panel.jpg"
@@ -52,6 +53,7 @@ PYINSTALLER_ARGS = [
     "--add-data", "VERSION;.",
     f"--splash={SPLASH_IMAGE}",
     "--collect-all", "babel",
+    f"--name={EXE_NAME}",
     ENTRY_POINT,
 ]
 
@@ -135,7 +137,7 @@ def run_pyinstaller():
 def zip_build(version: str, env: str, skip_zip: bool = False) -> Path | None:
     """
     Zip the dist output into a versioned archive.
-    With --onefile, the output is a single executable at dist/app.exe.
+    With --onefile, the output is a single executable at dist/eVital-Tally Connects.exe.
     Returns the path to the created zip file, or None if skipped.
     """
     dist_dir = PROJECT_ROOT / "dist"
