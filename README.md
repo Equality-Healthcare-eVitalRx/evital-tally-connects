@@ -8,10 +8,12 @@ A desktop application that synchronizes accounting data between **TallyPrime** (
 
 - [Overview](#overview)
 - [How the App Works](#how-the-app-works)
+- [Auto-Update System](#auto-update-system)
 - [Project Structure](#project-structure)
 - [Prerequisites](#prerequisites)
 - [Running the App (Development)](#running-the-app-development)
 - [Building the App](#building-the-app)
+- [Publishing a Release](#publishing-a-release)
 - [Build Commands Reference](#build-commands-reference)
 - [Configuration](#configuration)
 - [Environment Variables](#environment-variables)
@@ -28,6 +30,7 @@ eVitalConnects is a Tkinter-based desktop utility that bridges **TallyPrime** (r
 4. **Imports** eVitalRx data (accounts, sales, purchases, payments, receipts, contra) back into Tally as XML vouchers.
 5. **Reconciles** transactions between the two systems.
 6. **Logs** all activity to an encrypted log file (`lib/app_logs.txt`).
+7. **Auto-updates** — checks GitHub Releases for new builds, downloads the zip, swaps the executable + `lib/`, and relaunches itself.
 
 ---
 
@@ -41,12 +44,16 @@ The application starts at **`app.py`**, which orchestrates the initial setup:
 2. **Splash Screen** — If running as a PyInstaller bundle, the splash screen is updated and closed.
 3. **Font Loading** — Loads the custom `Manrope` font via `pyglet`.
 4. **Logging** — Initializes the `LogManager` (from `log.py`) which writes encrypted log entries to `lib/app_logs.txt` and auto-clears logs daily.
-5. **Cache Check** — Reads `lib/app_cache.txt` (encrypted with Fernet). If a valid cached login exists:
+5. **Crash Recovery (update leftovers)** — If a previous update was interrupted:
+   - If an `_update_in_progress` marker file is found, the app restores any `*.old` executables left behind by a half-finished update.
+   - Leftover `*.old` / `_update_debug.log` files are deleted (with retries to survive antivirus locks), falling back to a detached PowerShell cleanup process.
+6. **Cache Check** — Reads `lib/app_cache.txt` (encrypted with Fernet). If a valid cached login exists:
    - Restores login response, API keys, access tokens, and Tally connection settings.
    - Fetches the list of Tally companies.
    - Shows the **Dashboard** screen.
    - If no valid cache exists, shows the **LoginScreen**.
-6. **Main Loop** — Starts the Tkinter event loop (`appObj.mainloop()`).
+7. **Startup Update Check** — In the background, `_startup_force_check()` queries GitHub Releases. If a **force update** is pending, the mandatory-update dialog is shown as soon as the UI is ready (retried until the Dashboard exists).
+8. **Main Loop** — Starts the Tkinter event loop (`appObj.mainloop()`).
 
 ### UI Layer (`tk_screen.py`)
 
@@ -63,6 +70,7 @@ The UI is built with **Tkinter** + **ttkthemes** (breeze theme) + **customtkinte
   - A "Sync" button to trigger data synchronization.
   - Last sync timestamp display.
   - Per-branch context menu for mapping individual companies.
+  - A "Check for Updates" button (bottom-left) that opens the update dialog with release notes.
 
 ### Authentication & Company Mapping (`login.py` / `functions.py`)
 
@@ -130,6 +138,65 @@ Central configuration hub containing:
 - **Tally XML request templates** (`REQUEST_FORMATS`) — pre-built XML envelopes for Balance Sheet, Profit & Loss, Ratio Analysis, List of Companies, Ledgers, and Groups.
 - **Runtime state variables** — login response, company mappings, sync state, thread control flags, etc.
 - **Encryption key** for cache and log files.
+- **GitHub repo details & token** (`GITHUB_OWNER`, `GITHUB_REPO`, `GITHUB_TOKEN`) used by the auto-updater.
+
+---
+
+## Auto-Update System
+
+The app can update itself from **GitHub Releases** on the **private** repository `evital-smit/py-extract-tally`. All logic lives in **`updater.py`**.
+
+### How it works
+
+1. **`check_for_updates()`** calls the GitHub API (`/releases/latest`). Release tags must follow semantic versioning (e.g. `3.10.9`). The release **body is plain-text/Markdown release notes**.
+2. The version is compared against `constants.APP_VERSION` (read from the bundled `VERSION` file — the single source of truth, managed separately from `version.txt` used for the Windows executable metadata).
+3. If a newer version exists, the updater looks for a release asset named:
+   ```
+   evital-tally-connects-v{version}-{envtype}.zip
+   ```
+   The `{envtype}` is read from `constants.envtype`, so each installed environment (local / staging / beta / production) downloads **its own matching zip** automatically.
+4. **`download_update()`** downloads the asset. For private repos the `Authorization` header is stripped on redirected `browser_download_url` requests, so the updater uses the **GitHub API asset endpoint** (`/releases/assets/{asset_id}` with `Accept: application/octet-stream`) instead. A progress callback drives the UI progress bar.
+5. **`apply_update()`** extracts the zip, validating that it contains an `.exe` and a `lib/` folder, then:
+   - Backs up the existing `lib/` to `_lib_backup/`.
+   - Renames the running exe to `*.old` (Windows cannot overwrite a running exe).
+   - Copies the new exe into place, then merges the new `lib/` over the old.
+   - Writes an `_update_in_progress` marker before starting, so a crash mid-update is recoverable.
+   - Launches the new exe via `subprocess.Popen` and terminates the old process.
+6. **Failure handling** — if any step fails (including antivirus locking), the app rolls back both the exe and `lib/` from the backup. Antivirus resilience is built in: retries (5x, 3s apart) for file copies and process launches. All steps are logged via `LogManagerObj`.
+
+### Force (mandatory) updates
+
+A release is **mandatory** when its body starts with the line `[FORCE UPDATE]`:
+
+```
+[FORCE UPDATE]
+Here are the release notes...
+```
+
+- The marker is stripped from the displayed release notes.
+- On startup, `app.py` runs `_startup_force_check()` in the background and shows the dialog as soon as the UI is ready.
+- The update dialog becomes **non-dismissible** for force updates:
+  - No Cancel button, `WM_DELETE_WINDOW` blocked, Escape/click-outside blocked.
+  - Header reads **"Mandatory Update"**, the button is a red **"Update Now"**, and failures show **"Retry"**.
+  - The dialog stays topmost while it is active; the user can still open the **log viewer (Ctrl+D)** to watch update progress.
+
+### Update dialog
+
+The "Check for Updates" button (and the startup force check) opens a blurred, darkened overlay dialog (`tk_screen.py`) containing:
+
+- A blue header bar ("Software Update" / "Mandatory Update").
+- Status + detail labels (checking → downloading with % progress → installing → restarting).
+- **Markdown-rendered release notes** (headings, bold, and bullet points) in a scrollable, non-selectable "What's new" box.
+- Buttons: **Update Now** / **Cancel** (regular), or **Update Now** only (mandatory).
+
+### Z-order & window behaviour
+
+- **Force updates**: the overlay stays above the main window. Dragging the main window moves the overlay with it. Opening the log viewer (Ctrl+D) raises it above the overlay so the user can read logs; focusing the app again demotes it back.
+- **Regular updates**: the overlay is a normal dialog; the log viewer and other windows can be raised above it freely.
+
+### Failure / crash recovery on startup
+
+- If the process dies mid-update, a `_update_in_progress` marker remains. On next launch `app.py` detects it, restores any `*.old` executable back to its original name, and cleans up remaining artifacts.
 
 ---
 
@@ -137,16 +204,18 @@ Central configuration hub containing:
 
 ```
 py-extract-tally/
-├── app.py                      # Entry point — startup, cache check, launches UI
+├── app.py                      # Entry point — startup, crash recovery, cache check, force-update check
 ├── build.py                    # Build automation script (PyInstaller + zip packaging)
+├── updater.py                  # Auto-update module — GitHub Releases check, download, apply, rollback
 ├── app.spec                    # PyInstaller spec file
-├── version.txt                 # PyInstaller version info (currently v0.3.10.9)
+├── VERSION                     # Single source of truth for app version (e.g. 3.10.9), bundled
+├── version.txt                 # PyInstaller Windows version metadata (FileVersion)
 ├── pyproject.toml              # Project metadata & dependencies (uv)
 ├── requirements.txt            # Pinned dependencies (auto-generated by uv)
 ├── README.md                   # This file
 ├── .gitignore
 ├──
-├── tk_screen.py                # Main UI — App, LoginScreen, Dashboard, LogViewer
+├── tk_screen.py                # Main UI — App, LoginScreen, Dashboard, LogViewer, update dialog
 ├── login.py                    # Legacy login screen (older UI implementation)
 ├── main.py                     # Legacy main dashboard (older UI implementation)
 ├── functions.py                # Core business logic — login, sync, encryption, data extraction
@@ -154,7 +223,9 @@ py-extract-tally/
 ├── log.py                      # Encrypted logging with daily rotation
 │
 ├── lib/
-│   ├── constants.py            # All app constants, config, XML templates, runtime state
+│   ├── constants.py            # All app constants, config, XML templates, runtime state, GITHUB_*
+│   ├── secrets.py              # (gitignored) GITHUB_TOKEN & ENCRYPTION_KEY — copy from secrets.py.example
+│   ├── secrets.py.example      # Template for lib/secrets.py
 │   ├── import_export_data.py   # HTTP communication with Tally & eVitalRx APIs
 │   ├── tally_service.py        # TallyService class — XML voucher push, export, batch handling
 │   ├── app_cache.txt           # Encrypted cache (login, API keys, mappings)
@@ -239,13 +310,46 @@ uv run python build.py --env local --skip-zip --clean
 
 ### What `build.py` Does
 
-1. Reads the current version from `version.txt`.
+1. Reads the current version from the **`VERSION`** file.
 2. For each environment:
    - Temporarily sets `envtype` in `lib/constants.py` to the target environment.
-   - Runs PyInstaller with the configured arguments (one-file, windowed, no console, version file, icon, splash, fonts, babel).
+   - Runs PyInstaller with the configured arguments (one-file, windowed, no console, version file, icon, splash, fonts, babel, and `VERSION` bundled as `--add-data "VERSION;."` so the running exe knows its own version).
    - Creates a versioned zip archive: `evital-tally-connects-v{version}-{env}.zip` in `dist/`.
    - Restores the original `envtype` in `lib/constants.py`.
 3. Prints a summary of all created archives.
+
+> **Note:** The `VERSION` file (plain version text, bundled into the exe — used by the auto-updater) and `version.txt` (PyInstaller Windows FileVersion metadata) are **separate** files. Bump `VERSION` when cutting a new release; both are read by `build.py`.
+
+---
+
+## Publishing a Release
+
+The auto-updater pulls from the **latest GitHub Release** on `evital-smit/py-extract-tally` (private). To ship a new version:
+
+1. **Bump the version** in the `VERSION` file (e.g. `3.10.10`).
+2. **Build** the environment(s) you need:
+   ```bash
+   uv run python build.py --env production
+   ```
+   This produces `dist/evital-tally-connects-v3.10.10-production.zip` (repeat for any other environments).
+3. **Create a GitHub release**:
+   - **Tag**: the plain version, e.g. `3.10.10` (the updater strips a leading `v` if present).
+   - **Title**: anything readable (e.g. `v3.10.10`).
+   - **Body**: Markdown release notes. Prefix with `[FORCE UPDATE]` on the first line to make it **mandatory** for all users.
+   - **Assets**: attach the environment zip(s). Name them exactly `evital-tally-connects-v{version}-{env}.zip` — the updater picks the asset matching the user's `envtype`.
+4. Users with auto-update or force-update will pick up the release on next startup / on the "Check for Updates" button.
+
+Below is an example release body:
+
+```
+[FORCE UPDATE]
+## Highlights
+
+- Fixed sync timeout on large batches
+- Improved reconciliation accuracy
+
+**Note:** this update adds new voucher handling for Wholesale returns.
+```
 
 ---
 
@@ -265,7 +369,7 @@ uv run python build.py --env local --skip-zip --clean
 
 ```bash
 # Using uv
-uv run pyinstaller.exe --noconsole --onefile --windowed --clean --version-file="version.txt" --icon=./lib/images/logo2.ico --add-data "lib/fonts/static/Manrope-Regular.ttf;lib/fonts/static/" --add-data "lib/fonts/breeze/breeze.tcl;lib/fonts/breeze" --add-data "lib/fonts/breeze/breeze/*.png;lib/fonts/breeze/breeze" --splash "./lib/images/login_panel.jpg" --collect-all babel app.py
+uv run pyinstaller.exe --noconsole --onefile --windowed --clean --version-file="version.txt" --icon=./lib/images/logo2.ico --add-data "lib/fonts/static/Manrope-Regular.ttf;lib/fonts/static/" --add-data "lib/fonts/breeze/breeze.tcl;lib/fonts/breeze" --add-data "lib/fonts/breeze/breeze/*.png;lib/fonts/breeze/breeze" --add-data "VERSION;." --splash "./lib/images/login_panel.jpg" --collect-all babel app.py
 
 # Using uvx
 uvx pyinstaller.exe --noconsole --onefile --windowed --icon=./lib/images/logo2.ico --add-data "lib/fonts/static/Manrope-Regular.ttf;lib/fonts/static/" --add-data "lib/fonts/breeze/breeze.tcl;lib/fonts/breeze" --add-data "lib/fonts/breeze/breeze/*.png;lib/fonts/breeze/breeze" --splash "./lib/images/login_panel.PNG" app.py
@@ -304,6 +408,29 @@ The `build.py` script automatically sets the correct `envtype` for each environm
 
 ### Encryption
 
-- **Encryption Key:** Stored in `lib/constants.py` as `ENCRYPTION_KEY` (Fernet key).
+- **Encryption Key:** Stored in `lib/secrets.py` as `ENCRYPTION_KEY` (Fernet key). `lib/constants.py` imports it. **`lib/secrets.py` is gitignored** — copy `lib/secrets.py.example` and fill in real values; keep the file out of version control.
 - **Cache File:** `lib/app_cache.txt` — stores login response, API keys, company mappings, and Tally settings (encrypted).
 - **Log File:** `lib/app_logs.txt` — all log entries are encrypted.
+
+### GitHub Auto-Update & Secrets
+
+- **`lib/secrets.py`** holds the GitHub token:
+  ```python
+  GITHUB_TOKEN = "ghp_..."
+  ENCRYPTION_KEY = "..."
+  ```
+  `constants.py` imports `GITHUB_TOKEN` (falling back to an empty string if `secrets.py` is missing) and reads `GITHUB_OWNER` / `GITHUB_REPO` directly.
+- The repo & owner are configured in `lib/constants.py` (`GITHUB_OWNER = "evital-smit"`, `GITHUB_REPO = "py-extract-tally"`).
+- If no token is embedded, the updater also checks the `GITHUB_TOKEN` / `GH_TOKEN` environment variables, then falls back to the git credential store. Note: the updater uses the GitHub **API asset endpoint** for private-repo downloads, because the `Authorization` header is stripped when following redirected `browser_download_url` links.
+
+---
+
+## Environment Variables
+
+| Variable | Purpose | Required? |
+|---|---|---|
+| `GITHUB_TOKEN` | GitHub personal-access token used by the auto-updater when `lib/secrets.py` has no embedded token. Read at runtime by `updater._get_github_token()`. | Only for auto-update on machines without `lib/secrets.py` |
+| `GH_TOKEN` | Alias for `GITHUB_TOKEN`, checked as a fallback. | No |
+| `ENCRYPTION_KEY` | Fernet key for cache and log encryption (usually set in `lib/secrets.py`, not an env var). | No (comes from `lib/secrets.py`) |
+
+> The updater reads these at runtime with `os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")`. Prefer `lib/secrets.py` for installed builds; env vars are mainly useful in development.
