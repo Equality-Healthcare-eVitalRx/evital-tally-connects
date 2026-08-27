@@ -112,6 +112,7 @@ class App(tk.Tk):
         def start_move(event):
             self.x_offset = event.x_root - self.winfo_x()
             self.y_offset = event.y_root - self.winfo_y()
+            self._demote_log_viewer()
 
         def do_move(event):
             x = event.x_root - self.x_offset
@@ -128,6 +129,10 @@ class App(tk.Tk):
             ctypes.windll.user32.RedrawWindow(
                 hwnd, None, None, 0x85
             )  # RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN
+            if not getattr(self, "_mandatory_update_active", False):
+                lv = getattr(self, "_log_viewer", None)
+                if lv and lv.root and lv.root.winfo_exists():
+                    lv.root.lift()
 
         def close_window():
             """Close the application."""
@@ -173,6 +178,7 @@ class App(tk.Tk):
         self._follow_overlays = []
         self._last_root_pos = None
         self.bind("<Configure>", self._on_root_configure)
+        self.bind("<FocusIn>", lambda e: self._demote_log_viewer())
 
         self.iconbitmap("./lib/images/logo2.ico")
         self.title("eVitalRx Tally Connects")
@@ -225,6 +231,18 @@ class App(tk.Tk):
         the main window while it is dragged around the screen."""
         if win not in self._follow_overlays:
             self._follow_overlays.append(win)
+
+    def _demote_log_viewer(self):
+        lv = getattr(self, "_log_viewer", None)
+        if lv and lv.root and lv.root.winfo_exists():
+            try:
+                lv.root.attributes("-topmost", False)
+            except tk.TclError:
+                pass
+            try:
+                lv.root.lower()
+            except tk.TclError:
+                pass
 
     def _on_root_configure(self, event):
         # Only react to the root window itself, and debounce so a burst of
@@ -433,6 +451,7 @@ class LoginScreen(tk.Frame):
         self.controller = controller
         parent.title("eVital<>Tally Connects")
         LogViewerAppObj = LogViewerApp(parent)
+        parent._log_viewer = LogViewerAppObj
 
         self.bind_all(
             "<Control-d>", lambda e: open_log_window(parent, e, LogViewerAppObj)
@@ -1091,8 +1110,11 @@ class Dashboard(tk.Frame):
 
         # def open_log_window()
         LogViewerAppObj = LogViewerApp(parent)
+        parent._log_viewer = LogViewerAppObj
+        def open_log_window_guard(e=None):
+            open_log_window(parent, e, LogViewerAppObj)
         self.bind_all(
-            "<Control-d>", lambda e: open_log_window(parent, e, LogViewerAppObj)
+            "<Control-d>", open_log_window_guard
         )
 
         def create_main_content():
@@ -3147,7 +3169,7 @@ class Dashboard(tk.Frame):
 
             version_label = tk.Label(
                 upper_left_panel,
-                text="Version 3.10.8",
+                text=f"Version {constants.APP_VERSION}",
                 bg="#033D7E",
                 fg="#7E878C",
                 font=small_font,
@@ -3474,6 +3496,356 @@ class Dashboard(tk.Frame):
             # auto_sync_label.pack(padx=(0, 15), pady=(30, 20),side=tk.RIGHT, anchor=tk.E)
 
             lower_left_panel.pack_propagate(False)
+
+            # Check for Updates Button
+            update_btn = tk.Label(
+                lower_left_panel,
+                text="Check for Updates",
+                bg="#004BA8",
+                fg="#A8D4FF",
+                cursor="hand2",
+                font=small_font,
+                anchor=tk.W,
+            )
+            update_btn.pack(padx=30, pady=(10, 0), anchor=tk.W)
+
+            def _on_check_updates():
+                import updater
+                import tkinter.ttk as ttk
+
+                # Capture screen for blur overlay (same pattern as logout dialog)
+                x = self.winfo_rootx()
+                y = self.winfo_rooty()
+                w = self.winfo_width()
+                h = self.winfo_height()
+                screen = ImageGrab.grab(bbox=(x, y, x + w, y + h))
+                blurred_screen = screen.filter(ImageFilter.GaussianBlur(4))
+
+                overlay = tk.Toplevel(self.winfo_toplevel())
+                overlay.geometry(f"{w}x{h}+{x}+{y}")
+                overlay.overrideredirect(True)
+                self.winfo_toplevel().register_follow_overlay(overlay)
+
+                # Darken blurred background for contrast with the white card
+                from PIL import ImageEnhance
+                dark_blur = ImageEnhance.Brightness(blurred_screen).enhance(0.5)
+                bg_image = ImageTk.PhotoImage(dark_blur)
+                bg_label = tk.Label(overlay, image=bg_image)
+                bg_label.image = bg_image
+                bg_label.pack(fill="both", expand=True)
+
+                # ---- Menu card (centered, with border) ----
+                menu_frame = tk.Frame(
+                    overlay, bg="white",
+                    highlightthickness=1, highlightbackground="#D0D5DD",
+                )
+                menu_frame.place(relx=0.5, rely=0.5, anchor="center")
+
+                # Blue header bar
+                header_bar = tk.Frame(menu_frame, bg="#004BA8", height=50)
+                header_bar.pack(fill="x")
+                header_bar.pack_propagate(False)
+                header_label = tk.Label(
+                    header_bar, text="Software Update", bg="#004BA8", fg="white",
+                    font=font.Font(family="Manrope", size=13, weight="bold"),
+                )
+                header_label.pack(side="left", padx=20, pady=10)
+
+                # Body content area
+                body = tk.Frame(menu_frame, bg="white")
+                body.pack(fill="both", expand=True, padx=25, pady=(15, 10))
+
+                status_var = tk.StringVar(value="Checking for updates...")
+                status_label = tk.Label(
+                    body, textvariable=status_var, bg="white", fg="#1F2430",
+                    font=font.Font(family="Manrope", size=12, weight="bold"),
+                )
+                status_label.pack(anchor=tk.W, pady=(0, 4))
+
+                detail_var = tk.StringVar(value="")
+                detail_label = tk.Label(
+                    body, textvariable=detail_var, bg="white", fg="#7E878C",
+                    font=font.Font(family="Manrope", size=10),
+                )
+                detail_label.pack(anchor=tk.W, pady=(0, 8))
+
+                # Release notes (scrollable, hidden by default)
+                notes_container = tk.Frame(body, bg="white")
+                notes_label = tk.Label(
+                    notes_container, text="What's new", bg="white", fg="#7E878C",
+                    font=font.Font(family="Manrope", size=9, weight="bold"),
+                    anchor=tk.W,
+                )
+                notes_label.pack(anchor=tk.W, pady=(0, 4))
+                notes_frame = tk.Frame(notes_container, bg="#EEF4FA",
+                                       highlightthickness=1, highlightbackground="#D0D5DD")
+                notes_frame.pack(fill="x")
+                notes_text = tk.Text(
+                    notes_frame, bg="#EEF4FA", fg="#333333", wrap=tk.WORD,
+                    font=font.Font(family="Manrope", size=9),
+                    height=4, bd=0, padx=10, pady=8,
+                    state=tk.DISABLED, cursor="arrow",
+                    selectbackground="#EEF4FA", selectforeground="#EEF4FA",
+                )
+                notes_text.bind("<Button-1>", lambda e, w=notes_text: (w.tag_remove("sel", "1.0", tk.END), "break"))
+                notes_text.bind("<B1-Motion>", lambda e, w=notes_text: (w.tag_remove("sel", "1.0", tk.END), "break"))
+                notes_text.bind("<Double-Button-1>", lambda e, w=notes_text: (w.tag_remove("sel", "1.0", tk.END), "break"))
+                notes_text.bind("<Triple-Button-1>", lambda e, w=notes_text: (w.tag_remove("sel", "1.0", tk.END), "break"))
+                notes_scrollbar = tk.Scrollbar(notes_frame, command=notes_text.yview)
+                notes_text.configure(yscrollcommand=notes_scrollbar.set)
+                notes_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+                notes_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+                # Configure text tags for markdown rendering
+                _nf = lambda sz=9, b=False: font.Font(family="Manrope", size=sz, weight="bold" if b else "normal")
+                notes_text.tag_configure("h2", font=_nf(10, True), foreground="#004BA8",
+                                         spacing1=4, spacing3=4)
+                notes_text.tag_configure("h3", font=_nf(9, True), foreground="#1F2430",
+                                         spacing1=3, spacing3=2)
+                notes_text.tag_configure("bold", font=_nf(9, True), foreground="#1F2430")
+                notes_text.tag_configure("bullet", font=_nf(), foreground="#333333",
+                                         lmargin1=12, lmargin2=12)
+                notes_text.tag_configure("normal", font=_nf(), foreground="#333333")
+
+                def _render_md(text_widget, raw):
+                    """Parse lightweight markdown and insert with formatting tags."""
+                    import re
+                    for line in raw.strip().splitlines():
+                        stripped = line.rstrip()
+                        if not stripped:
+                            text_widget.insert(tk.END, "\n", "normal")
+                            continue
+                        if stripped.startswith("## "):
+                            text_widget.insert(tk.END, stripped[3:] + "\n", "h2")
+                        elif stripped.startswith("### "):
+                            text_widget.insert(tk.END, stripped[4:] + "\n", "h3")
+                        elif stripped.startswith("- ") or stripped.startswith("* "):
+                            text_widget.insert(tk.END, "  \u2022  " + stripped[2:] + "\n", "bullet")
+                        else:
+                            # Handle **inline bold** segments
+                            parts = re.split(r'(\*\*.*?\*\*)', stripped)
+                            has_content = False
+                            for part in parts:
+                                if part.startswith("**") and part.endswith("**"):
+                                    inner = part[2:-2]
+                                    if inner:
+                                        text_widget.insert(tk.END, inner, "bold")
+                                        has_content = True
+                                elif part:
+                                    text_widget.insert(tk.END, part, "normal")
+                                    has_content = True
+                            text_widget.insert(tk.END, "\n", "normal")
+
+                def _show_notes(text):
+                    if text and text.strip():
+                        notes_text.configure(state=tk.NORMAL)
+                        notes_text.delete("1.0", tk.END)
+                        _render_md(notes_text, text.strip())
+                        line_count = int(notes_text.index("end-1c").split(".")[0])
+                        notes_text.configure(height=min(line_count, 6))
+                        notes_text.configure(state=tk.DISABLED)
+                        notes_container.pack(fill="x", pady=(0, 10))
+                    else:
+                        notes_container.pack_forget()
+
+                def _hide_notes():
+                    notes_container.pack_forget()
+
+                progress_frame = tk.Frame(body, bg="white")
+                progress_frame.pack(fill="x", pady=(0, 10))
+                progress_bar = ttk.Progressbar(progress_frame, length=370, mode="determinate")
+                progress_bar.pack()
+                progress_bar["value"] = 0
+
+                btn_frame = tk.Frame(menu_frame, bg="white")
+                btn_frame.pack(pady=(0, 15))
+
+                def _set_indeterminate():
+                    progress_frame.pack(fill="x", pady=(0, 10))
+                    progress_bar.configure(mode="indeterminate")
+                    progress_bar.start(15)
+
+                def _set_determinate():
+                    progress_bar.stop()
+                    progress_bar.configure(mode="determinate")
+                    progress_bar["value"] = 0
+
+                def _hide_progress():
+                    progress_bar.stop()
+                    progress_frame.pack_forget()
+
+                def _clear_buttons():
+                    for w in btn_frame.winfo_children():
+                        w.destroy()
+                    btn_frame.pack_forget()
+
+                def _add_close_button():
+                    btn_frame.pack(pady=(0, 15))
+                    CTkButton(
+                        btn_frame, text="OK", width=120, height=34,
+                        corner_radius=6, fg_color="#007BFF", hover_color="#0056b3",
+                        text_color="white",
+                        font=CTkFont(family="Manrope", size=12, weight="bold"),
+                        command=overlay.destroy,
+                    ).pack()
+
+                def _show_error(msg):
+                    _hide_progress()
+                    _hide_notes()
+                    _clear_buttons()
+                    _is_force = _update_info.get("force", False)
+                    status_var.set("Update failed")
+                    detail_label.config(fg="#D93025")
+                    detail_var.set(msg)
+                    btn_frame.pack(pady=(0, 15))
+                    if _is_force:
+                        CTkButton(
+                            btn_frame, text="Retry", width=120, height=34,
+                            corner_radius=6, fg_color="#D93025", hover_color="#b71c1c",
+                            text_color="white",
+                            font=CTkFont(family="Manrope", size=12, weight="bold"),
+                            command=_start_download,
+                        ).pack()
+                    else:
+                        CTkButton(
+                            btn_frame, text="OK", width=120, height=34,
+                            corner_radius=6, fg_color="#007BFF", hover_color="#0056b3",
+                            text_color="white",
+                            font=CTkFont(family="Manrope", size=12, weight="bold"),
+                            command=overlay.destroy,
+                        ).pack()
+
+                def _show_up_to_date(ver):
+                    _hide_progress()
+                    _hide_notes()
+                    _clear_buttons()
+                    status_var.set("You're on the latest version")
+                    detail_label.config(fg="#1E9E5A")
+                    detail_var.set(f"Current version: v{ver}")
+                    _add_close_button()
+
+                _update_info = {}
+
+                def _do_check():
+                    result = updater.check_for_updates()
+                    if result["error"]:
+                        self.after(0, lambda: _show_error(result["error"]))
+                        return
+                    if not result["update_available"]:
+                        self.after(0, lambda: _show_up_to_date(result["current_version"]))
+                        return
+                    _update_info.update(result)
+                    self.after(0, _prompt_download)
+
+                def _prompt_download():
+                    _hide_progress()
+                    _clear_buttons()
+                    _show_notes(_update_info.get("release_notes", ""))
+                    _is_force = _update_info.get("force", False)
+
+                    if _is_force:
+                        overlay.attributes("-topmost", True)
+                        _root = self.winfo_toplevel()
+                        _root._mandatory_update_active = True
+                        overlay.protocol("WM_DELETE_WINDOW", lambda: None)
+                        overlay.bind("<Escape>", lambda e: None)
+                        overlay.bind("<Button-1>", lambda e: None)
+                        def _on_mandatory_destroy(e):
+                            _root._mandatory_update_active = False
+                        overlay.bind("<Destroy>", _on_mandatory_destroy)
+                        header_label.config(text="Mandatory Update")
+                        detail_label.config(fg="#D93025")
+                        status_var.set(f"Version v{_update_info['latest_version']} is available")
+                        detail_var.set("This update is required to continue.")
+                        btn_frame.pack(pady=(0, 15))
+                        CTkButton(
+                            btn_frame, text="Update Now", width=200, height=34,
+                            corner_radius=6, fg_color="#D93025", hover_color="#b71c1c",
+                            text_color="white",
+                            font=CTkFont(family="Manrope", size=12, weight="bold"),
+                            command=_start_download,
+                        ).pack()
+                    else:
+                        detail_label.config(fg="#7E878C")
+                        status_var.set(f"Version v{_update_info['latest_version']} is available")
+                        detail_var.set(f"You're on v{_update_info['current_version']}")
+                        btn_frame.pack(pady=(0, 15))
+                        CTkButton(
+                            btn_frame, text="Update Now", width=120, height=34,
+                            corner_radius=6, fg_color="#007BFF", hover_color="#0056b3",
+                            text_color="white",
+                            font=CTkFont(family="Manrope", size=12, weight="bold"),
+                            command=_start_download,
+                        ).pack(side="left", padx=(0, 10))
+                        CTkButton(
+                            btn_frame, text="Cancel", width=100, height=34,
+                            corner_radius=6, fg_color="white", hover_color="#f0f4f8",
+                            text_color="#333333", border_width=1, border_color="#E3E8EF",
+                            font=CTkFont(family="Manrope", size=12),
+                            command=overlay.destroy,
+                        ).pack(side="left")
+
+                def _start_download():
+                    _clear_buttons()
+                    _hide_notes()
+                    _set_determinate()
+                    progress_bar["value"] = 0
+                    detail_label.config(fg="#7E878C")
+                    status_var.set("Downloading update...")
+                    detail_var.set("Preparing...")
+                    threading.Thread(
+                        target=_do_download,
+                        args=(_update_info["download_url"], _update_info.get("asset_id")),
+                        daemon=True,
+                    ).start()
+
+                def _do_download(url, asset_id=None):
+                    def _progress(downloaded, total):
+                        if total > 0:
+                            pct = int((downloaded / total) * 100)
+                            dl_mb = downloaded / (1024 * 1024)
+                            total_mb = total / (1024 * 1024)
+                            self.after(0, lambda p=pct, d=f"{dl_mb:.1f}", t=f"{total_mb:.1f}": (
+                                progress_bar.configure(value=p),
+                                detail_var.set(f"{d} MB / {t} MB  ({p}%)"),
+                            ))
+                    try:
+                        zip_path = updater.download_update(
+                            url, asset_id=asset_id, progress_callback=_progress,
+                        )
+                        self.after(0, lambda: _apply_update(zip_path))
+                    except Exception as exc:
+                        LogManagerObj.write_log(f"[Update] Download failed: {exc}")
+                        self.after(0, lambda e=exc: _show_error(str(e)))
+
+                def _apply_update(zip_path):
+                    _set_determinate()
+                    progress_bar["value"] = 100
+                    detail_label.config(fg="#7E878C")
+                    status_var.set("Installing update...")
+                    detail_var.set("The app will restart shortly")
+
+                    def _do_apply():
+                        try:
+                            updater.apply_update(zip_path)
+                        except Exception as exc:
+                            LogManagerObj.write_log(f"[Update] Apply failed: {exc}")
+                            self.after(0, lambda e=exc: _show_error(str(e)))
+
+                    threading.Thread(target=_do_apply, daemon=True).start()
+
+                def on_click_outside(event):
+                    if not menu_frame.winfo_containing(event.x_root, event.y_root):
+                        pass  # Don't close — update dialog should be explicit
+
+                overlay.bind("<Button-1>", on_click_outside)
+                overlay.bind("<Escape>", lambda e: None)  # Block Escape key
+
+                _set_indeterminate()
+                threading.Thread(target=_do_check, daemon=True).start()
+
+            update_btn.bind("<Button-1>", lambda e: _on_check_updates())
+            controller._on_check_updates = _on_check_updates
 
             # User Info Section
             # Caches saved by older versions may not contain a "mobile"
@@ -4445,6 +4817,7 @@ class LogViewerApp:
             # If window exists, just focus it
             self.root.lift()
             self.root.focus_force()
+            self._on_log_focus()
             return
 
         # Create a new window
@@ -4459,10 +4832,23 @@ class LogViewerApp:
             pass
 
         self.root.protocol("WM_DELETE_WINDOW", self.hide_log_viewer)
+        self.root.bind("<Button-1>", lambda e: self._on_log_focus())
 
         # Set up the widgets
         self.create_widgets()
         self._schedule_auto_refresh()
+        self.root.after(50, self._on_log_focus)
+
+    def _on_log_focus(self):
+        if self.root and self.root.winfo_exists():
+            mandatory = bool(
+                self.main_app
+                and getattr(self.main_app, "_mandatory_update_active", False)
+            )
+            if mandatory:
+                self.root.attributes("-topmost", True)
+            self.root.lift()
+            self.root.focus_force()
 
     def _font(self, size=10, bold=False):
         return font.Font(
@@ -4483,7 +4869,7 @@ class LogViewerApp:
         # ================= HEADER =================
         HEADER_BG = "#004BA8"
 
-        header_wrap = tk.Frame(self.root, bg="white")
+        header_wrap = tk.Frame(self.root, bg="#E7F6FF")
         header_wrap.pack(fill=tk.X, padx=14, pady=(14, 0))
 
         header = CTkFrame(header_wrap, fg_color=HEADER_BG, corner_radius=14)

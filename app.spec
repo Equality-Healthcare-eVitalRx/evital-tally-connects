@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('lib/fonts/static/Manrope-Regular.ttf', 'lib/fonts/static/'), ('lib/fonts/breeze/breeze.tcl', 'lib/fonts/breeze'), ('lib/fonts/breeze/breeze/*.png', 'lib/fonts/breeze/breeze')]
+datas = [('lib/fonts/static/Manrope-Regular.ttf', 'lib/fonts/static/'), ('lib/fonts/breeze/breeze.tcl', 'lib/fonts/breeze'), ('lib/fonts/breeze/breeze/*.png', 'lib/fonts/breeze/breeze'), ('VERSION', '.')]
 binaries = []
 hiddenimports = []
 tmp_ret = collect_all('babel')

@@ -28,6 +28,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.resolve()
 CONSTANTS_FILE = PROJECT_ROOT / "lib" / "constants.py"
 VERSION_FILE = PROJECT_ROOT / "version.txt"
+VERSION_SOURCE = PROJECT_ROOT / "VERSION"
 ENTRY_POINT = "app.py"
 
 ICON_PATH = ".\\lib\\images\\logo2.ico"
@@ -48,6 +49,7 @@ PYINSTALLER_ARGS = [
     "--add-data", "lib/fonts/static/Manrope-Regular.ttf;lib/fonts/static/",
     "--add-data", "lib/fonts/breeze/breeze.tcl;lib/fonts/breeze",
     "--add-data", "lib/fonts/breeze/breeze/*.png;lib/fonts/breeze/breeze",
+    "--add-data", "VERSION;.",
     f"--splash={SPLASH_IMAGE}",
     "--collect-all", "babel",
     ENTRY_POINT,
@@ -57,11 +59,13 @@ PYINSTALLER_ARGS = [
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def get_current_version() -> str:
-    """Extract version string from version.txt."""
+    """Extract version string from VERSION file."""
+    if VERSION_SOURCE.exists():
+        return VERSION_SOURCE.read_text(encoding="utf-8").strip()
     content = VERSION_FILE.read_text(encoding="utf-8")
     match = re.search(r"StringStruct\(u'FileVersion', u'([\d.]+)'\)", content)
     if not match:
-        raise RuntimeError("Could not find version in version.txt")
+        raise RuntimeError("Could not find version in VERSION or version.txt")
     return match.group(1)
 
 
@@ -88,7 +92,7 @@ def set_env_type(constants_path: Path, env: str) -> str:
         flags=re.MULTILINE,
     )
     constants_path.write_text(new_content, encoding="utf-8")
-    print(f"  [SET]   envtype changed from '{original}' → '{env}'")
+    print(f"  [SET]   envtype changed from '{original}' -> '{env}'")
     return original
 
 

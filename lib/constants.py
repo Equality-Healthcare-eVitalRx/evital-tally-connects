@@ -1,4 +1,5 @@
-
+from pathlib import Path
+import sys
 
 HOST = "localhost"
 TALLY_URL = f"http://{HOST}:"
@@ -7,6 +8,28 @@ TALLY_PORT = 9000
 COMPANY_NAME = "abc"
 
 envtype = "local"
+
+def _read_version():
+    try:
+        if getattr(sys, 'frozen', False):
+            base = Path(getattr(sys, '_MEIPASS', '.'))
+        else:
+            base = Path(__file__).resolve().parent.parent
+        vf = base / "VERSION"
+        return vf.read_text(encoding="utf-8").strip() if vf.exists() else "0.0.0"
+    except Exception:
+        return "0.0.0"
+
+APP_VERSION = _read_version()
+
+GITHUB_OWNER = "evital-smit"
+GITHUB_REPO = "py-extract-tally"
+
+try:
+    from lib.secrets import GITHUB_TOKEN as _TOKEN
+except Exception:
+    _TOKEN = ""
+GITHUB_TOKEN = _TOKEN
 
 env_config = {
     "local": {
@@ -31,7 +54,12 @@ EVITAL_RX_HOST = env_config[envtype]["EVITAL_RX_HOST"]
 
 
 EVITAL_RX_API_KEY = ""
-ENCRYPTION_KEY = "kphEig0_Dtx3iq2-Ok19KP0MTtVnXxO0gMlJ4ggAzPE="
+
+try:
+    from lib.secrets import ENCRYPTION_KEY as _ENC_KEY
+except Exception:
+    _ENC_KEY = ""
+ENCRYPTION_KEY = _ENC_KEY
 
 LOGIN_RESPONSE = {}
 IS_LOGIN = False
