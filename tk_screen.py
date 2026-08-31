@@ -1120,6 +1120,16 @@ class Dashboard(tk.Frame):
         def create_main_content():
             nonlocal rebuild_scheduled
             rebuild_scheduled = False
+            # Cancel any running gif/sync animation before the dashboard
+            # children are destroyed, otherwise its pending after() callback
+            # can fire against a destroyed widget and raise
+            # "invalid command name" (TclError).
+            try:
+                if constants.ANIMATION_AFTER_ID is not None:
+                    self.after_cancel(constants.ANIMATION_AFTER_ID)
+                    constants.ANIMATION_AFTER_ID = None
+            except tk.TclError:
+                constants.ANIMATION_AFTER_ID = None
             if not constants.SYNC_RUNNING:
                 constants.STOP_THREAD = False
             if getattr(self, "_logout_label", None) is not None:
@@ -1347,10 +1357,17 @@ class Dashboard(tk.Frame):
                 scrollable_frame = tk.Frame(canvas, bg="white")
 
                 # Configure the canvas
-                scrollable_frame.bind(
-                    "<Configure>",
-                    lambda e: canvas.configure(scrollregion=canvas.bbox("all")),
-                )
+                def _update_scrollregion(_e=None):
+                    # Guard against a destroyed canvas: a pending <Configure>
+                    # event can fire while/after right_panel children are being
+                    # rebuilt (create_main_content / re_create_main_content).
+                    try:
+                        if canvas.winfo_exists():
+                            canvas.configure(scrollregion=canvas.bbox("all"))
+                    except tk.TclError:
+                        pass
+
+                scrollable_frame.bind("<Configure>", _update_scrollregion)
 
                 canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
                 canvas.configure(yscrollcommand=scrollbar.set)
@@ -1362,12 +1379,17 @@ class Dashboard(tk.Frame):
                 def on_scroll(event):
                     """Enable scrolling inside the frame without dragging the app."""
                     if len(branches) > 4:
-                        if event.delta:  # Windows scrolling
-                            canvas.yview_scroll(-1 * (event.delta // 120), "units")
-                        elif event.num == 4:  # Linux scroll up
-                            canvas.yview_scroll(-1, "units")
-                        elif event.num == 5:  # Linux scroll down
-                            canvas.yview_scroll(1, "units")
+                        try:
+                            if not canvas.winfo_exists():
+                                return
+                            if event.delta:  # Windows scrolling
+                                canvas.yview_scroll(-1 * (event.delta // 120), "units")
+                            elif event.num == 4:  # Linux scroll up
+                                canvas.yview_scroll(-1, "units")
+                            elif event.num == 5:  # Linux scroll down
+                                canvas.yview_scroll(1, "units")
+                        except tk.TclError:
+                            pass
 
                 # def rotate_image(canvas2, size, image_tk, angle):
                 #     while not constants.STOP_THREAD:
@@ -2065,20 +2087,32 @@ class Dashboard(tk.Frame):
                     )
 
                     def sync_box_enter(e):
-                        sync_box.config(
-                            highlightbackground="#0CA1F6", highlightcolor="#0CA1F6"
-                        )
-                        schedule_tooltip(
-                            "Sync data to the selected tally company",
-                            e.widget.winfo_rootx() + 10,
-                            e.widget.winfo_rooty() + 24,
-                        )
+                        try:
+                            # An enter event can fire just as the dashboard is
+                            # being rebuilt; skip if the box is already gone.
+                            if not sync_box.winfo_exists():
+                                return
+                            sync_box.config(
+                                highlightbackground="#0CA1F6", highlightcolor="#0CA1F6"
+                            )
+                            schedule_tooltip(
+                                "Sync data to the selected tally company",
+                                e.widget.winfo_rootx() + 10,
+                                e.widget.winfo_rooty() + 24,
+                            )
+                        except tk.TclError:
+                            pass
 
                     def sync_box_leave(e):
-                        sync_box.config(
-                            highlightbackground="#C4C7CC", highlightcolor="#C4C7CC"
-                        )
-                        hide_tooltip()
+                        try:
+                            if not sync_box.winfo_exists():
+                                return
+                            sync_box.config(
+                                highlightbackground="#C4C7CC", highlightcolor="#C4C7CC"
+                            )
+                            hide_tooltip()
+                        except tk.TclError:
+                            pass
 
                     for widget in (sync_box, sync_icon):
                         widget.bind("<Enter>", sync_box_enter)
@@ -2119,25 +2153,32 @@ class Dashboard(tk.Frame):
                     )
 
                 def fit_menu_width():
-                    f = tk.font.Font(font=("Segoe UI", 10))
-                    btn_w = company_dropdown.winfo_width()
                     try:
-                        max_w = (
-                            max(f.measure(v) for v in company_options.values()) + 40
-                        )
-                    except ValueError:
-                        max_w = 0
-                    target = max(btn_w, max_w)
-                    last = dd_menu.index("end")
-                    if last is None:
-                        return
-                    for i in range(last + 1):
-                        txt = dd_menu.entrycget(i, "label")
-                        if f.measure(txt) < target:
-                            pad = " " * max(
-                                1, int((target - f.measure(txt)) / f.measure(" "))
+                        # Guard against a destroyed dropdown: the menu's
+                        # postcommand can fire after the dashboard was rebuilt.
+                        if not company_dropdown.winfo_exists():
+                            return
+                        f = tk.font.Font(font=("Segoe UI", 10))
+                        btn_w = company_dropdown.winfo_width()
+                        try:
+                            max_w = (
+                                max(f.measure(v) for v in company_options.values()) + 40
                             )
-                            dd_menu.entryconfigure(i, label=txt + pad)
+                        except ValueError:
+                            max_w = 0
+                        target = max(btn_w, max_w)
+                        last = dd_menu.index("end")
+                        if last is None:
+                            return
+                        for i in range(last + 1):
+                            txt = dd_menu.entrycget(i, "label")
+                            if f.measure(txt) < target:
+                                pad = " " * max(
+                                    1, int((target - f.measure(txt)) / f.measure(" "))
+                                )
+                                dd_menu.entryconfigure(i, label=txt + pad)
+                    except tk.TclError:
+                        pass
 
                 dd_menu.configure(postcommand=fit_menu_width)
 
@@ -3528,6 +3569,7 @@ class Dashboard(tk.Frame):
 
                 # Darken blurred background for contrast with the white card
                 from PIL import ImageEnhance
+
                 dark_blur = ImageEnhance.Brightness(blurred_screen).enhance(0.5)
                 bg_image = ImageTk.PhotoImage(dark_blur)
                 bg_label = tk.Label(overlay, image=bg_image)
@@ -3536,54 +3578,64 @@ class Dashboard(tk.Frame):
 
                 # ---- Menu card (centered, with border) ----
                 menu_frame = tk.Frame(
-                    overlay, bg="white",
-                    highlightthickness=1, highlightbackground="#D0D5DD",
+                    overlay,
+                    bg="white",
+                    width=520,
+                    height=250,
+                    highlightthickness=1,
+                    highlightbackground="#D0D5DD",
                 )
+                menu_frame.pack_propagate(False)
                 menu_frame.place(relx=0.5, rely=0.5, anchor="center")
 
+                def _resize_card(height):
+                    menu_frame.configure(width=520, height=height)
+                    menu_frame.place(relx=0.5, rely=0.5, anchor="center")
+                    overlay.update_idletasks()
+
                 # Blue header bar
-                header_bar = tk.Frame(menu_frame, bg="#004BA8", height=50)
+                header_bar = tk.Frame(menu_frame, bg="#004BA8", height=56)
                 header_bar.pack(fill="x")
                 header_bar.pack_propagate(False)
                 header_label = tk.Label(
                     header_bar, text="Version Update", bg="#004BA8", fg="white",
-                    font=font.Font(family="Manrope", size=13, weight="bold"),
+                    font=font.Font(family="Manrope", size=14, weight="bold"),
                 )
-                header_label.pack(side="left", padx=20, pady=10)
+                header_label.pack(side="left", padx=24, pady=14)
 
                 # Body content area
                 body = tk.Frame(menu_frame, bg="white")
-                body.pack(fill="both", expand=True, padx=25, pady=(15, 10))
+                body.pack(fill="both", expand=True, padx=28, pady=(18, 14))
 
                 status_var = tk.StringVar(value="Checking for updates...")
                 status_label = tk.Label(
                     body, textvariable=status_var, bg="white", fg="#1F2430",
-                    font=font.Font(family="Manrope", size=12, weight="bold"),
+                    font=font.Font(family="Manrope", size=13, weight="bold"),
                 )
-                status_label.pack(anchor=tk.W, pady=(0, 4))
+                status_label.pack(anchor=tk.W, pady=(0, 6))
 
                 detail_var = tk.StringVar(value="")
                 detail_label = tk.Label(
                     body, textvariable=detail_var, bg="white", fg="#7E878C",
-                    font=font.Font(family="Manrope", size=10),
+                    font=font.Font(family="Manrope", size=11),
                 )
-                detail_label.pack(anchor=tk.W, pady=(0, 8))
+                detail_label.pack(anchor=tk.W, pady=(0, 10))
 
                 # Release notes (scrollable, hidden by default)
                 notes_container = tk.Frame(body, bg="white")
                 notes_label = tk.Label(
                     notes_container, text="What's new", bg="white", fg="#7E878C",
-                    font=font.Font(family="Manrope", size=9, weight="bold"),
+                    font=font.Font(family="Manrope", size=10, weight="bold"),
                     anchor=tk.W,
                 )
-                notes_label.pack(anchor=tk.W, pady=(0, 4))
+                notes_label.pack(anchor=tk.W, pady=(0, 6))
                 notes_frame = tk.Frame(notes_container, bg="#EEF4FA",
                                        highlightthickness=1, highlightbackground="#D0D5DD")
                 notes_frame.pack(fill="x")
                 notes_text = tk.Text(
                     notes_frame, bg="#EEF4FA", fg="#333333", wrap=tk.WORD,
-                    font=font.Font(family="Manrope", size=9),
-                    height=4, bd=0, padx=10, pady=8,
+                    font=font.Font(family="Manrope", size=10),
+                    height=5, bd=0, padx=14, pady=10,
                     state=tk.DISABLED, cursor="arrow",
                     selectbackground="#EEF4FA", selectforeground="#EEF4FA",
                 )
@@ -3597,19 +3649,20 @@ class Dashboard(tk.Frame):
                 notes_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
                 # Configure text tags for markdown rendering
-                _nf = lambda sz=9, b=False: font.Font(family="Manrope", size=sz, weight="bold" if b else "normal")
-                notes_text.tag_configure("h2", font=_nf(10, True), foreground="#004BA8",
-                                         spacing1=4, spacing3=4)
-                notes_text.tag_configure("h3", font=_nf(9, True), foreground="#1F2430",
-                                         spacing1=3, spacing3=2)
-                notes_text.tag_configure("bold", font=_nf(9, True), foreground="#1F2430")
-                notes_text.tag_configure("bullet", font=_nf(), foreground="#333333",
-                                         lmargin1=12, lmargin2=12)
-                notes_text.tag_configure("normal", font=_nf(), foreground="#333333")
+                _nf = lambda sz=10, b=False: font.Font(family="Manrope", size=sz, weight="bold" if b else "normal")
+                notes_text.tag_configure("h2", font=_nf(12, True), foreground="#004BA8",
+                                         spacing1=6, spacing3=4)
+                notes_text.tag_configure("h3", font=_nf(11, True), foreground="#1F2430", 
+                                         spacing1=4, spacing3=2)
+                notes_text.tag_configure("bold", font=_nf(10, True), foreground="#1F2430")
+                notes_text.tag_configure("bullet", font=_nf(10), foreground="#333333",
+                                         lmargin1=16, lmargin2=24, spacing1=2)
+                notes_text.tag_configure("normal", font=_nf(10), foreground="#333333")
 
                 def _render_md(text_widget, raw):
                     """Parse lightweight markdown and insert with formatting tags."""
                     import re
+
                     for line in raw.strip().splitlines():
                         stripped = line.rstrip()
                         if not stripped:
@@ -3620,20 +3673,17 @@ class Dashboard(tk.Frame):
                         elif stripped.startswith("### "):
                             text_widget.insert(tk.END, stripped[4:] + "\n", "h3")
                         elif stripped.startswith("- ") or stripped.startswith("* "):
-                            text_widget.insert(tk.END, "  \u2022  " + stripped[2:] + "\n", "bullet")
+                            text_widget.insert(tk.END, "  •  " + stripped[2:] + "\n", "bullet")
                         else:
                             # Handle **inline bold** segments
                             parts = re.split(r'(\*\*.*?\*\*)', stripped)
-                            has_content = False
                             for part in parts:
                                 if part.startswith("**") and part.endswith("**"):
                                     inner = part[2:-2]
                                     if inner:
                                         text_widget.insert(tk.END, inner, "bold")
-                                        has_content = True
                                 elif part:
                                     text_widget.insert(tk.END, part, "normal")
-                                    has_content = True
                             text_widget.insert(tk.END, "\n", "normal")
 
                 def _show_notes(text):
@@ -3644,10 +3694,16 @@ class Dashboard(tk.Frame):
                         line_count = int(notes_text.index("end-1c").split(".")[0])
                         notes_text.configure(height=min(line_count, 6))
                         notes_text.configure(state=tk.DISABLED)
-                        notes_container.pack(fill="x", pady=(0, 10))
+                        notes_container.pack(fill="x", pady=(0, 12))
+                        notes_container.update_idletasks()
+
+                        notes_height_px = notes_container.winfo_reqheight()
+                        card_height = max(370, 250 + notes_height_px)
+                        _resize_card(card_height)
                     else:
                         notes_container.pack_forget()
-
+                        _resize_card(250)
+                        
                 def _hide_notes():
                     notes_container.pack_forget()
 
