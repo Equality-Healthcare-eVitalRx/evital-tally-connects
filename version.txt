@@ -1,5 +1,5 @@
 
-# UTF-8
+#UTF-8
 VSVersionInfo(
   ffi=FixedFileInfo(
     filevers=(1, 0, 0, 0),
@@ -19,11 +19,11 @@ VSVersionInfo(
           [
             StringStruct(u'CompanyName', u'eVital'),
             StringStruct(u'FileDescription', u'eVital<>Tally Connects'),
-            StringStruct(u'FileVersion', u'3.11.0'),
+            StringStruct(u'FileVersion', u'3.11.0.0'),
             StringStruct(u'InternalName', u'eVital<>Tally Connects'),
             StringStruct(u'LegalCopyright', u'eVitalConnects'),
             StringStruct(u'ProductName', u'eVital<>Tally Connects'),
-            StringStruct(u'ProductVersion', u'3.11.0'),
+            StringStruct(u'ProductVersion', u'3.11.0.0'),
             StringStruct(u'ApplicationName', u'eVitalConnects.exe')
           ]
         )

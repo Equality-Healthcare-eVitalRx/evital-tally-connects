@@ -71,6 +71,57 @@ def get_current_version() -> str:
     return match.group(1)
 
 
+def generate_version_file(version: str):
+    """
+    Regenerate PyInstaller's version resource file (version.txt) from the
+    VERSION source of truth so the Windows executable version always matches.
+    Updates filevers/prodvers (FixedFileInfo) and FileVersion/ProductVersion
+    (StringFileInfo) with the four-part dotted version.
+    """
+    nums = version.split(".")
+    nums = (nums + ["0", "0", "0", "0"])[:4]
+    ints = tuple(int(n) for n in nums)
+    dotted = ".".join(str(n) for n in nums)
+
+    template = f"""
+#UTF-8
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers={ints!r},
+    prodvers={ints!r},
+    mask=0x3f,
+    flags=0x0,
+    OS=0x4,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0)
+  ),
+  kids=[
+    StringFileInfo(
+      [
+        StringTable(
+          u'040904B0',
+          [
+            StringStruct(u'CompanyName', u'eVital'),
+            StringStruct(u'FileDescription', u'eVital<>Tally Connects'),
+            StringStruct(u'FileVersion', u'{dotted}'),
+            StringStruct(u'InternalName', u'eVital<>Tally Connects'),
+            StringStruct(u'LegalCopyright', u'eVitalConnects'),
+            StringStruct(u'ProductName', u'eVital<>Tally Connects'),
+            StringStruct(u'ProductVersion', u'{dotted}'),
+            StringStruct(u'ApplicationName', u'eVitalConnects.exe')
+          ]
+        )
+      ]
+    ),
+    VarFileInfo([VarStruct(u'Translation', [1033, 1200])])
+  ]
+)
+"""
+    VERSION_FILE.write_text(template, encoding="utf-8")
+    print(f"  [VERSION] Regenerated version.txt from VERSION (v{version})")
+
+
 def set_env_type(constants_path: Path, env: str) -> str:
     """
     Modify envtype in constants.py.
@@ -222,6 +273,8 @@ def main():
     print(f"Version: {version}")
     print(f"Python:  {sys.executable}")
     print()
+
+    generate_version_file(version)
 
     if args.clean:
         clean_directories()
