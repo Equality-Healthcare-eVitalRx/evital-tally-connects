@@ -6,7 +6,7 @@ TALLY_URL = f"http://{HOST}:"
 TALLY_PORT = 9000
 
 COMPANY_NAME = "abc"
-
+    
 envtype = "local"
 
 def _read_version():
