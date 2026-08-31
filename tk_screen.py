@@ -98,6 +98,235 @@ def open_log_window(parent, event, LogViewerAppObj):
         LogViewerAppObj.show_log_viewer()
 
 
+def show_tally_config_popup(parent):
+    """Open the Tally configuration editor (Host/Port) overlay.
+
+    Reusable from the dashboard (Ctrl+T). Validates the connection before
+    saving, updates the runtime constants, and persists the values to the
+    encrypted cache so they survive restarts.
+    """
+    # Bullet-proof behavior: Ctrl+T always opens a FRESH overlay. Any previous
+    # config overlay (open, hidden, or already destroyed after a drag/dialog)
+    # is torn down first, so a stale reference can never block reopening and a
+    # stacked duplicate can never appear.
+    global _TALLY_CFG_OVERLAY
+    if _TALLY_CFG_OVERLAY is not None:
+        try:
+            _TALLY_CFG_OVERLAY.destroy()
+        except tk.TclError:
+            pass
+        _TALLY_CFG_OVERLAY = None
+    _show_tally_config_popup(parent)
+
+
+_TALLY_CFG_OVERLAY = None
+
+
+def _show_tally_config_popup(parent):
+    global _TALLY_CFG_OVERLAY
+    x = parent.winfo_rootx()
+    y = parent.winfo_rooty()
+    w = parent.winfo_width()
+    h = parent.winfo_height()
+
+    def validate(
+        action,
+        index,
+        value_if_allowed,
+        prior_value,
+        text,
+        validation_type,
+        trigger_type,
+        widget_name,
+    ):
+        if value_if_allowed == "":
+            return True
+        if value_if_allowed:
+            try:
+                float(value_if_allowed)
+                return True
+            except ValueError:
+                return False
+        else:
+            return False
+
+    vcmd = (
+        parent.register(validate),
+        "%d",
+        "%i",
+        "%P",
+        "%s",
+        "%S",
+        "%v",
+        "%V",
+        "%W",
+    )
+
+    header_font2 = font.Font(family="Manrope", size=13)
+    header_font3 = font.Font(family="Manrope", size=12)
+    header_font4 = font.Font(family="Manrope", size=11)
+
+    # Capture the screen area
+    screen = ImageGrab.grab(bbox=(x, y, x + w, y + h))
+    blurred_screen = screen.filter(ImageFilter.GaussianBlur(4))
+
+    # Create overlay window
+    overlay = tk.Toplevel(parent)
+    _TALLY_CFG_OVERLAY = overlay
+    overlay.geometry(f"{w}x{h}+{x}+{y}")
+    overlay.overrideredirect(True)
+    parent.winfo_toplevel().register_follow_overlay(overlay)
+    try:
+        overlay.lift()
+    except tk.TclError:
+        pass
+
+    # Display blurred background
+    bg_image = ImageTk.PhotoImage(blurred_screen)
+    bg_label = tk.Label(overlay, image=bg_image)
+    bg_label.image = bg_image
+    bg_label.pack(fill="both", expand=True)
+
+    # Centered menu
+    menu_frame = tk.Frame(
+        overlay, bg="white", bd=2, relief="ridge", padx=10, pady=10
+    )
+    menu_frame.place(relx=0.5, rely=0.5, anchor="center")
+
+    tk.Label(
+        menu_frame, text="Tally Configuration", font=header_font2, bg="white"
+    ).pack(pady=(20, 20), padx=40)
+
+    # Host Entry
+    host_frame = tk.Frame(menu_frame, bg="white")
+    host_frame.pack(pady=(7, 15))
+
+    tk.Label(
+        host_frame, text="Tally Host", font=header_font4, bg="white"
+    ).pack(pady=(0, 10), padx=(10, 20), side=tk.LEFT)
+
+    tally_host_var = tk.StringVar(value=constants.HOST)
+    host_entry = tk.Entry(
+        host_frame,
+        textvariable=tally_host_var,
+        font=header_font3,
+        width=13,
+        justify="center",
+        bd=1,
+        relief="solid",
+    )
+    host_entry.pack(pady=(0, 10), padx=(10, 20), side=tk.RIGHT)
+    host_entry.pack_propagate(False)
+
+    # Port Entry
+    port_frame = tk.Frame(menu_frame, bg="white")
+    port_frame.pack(pady=(7, 15))
+
+    tk.Label(
+        port_frame, text="Tally Port", font=header_font4, bg="white"
+    ).pack(pady=(0, 10), padx=(10, 20), side=tk.LEFT)
+
+    tally_port_var = tk.StringVar(value=constants.TALLY_PORT)
+    port_entry = tk.Entry(
+        port_frame,
+        textvariable=tally_port_var,
+        font=header_font3,
+        validate="key",
+        validatecommand=vcmd,
+        width=13,
+        justify="center",
+        bd=1,
+        relief="solid",
+    )
+    port_entry.pack(pady=(0, 10), padx=(10, 20), side=tk.RIGHT)
+    port_entry.pack_propagate(False)
+
+    def update():
+        global _TALLY_CFG_OVERLAY
+        host = tally_host_var.get()
+        port = tally_port_var.get()
+        if not is_tally_reachable(host=host, port=port):
+            overlay.destroy()
+            _TALLY_CFG_OVERLAY = None
+            messagebox.showerror(
+                "Tally Configuration",
+                "Could not connect to Tally at "
+                + str(host)
+                + ":"
+                + str(port)
+                + ".\nMake sure Tally is running and the Host/Port are correct.",
+            )
+            return
+
+        constants.TALLY_PORT = port
+        constants.HOST = host
+        constants.TALLY_URL = "http://" + str(host) + ":"
+
+        try:
+            with open("./lib/app_cache.txt") as data_file:
+                data = decrypt_data(data_file.read())
+        except Exception:
+            data = {}
+        data["tally_port"] = constants.TALLY_PORT
+        data["tally_host"] = constants.HOST
+        try:
+            with open("./lib/app_cache.txt", "w") as json_file:
+                json_file.write(encrypt_data(data))
+        except Exception:
+            pass
+
+        try:
+            overlay.destroy()
+        except Exception:
+            pass
+        _TALLY_CFG_OVERLAY = None
+        try:
+            get_all_mapping_details()
+        except Exception:
+            pass
+        try:
+            get_tally_companies()
+        except Exception:
+            pass
+
+    yes_button = CTkButton(
+        menu_frame,
+        text="Update",
+        width=100,
+        height=36,
+        corner_radius=6,
+        bg_color="white",
+        fg_color="#007BFF",
+        hover_color="#0056b3",
+        text_color="white",
+        font=CTkFont(family="Manrope", size=14),
+        command=update,
+    )
+    yes_button.pack(pady=(0, 10), side="left", padx=20, fill=tk.X, expand=True)
+
+    def update_on_enter(event):
+        yes_button.invoke()
+        return "break"
+
+    host_entry.bind("<Return>", update_on_enter)
+    port_entry.bind("<Return>", update_on_enter)
+
+    host_entry.focus_set()
+
+    # Function to close the overlay when clicking outside
+    def on_click_outside(event):
+        try:
+            inside = overlay.winfo_containing(event.x_root, event.y_root)
+        except tk.TclError:
+            inside = overlay
+        if not inside:
+            global _TALLY_CFG_OVERLAY
+            overlay.destroy()
+            _TALLY_CFG_OVERLAY = None
+
+    overlay.bind("<Button-1>", on_click_outside)
+
+
 class App(tk.Tk):
     def __init__(self):
 
@@ -177,6 +406,7 @@ class App(tk.Tk):
         self._geometry_check_job = None
         self._follow_overlays = []
         self._last_root_pos = None
+        self.current_frame = None
         self.bind("<Configure>", self._on_root_configure)
         self.bind("<FocusIn>", lambda e: self._demote_log_viewer())
 
@@ -261,8 +491,15 @@ class App(tk.Tk):
             for overlay in list(self._follow_overlays):
                 try:
                     if overlay.winfo_exists():
+                        # Re-glue using the overlay's SCREEN position
+                        # (winfo_rootx/rooty), matching how the overlays are
+                        # originally placed. Using winfo_x/winfo_y (relative to
+                        # the root) here lets the overlay drift off the root
+                        # window while dragging, ending up off-screen and
+                        # invisible while still "mapped".
                         overlay.geometry(
-                            f"+{overlay.winfo_x() + dx}+{overlay.winfo_y() + dy}"
+                            f"+{overlay.winfo_rootx() + dx}"
+                            f"+{overlay.winfo_rooty() + dy}"
                         )
                     else:
                         self._follow_overlays.remove(overlay)
@@ -339,6 +576,7 @@ class App(tk.Tk):
 
     def show_frame(self, frame_name, **kwargs):
         """Show a frame by name."""
+        self.current_frame = frame_name
         if frame_name in self.frames:
             self.frames[frame_name].destroy()
             del self.frames[frame_name]
@@ -1116,6 +1354,15 @@ class Dashboard(tk.Frame):
         self.bind_all(
             "<Control-d>", open_log_window_guard
         )
+
+        def open_tally_config_guard(e=None):
+            # Only open from the Dashboard and never while syncing.
+            if getattr(parent, "current_frame", None) != "Dashboard":
+                return
+            if constants.SYNC_RUNNING or constants.DISPLAY_SYNC_LOADER:
+                return
+            show_tally_config_popup(parent)
+        self.bind_all("<Control-t>", open_tally_config_guard)
 
         def create_main_content():
             nonlocal rebuild_scheduled
