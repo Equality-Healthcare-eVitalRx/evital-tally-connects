@@ -25,12 +25,6 @@ APP_VERSION = _read_version()
 GITHUB_OWNER = "evital-smit"
 GITHUB_REPO = "py-extract-tally"
 
-try:
-    from lib.secrets import GITHUB_TOKEN as _TOKEN
-except Exception:
-    _TOKEN = ""
-GITHUB_TOKEN = _TOKEN
-
 env_config = {
     "local": {
         "EVITAL_RX_HOST": "localhost",

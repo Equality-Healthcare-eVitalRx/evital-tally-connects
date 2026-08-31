@@ -138,7 +138,7 @@ Central configuration hub containing:
 - **Tally XML request templates** (`REQUEST_FORMATS`) — pre-built XML envelopes for Balance Sheet, Profit & Loss, Ratio Analysis, List of Companies, Ledgers, and Groups.
 - **Runtime state variables** — login response, company mappings, sync state, thread control flags, etc.
 - **Encryption key** for cache and log files.
-- **GitHub repo details & token** (`GITHUB_OWNER`, `GITHUB_REPO`, `GITHUB_TOKEN`) used by the auto-updater.
+- **GitHub repo details** (`GITHUB_OWNER`, `GITHUB_REPO`) used by the auto-updater. The repo is **public**, so no token is needed for the Releases API.
 
 ---
 
@@ -224,7 +224,7 @@ py-extract-tally/
 │
 ├── lib/
 │   ├── constants.py            # All app constants, config, XML templates, runtime state, GITHUB_*
-│   ├── secrets.py              # (gitignored) GITHUB_TOKEN & ENCRYPTION_KEY — copy from secrets.py.example
+│   ├── secrets.py              # (gitignored) ENCRYPTION_KEY — copy from secrets.py.example
 │   ├── secrets.py.example      # Template for lib/secrets.py
 │   ├── import_export_data.py   # HTTP communication with Tally & eVitalRx APIs
 │   ├── tally_service.py        # TallyService class — XML voucher push, export, batch handling
@@ -414,14 +414,14 @@ The `build.py` script automatically sets the correct `envtype` for each environm
 
 ### GitHub Auto-Update & Secrets
 
-- **`lib/secrets.py`** holds the GitHub token:
+- **`lib/secrets.py`** stores only the encryption key:
   ```python
-  GITHUB_TOKEN = "ghp_..."
   ENCRYPTION_KEY = "..."
   ```
-  `constants.py` imports `GITHUB_TOKEN` (falling back to an empty string if `secrets.py` is missing) and reads `GITHUB_OWNER` / `GITHUB_REPO` directly.
-- The repo & owner are configured in `lib/constants.py` (`GITHUB_OWNER = "evital-smit"`, `GITHUB_REPO = "py-extract-tally"`).
-- If no token is embedded, the updater also checks the `GITHUB_TOKEN` / `GH_TOKEN` environment variables, then falls back to the git credential store. Note: the updater uses the GitHub **API asset endpoint** for private-repo downloads, because the `Authorization` header is stripped when following redirected `browser_download_url` links.
+  `constants.py` reads `GITHUB_OWNER` / `GITHUB_REPO` directly. **No GitHub personal access token is embedded in the repo.**
+- The repo & owner are configured in `lib/constants.py` (`GITHUB_OWNER = "evital-smit"`, `GITHUB_REPO = "py-extract-tally"`). The repo is **public**, so the auto-updater calls the GitHub Releases API **without any authentication**.
+- **Git operations** (clone / fetch / push) on the build machine use an **SSH deploy key** — the remote URL is `git@github.com:<owner>/<repo>.git` and the deploy key's public key is authorized in the repo's Settings → Deploy keys.
+- For downloads, the updater uses the GitHub **API asset endpoint** (`/releases/assets/{asset_id}` with `Accept: application/octet-stream`) because the `Authorization`-independent redirect of `browser_download_url` is not needed for a public repo.
 
 ---
 
@@ -429,8 +429,6 @@ The `build.py` script automatically sets the correct `envtype` for each environm
 
 | Variable | Purpose | Required? |
 |---|---|---|
-| `GITHUB_TOKEN` | GitHub personal-access token used by the auto-updater when `lib/secrets.py` has no embedded token. Read at runtime by `updater._get_github_token()`. | Only for auto-update on machines without `lib/secrets.py` |
-| `GH_TOKEN` | Alias for `GITHUB_TOKEN`, checked as a fallback. | No |
 | `ENCRYPTION_KEY` | Fernet key for cache and log encryption (usually set in `lib/secrets.py`, not an env var). | No (comes from `lib/secrets.py`) |
 
-> The updater reads these at runtime with `os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")`. Prefer `lib/secrets.py` for installed builds; env vars are mainly useful in development.
+> GitHub updates use a **public** repo, so no token is required. Git operations on the build machine use an SSH deploy key.

@@ -25,34 +25,9 @@ AV_RETRY_COUNT = 5
 AV_RETRY_DELAY = 3  # seconds between retries
 
 
-def _get_github_token():
-    """Get GitHub token: embedded constant → env var → git credential store."""
-    if constants.GITHUB_TOKEN:
-        return constants.GITHUB_TOKEN
-    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
-    if token:
-        return token
-    try:
-        proc = subprocess.run(
-            ["git", "credential", "fill"],
-            input="protocol=https\nhost=github.com\n\n",
-            capture_output=True, text=True, timeout=10,
-        )
-        for line in proc.stdout.splitlines():
-            if line.startswith("password="):
-                return line.split("=", 1)[1]
-    except Exception:
-        pass
-    return None
-
-
 def _github_headers():
-    """Return auth headers for GitHub API requests."""
-    token = _get_github_token()
-    headers = {"Accept": "application/vnd.github.v3+json"}
-    if token:
-        headers["Authorization"] = f"token {token}"
-    return headers
+    """Return headers for GitHub API requests (public repo — no auth needed)."""
+    return {"Accept": "application/vnd.github.v3+json"}
 
 
 def _parse_version(version_str):
