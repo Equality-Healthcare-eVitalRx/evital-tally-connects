@@ -144,7 +144,7 @@ Central configuration hub containing:
 
 ## Auto-Update System
 
-The app can update itself from **GitHub Releases** on the **private** repository `evital-smit/py-extract-tally`. All logic lives in **`updater.py`**.
+The app can update itself from **GitHub Releases** on the **public** repository `Equality-Healthcare-eVitalRx/evital-tally-connects`. All logic lives in **`updater.py`**.
 
 ### How it works
 
@@ -324,7 +324,7 @@ uv run python build.py --env local --skip-zip --clean
 
 ## Publishing a Release
 
-The auto-updater pulls from the **latest GitHub Release** on `evital-smit/py-extract-tally` (private). To ship a new version:
+The auto-updater pulls from the **latest GitHub Release** on `Equality-Healthcare-eVitalRx/evital-tally-connects` (public). To ship a new version:
 
 1. **Bump the version** in the `VERSION` file (e.g. `3.10.10`).
 2. **Build** the environment(s) you need:
@@ -419,8 +419,8 @@ The `build.py` script automatically sets the correct `envtype` for each environm
   ENCRYPTION_KEY = "..."
   ```
   `constants.py` reads `GITHUB_OWNER` / `GITHUB_REPO` directly. **No GitHub personal access token is embedded in the repo.**
-- The repo & owner are configured in `lib/constants.py` (`GITHUB_OWNER = "evital-smit"`, `GITHUB_REPO = "py-extract-tally"`). The repo is **public**, so the auto-updater calls the GitHub Releases API **without any authentication**.
-- **Git operations** (clone / fetch / push) on the build machine use an **SSH deploy key** — the remote URL is `git@github.com:<owner>/<repo>.git` and the deploy key's public key is authorized in the repo's Settings → Deploy keys.
+- The repo & owner are configured in `lib/constants.py` (`GITHUB_OWNER = "Equality-Healthcare-eVitalRx"`, `GITHUB_REPO = "evital-tally-connects"`). The repo is **public**, so the auto-updater calls the GitHub Releases API **without any authentication**.
+- **Git operations** (clone / fetch / push) use the **HTTPS** remote `https://github.com/Equality-Healthcare-eVitalRx/evital-tally-connects.git`, which needs no SSH key to fetch a public repo.
 - For downloads, the updater uses the GitHub **API asset endpoint** (`/releases/assets/{asset_id}` with `Accept: application/octet-stream`) because the `Authorization`-independent redirect of `browser_download_url` is not needed for a public repo.
 
 ---
@@ -431,4 +431,4 @@ The `build.py` script automatically sets the correct `envtype` for each environm
 |---|---|---|
 | `ENCRYPTION_KEY` | Fernet key for cache and log encryption (usually set in `lib/secrets.py`, not an env var). | No (comes from `lib/secrets.py`) |
 
-> GitHub updates use a **public** repo, so no token is required. Git operations on the build machine use an SSH deploy key.
+> GitHub updates use a **public** repo, so no token is required and git uses the HTTPS remote.

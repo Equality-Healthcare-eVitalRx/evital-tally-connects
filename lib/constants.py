@@ -22,8 +22,8 @@ def _read_version():
 
 APP_VERSION = _read_version()
 
-GITHUB_OWNER = "evital-smit"
-GITHUB_REPO = "py-extract-tally"
+GITHUB_OWNER = "Equality-Healthcare-eVitalRx"
+GITHUB_REPO = "evital-tally-connects"
 
 env_config = {
     "local": {
