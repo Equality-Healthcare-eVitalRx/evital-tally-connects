@@ -181,50 +181,83 @@ def _show_tally_config_popup(parent):
     except tk.TclError:
         pass
 
-    # Display blurred background
-    bg_image = ImageTk.PhotoImage(blurred_screen)
+    # Display blurred + darkened background (matches shortcuts/version dialog)
+    from PIL import ImageEnhance
+
+    dark_blur = ImageEnhance.Brightness(blurred_screen).enhance(0.5)
+    bg_image = ImageTk.PhotoImage(dark_blur)
     bg_label = tk.Label(overlay, image=bg_image)
     bg_label.image = bg_image
     bg_label.pack(fill="both", expand=True)
 
-    # Centered menu
+    # Centered white card with border
     menu_frame = tk.Frame(
-        overlay, bg="white", bd=2, relief="ridge", padx=10, pady=10
+        overlay,
+        bg="white",
+        highlightthickness=1,
+        highlightbackground="#D0D5DD",
+        highlightcolor="#D0D5DD",
     )
     menu_frame.place(relx=0.5, rely=0.5, anchor="center")
 
+    # Blue header bar (matches shortcuts/version dialog)
+    header_bar = tk.Frame(menu_frame, bg="#004BA8", height=56)
+    header_bar.pack(fill="x")
+    header_bar.pack_propagate(False)
+
     tk.Label(
-        menu_frame, text="Tally Configuration", font=header_font2, bg="white"
-    ).pack(pady=(20, 20), padx=40)
+        header_bar, text="Tally Configuration", bg="#004BA8", fg="white",
+        font=font.Font(family="Manrope", size=12, weight="bold"),
+    ).pack(side="left", padx=24, pady=14)
+
+    close_icon = tk.Label(
+        header_bar, text="✕", bg="#004BA8", fg="white", cursor="hand2",
+        padx=12, pady=2,
+        font=font.Font(family="Manrope", size=14, weight="bold"),
+    )
+    close_icon.pack(side="right", padx=(0, 16))
+    close_icon.bind("<Enter>", lambda e: close_icon.configure(fg="#FFC9C9"))
+    close_icon.bind("<Leave>", lambda e: close_icon.configure(fg="white"))
+    close_icon.bind(
+        "<Button-1>", lambda e: (overlay.destroy(), _set_overlay_none())
+    )
+
+    def _set_overlay_none():
+        global _TALLY_CFG_OVERLAY
+        _TALLY_CFG_OVERLAY = None
+
+    # Body content area
+    body = tk.Frame(menu_frame, bg="white")
+    body.pack(fill="both", expand=True, padx=28, pady=(18, 14))
 
     # Host Entry
-    host_frame = tk.Frame(menu_frame, bg="white")
-    host_frame.pack(pady=(7, 15))
+    host_frame = tk.Frame(body, bg="white")
+    host_frame.pack(fill=tk.X, pady=(4, 16))
 
     tk.Label(
-        host_frame, text="Tally Host", font=header_font4, bg="white"
-    ).pack(pady=(0, 10), padx=(10, 20), side=tk.LEFT)
+        host_frame, text="Host :-", font=header_font4, bg="white"
+    ).pack(side=tk.LEFT, padx=(0, 14))
 
     tally_host_var = tk.StringVar(value=constants.HOST)
     host_entry = tk.Entry(
         host_frame,
         textvariable=tally_host_var,
         font=header_font3,
-        width=13,
+        width=12,
         justify="center",
         bd=1,
         relief="solid",
     )
-    host_entry.pack(pady=(0, 10), padx=(10, 20), side=tk.RIGHT)
+    host_entry.pack(side=tk.RIGHT)
     host_entry.pack_propagate(False)
 
     # Port Entry
-    port_frame = tk.Frame(menu_frame, bg="white")
-    port_frame.pack(pady=(7, 15))
+    port_frame = tk.Frame(body, bg="white")
+    port_frame.pack(fill=tk.X, pady=(4, 16))
 
     tk.Label(
-        port_frame, text="Tally Port", font=header_font4, bg="white"
-    ).pack(pady=(0, 10), padx=(10, 20), side=tk.LEFT)
+        port_frame, text="Port :-", font=header_font4, bg="white"
+    ).pack(side=tk.LEFT, padx=(0, 14))
 
     tally_port_var = tk.StringVar(value=constants.TALLY_PORT)
     port_entry = tk.Entry(
@@ -233,12 +266,12 @@ def _show_tally_config_popup(parent):
         font=header_font3,
         validate="key",
         validatecommand=vcmd,
-        width=13,
+        width=12,
         justify="center",
         bd=1,
         relief="solid",
     )
-    port_entry.pack(pady=(0, 10), padx=(10, 20), side=tk.RIGHT)
+    port_entry.pack(side=tk.RIGHT)
     port_entry.pack_propagate(False)
 
     def update():
@@ -289,20 +322,25 @@ def _show_tally_config_popup(parent):
         except Exception:
             pass
 
+    # Bottom action button frame (matches shortcuts/version dialog)
+    btn_frame = tk.Frame(menu_frame, bg="white")
+    btn_frame.pack(pady=(0, 15))
+
     yes_button = CTkButton(
-        menu_frame,
+        btn_frame,
         text="Update",
-        width=100,
-        height=36,
+        width=140,
+        height=34,
         corner_radius=6,
-        bg_color="white",
         fg_color="#007BFF",
         hover_color="#0056b3",
         text_color="white",
-        font=CTkFont(family="Manrope", size=14),
+        font=CTkFont(family="Manrope", size=12, weight="bold"),
         command=update,
     )
-    yes_button.pack(pady=(0, 10), side="left", padx=20, fill=tk.X, expand=True)
+    yes_button.pack()
+
+    menu_frame.update_idletasks()
 
     def update_on_enter(event):
         yes_button.invoke()
@@ -312,6 +350,7 @@ def _show_tally_config_popup(parent):
     port_entry.bind("<Return>", update_on_enter)
 
     host_entry.focus_set()
+    host_entry.icursor(tk.END)
 
     # Function to close the overlay when clicking outside
     def on_click_outside(event):
@@ -871,53 +910,80 @@ class LoginScreen(tk.Frame):
             overlay.overrideredirect(True)
             self.winfo_toplevel().register_follow_overlay(overlay)
 
-            # Display blurred background
-            bg_image = ImageTk.PhotoImage(blurred_screen)
+            # Display blurred + darkened background (matches new config dialog)
+            from PIL import ImageEnhance
+
+            dark_blur = ImageEnhance.Brightness(blurred_screen).enhance(0.5)
+            bg_image = ImageTk.PhotoImage(dark_blur)
             bg_label = tk.Label(overlay, image=bg_image)
             bg_label.image = bg_image
             bg_label.pack(fill="both", expand=True)
 
-            # Centered menu
+            # Centered white card with border
             menu_frame = tk.Frame(
-                overlay, bg="white", bd=2, relief="ridge", padx=10, pady=10
+                overlay,
+                bg="white",
+                highlightthickness=1,
+                highlightbackground="#D0D5DD",
+                highlightcolor="#D0D5DD",
             )
             menu_frame.place(relx=0.5, rely=0.5, anchor="center")
 
-            tk.Label(
-                menu_frame, text="Tally Configuration", font=header_font2, bg="white"
-            ).pack(pady=(20, 20), padx=40)
+            # Blue header bar (matches config dialog)
+            header_bar = tk.Frame(menu_frame, bg="#004BA8", height=56)
+            header_bar.pack(fill="x")
+            header_bar.pack_propagate(False)
 
-            # host Entry
-            button_frame2 = tk.Frame(menu_frame, bg="white")
-            button_frame2.pack(pady=(7, 15))
+            tk.Label(
+                header_bar, text="Tally Configuration", bg="#004BA8", fg="white",
+                font=font.Font(family="Manrope", size=14, weight="bold"),
+            ).pack(side="left", padx=24, pady=14)
+
+            close_icon = tk.Label(
+                header_bar, text="✕", bg="#004BA8", fg="white", cursor="hand2",
+                padx=12, pady=2,
+                font=font.Font(family="Manrope", size=14, weight="bold"),
+            )
+            close_icon.pack(side="right", padx=(0, 16))
+            close_icon.bind("<Enter>", lambda e: close_icon.configure(fg="#FFC9C9"))
+            close_icon.bind("<Leave>", lambda e: close_icon.configure(fg="white"))
+            close_icon.bind("<Button-1>", lambda e: overlay.destroy())
+
+            # Body content area
+            body = tk.Frame(menu_frame, bg="white")
+            body.pack(fill="both", expand=True, padx=28, pady=(18, 14))
+
+            # Host Entry
+            button_frame2 = tk.Frame(body, bg="white")
+            button_frame2.pack(fill=tk.X, pady=(4, 16))
 
             host_label = tk.Label(
-                button_frame2, text="Tally Host", font=header_font4, bg="white"
+                button_frame2, text="Host :-", font=header_font4, bg="white"
             )
-            host_label.pack(pady=(0, 10), padx=(10, 20), side=tk.LEFT)
+            host_label.pack(side=tk.LEFT, padx=(0, 14))
 
             tally_host_var = tk.StringVar(value=constants.HOST)
             host_entry = tk.Entry(
                 button_frame2,
                 textvariable=tally_host_var,
                 font=header_font3,
-                width=13,
+                width=12,
                 justify="center",
                 bd=1,
                 relief="solid",
             )
-            host_entry.pack(pady=(0, 10), padx=(10, 20), side=tk.RIGHT)
+            host_entry.pack(side=tk.RIGHT)
             host_entry.pack_propagate(False)
 
             # Port Entry
-            button_frame = tk.Frame(menu_frame, bg="white")
-            button_frame.pack(pady=(7, 15))
+            button_frame = tk.Frame(body, bg="white")
+            button_frame.pack(fill=tk.X, pady=(4, 16))
 
             tally_port_var = tk.StringVar(value=constants.TALLY_PORT)
             port_label = tk.Label(
-                button_frame, text="Tally Port", font=header_font4, bg="white"
+                button_frame, text="Port :-", font=header_font4, bg="white"
             )
-            port_label.pack(pady=(0, 10), padx=(10, 20), side=tk.LEFT)
+            port_label.pack(side=tk.LEFT, padx=(0, 14))
 
             port_entry = tk.Entry(
                 button_frame,
@@ -925,31 +991,35 @@ class LoginScreen(tk.Frame):
                 font=header_font3,
                 validate="key",
                 validatecommand=vcmd,
-                width=13,
+                width=12,
                 justify="center",
                 bd=1,
                 relief="solid",
             )
-            port_entry.pack(pady=(0, 10), padx=(10, 20), side=tk.RIGHT)
+            port_entry.pack(side=tk.RIGHT)
             port_entry.pack_propagate(False)
 
             # YES button - Blue background with white text
+            btn_frame = tk.Frame(menu_frame, bg="white")
+            btn_frame.pack(pady=(0, 15))
+
             yes_button2 = CTkButton(
-                menu_frame,
+                btn_frame,
                 text="Update",
-                width=100,
-                height=36,
+                width=140,
+                height=34,
                 corner_radius=6,
-                bg_color="white",
                 fg_color="#007BFF",
                 hover_color="#0056b3",
                 text_color="white",
-                font=CTkFont(family="Manrope", size=14),
+                font=CTkFont(family="Manrope", size=12, weight="bold"),
                 command=lambda: update_tally_port(
                     overlay, tally_port_var.get(), tally_host_var.get()
                 ),
             )
-            yes_button2.pack(pady=(0, 10), side="left", padx=20, fill=tk.X, expand=True)
+            yes_button2.pack()
+
+            menu_frame.update_idletasks()
 
             def update_on_enter(event):
                 yes_button2.invoke()
@@ -962,6 +1032,7 @@ class LoginScreen(tk.Frame):
             # here updates the configuration instead of re-triggering
             # the login API
             host_entry.focus_set()
+            host_entry.icursor(tk.END)
 
             # Function to close the overlay when clicking outside
             def on_click_outside(event):
@@ -1478,6 +1549,102 @@ class Dashboard(tk.Frame):
             )
             last_sync_time.pack(pady=(0, 10), padx=30, anchor=tk.W)
 
+            def show_shortcuts_popup(event=None):
+                overlay = tk.Toplevel(parent)
+                x = parent.winfo_rootx()
+                y = parent.winfo_rooty()
+                w = parent.winfo_width()
+                h = parent.winfo_height()
+                overlay.geometry(f"{w}x{h}+{x}+{y}")
+                overlay.overrideredirect(True)
+                parent.winfo_toplevel().register_follow_overlay(overlay)
+
+                screen = ImageGrab.grab(bbox=(x, y, x + w, y + h))
+                blurred_screen = screen.filter(ImageFilter.GaussianBlur(4))
+
+                # Darken blurred background for contrast with the white card
+                # (same treatment as the version update dialog)
+                from PIL import ImageEnhance
+
+                dark_blur = ImageEnhance.Brightness(blurred_screen).enhance(0.5)
+                bg_image = ImageTk.PhotoImage(dark_blur)
+                bg_label = tk.Label(overlay, image=bg_image)
+                bg_label.image = bg_image
+                bg_label.pack(fill="both", expand=True)
+
+                # ---- Menu card (centered, with border) ----
+                menu_frame = tk.Frame(
+                    overlay,
+                    bg="white",
+                    highlightthickness=1,
+                    highlightbackground="#D0D5DD",
+                    highlightcolor="#D0D5DD",
+                )
+                menu_frame.place(relx=0.5, rely=0.5, anchor="center")
+
+                # Blue header bar (matches version update dialog)
+                header_bar = tk.Frame(menu_frame, bg="#004BA8", height=56)
+                header_bar.pack(fill="x")
+                header_bar.pack_propagate(False)
+
+                header_label = tk.Label(
+                    header_bar, text="Keyboard Shortcuts", bg="#004BA8",
+                    fg="white",
+                    font=font.Font(family="Manrope", size=12, weight="bold"),
+                )
+                header_label.pack(side="left", padx=24, pady=14)
+
+                close_icon = tk.Label(
+                    header_bar, text="✕", bg="#004BA8", fg="white",
+                    cursor="hand2", padx=12, pady=2,
+                    font=font.Font(family="Manrope", size=14, weight="bold"),
+                )
+                close_icon.pack(side="right", padx=(0, 16))
+                close_icon.bind("<Enter>", lambda e: close_icon.configure(fg="#FFC9C9"))
+                close_icon.bind("<Leave>", lambda e: close_icon.configure(fg="white"))
+                close_icon.bind("<Button-1>", lambda e: overlay.destroy())
+
+                # Body content area
+                body = tk.Frame(menu_frame, bg="white")
+                body.pack(fill="both", expand=True, padx=28, pady=(18, 14))
+
+                def _keycap(parent, text):
+                    return tk.Label(
+                        parent, text=text,
+                        font=CTkFont(family="Consolas", size=16, weight="bold"),
+                        bg="#F2F4F8", fg="#1F2430",
+                        relief="raised", borderwidth=2,
+                        padx=14, pady=5,
+                    )
+
+                shortcuts = [
+                    (["Ctrl", "D"], "Open Log Viewer"),
+                    (["Ctrl", "T"], "Set Tally Configuration"),
+                ]
+                for keys, desc in shortcuts:
+                    row = tk.Frame(body, bg="white")
+                    row.pack(fill=tk.X, pady=9)
+                    for i, key in enumerate(keys):
+                        if i > 0:
+                            tk.Label(
+                                row, text="+",
+                                font=CTkFont(family="Manrope", size=16, weight="bold"),
+                                bg="white", fg="#9AA3AD",
+                            ).pack(side=tk.LEFT, padx=7)
+                        _keycap(row, key).pack(side=tk.LEFT)
+                    tk.Label(
+                        row, text=desc,
+                        font=CTkFont(family="Manrope", size=17),
+                        bg="white", fg="#333333",
+                        anchor="w", justify=tk.LEFT,
+                    ).pack(side=tk.LEFT, padx=(25, 0), fill=tk.X, expand=True)
+
+                tk.Frame(menu_frame, bg="white", height=8).pack()
+
+                menu_frame.update_idletasks()
+
+                overlay.bind("<Escape>", lambda e: overlay.destroy())
+
             btn_row = tk.Frame(top_right_panel, bg="#E7F6FF")
             btn_row.pack(pady=(10, 10), padx=40, anchor=tk.E)
 
@@ -1528,6 +1695,33 @@ class Dashboard(tk.Frame):
 
             # Lower right panel (contains branch data)
             lower_right_panel = tk.Frame(right_panel, bg="white")
+
+            if constants.SYNC_STAGE == 0:
+                # Footer bar - holds the Shortcuts button separate from the
+                # branches listing container (lower_right_panel) that follows.
+                # Packed at the BOTTOM BEFORE the expand=True branches panel
+                # below, so it reserves its own space and is never squeezed
+                # out to zero height. Only shown during the branch listing
+                # stage.
+                footer_bar = tk.Frame(right_panel, bg="white")
+                footer_bar.pack(side=tk.BOTTOM, fill=tk.X, padx=30, pady=(0, 12))
+
+                shortcuts_button = CTkButton(
+                    footer_bar,
+                    text="⌨ Shortcuts",
+                    hover_color="#F3FAFF",
+                    font=CTkFont(family="Manrope", size=12),
+                    text_color="#004BA8",
+                    fg_color="white",
+                    border_width=2,
+                    border_color="#B3D9F2",
+                    height=32,
+                    width=100,
+                    corner_radius=6,
+                    command=show_shortcuts_popup,
+                )
+                shortcuts_button.pack(side=tk.RIGHT)
+
             if constants.LOGIN_MODE == "apikey":
                 # The DEBUG banner above consumes vertical space - reclaim
                 # part of the large bottom margin so the module checkboxes
@@ -3831,6 +4025,7 @@ class Dashboard(tk.Frame):
                     height=250,
                     highlightthickness=1,
                     highlightbackground="#D0D5DD",
+                    highlightcolor="#D0D5DD",
                 )
                 menu_frame.pack_propagate(False)
                 menu_frame.place(relx=0.5, rely=0.5, anchor="center")
@@ -5182,7 +5377,7 @@ class LogViewerApp:
         title_block.pack(side=tk.LEFT, fill=tk.Y, pady=14, padx=(20, 0))
         tk.Label(
             title_block,
-            text="LOG MANAGER",
+            text="LOG VIEWER",
             bg=HEADER_BG,
             fg="#7EC8F8",
             font=("Manrope", 9, "bold"),

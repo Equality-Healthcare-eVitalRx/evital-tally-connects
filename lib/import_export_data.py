@@ -468,8 +468,10 @@ def is_tally_reachable(host=None, port=None):
             timeout=3,
         )
         return response.status_code == 200
-    except Exception:
-        LogManagerObj.write_log(traceback.format_exc())
+    except Exception as exc:
+        LogManagerObj.write_log(
+            f"Could not connect to Tally at {try_host}:{try_port} ({type(exc).__name__})."
+        )
         return False
 
 
