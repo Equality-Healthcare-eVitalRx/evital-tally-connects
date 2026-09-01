@@ -124,6 +124,7 @@ _TALLY_CFG_OVERLAY = None
 
 def _show_tally_config_popup(parent):
     global _TALLY_CFG_OVERLAY
+    s = parent.dpi_scale()
     x = parent.winfo_rootx()
     y = parent.winfo_rooty()
     w = parent.winfo_width()
@@ -162,9 +163,9 @@ def _show_tally_config_popup(parent):
         "%W",
     )
 
-    header_font2 = font.Font(family="Manrope", size=13)
-    header_font3 = font.Font(family="Manrope", size=12)
-    header_font4 = font.Font(family="Manrope", size=11)
+    header_font2 = font.Font(family="Manrope", size=int(13 * s))
+    header_font3 = font.Font(family="Manrope", size=int(12 * s))
+    header_font4 = font.Font(family="Manrope", size=int(11 * s))
 
     # Capture the screen area
     screen = ImageGrab.grab(bbox=(x, y, x + w, y + h))
@@ -201,21 +202,21 @@ def _show_tally_config_popup(parent):
     menu_frame.place(relx=0.5, rely=0.5, anchor="center")
 
     # Blue header bar (matches shortcuts/version dialog)
-    header_bar = tk.Frame(menu_frame, bg="#004BA8", height=56)
+    header_bar = tk.Frame(menu_frame, bg="#004BA8", height=int(56 * s))
     header_bar.pack(fill="x")
     header_bar.pack_propagate(False)
 
     tk.Label(
         header_bar, text="Tally Configuration", bg="#004BA8", fg="white",
-        font=font.Font(family="Manrope", size=12, weight="bold"),
-    ).pack(side="left", padx=24, pady=14)
+        font=font.Font(family="Manrope", size=int(12 * s), weight="bold"),
+    ).pack(side="left", padx=int(24 * s), pady=int(14 * s))
 
     close_icon = tk.Label(
         header_bar, text="✕", bg="#004BA8", fg="white", cursor="hand2",
-        padx=12, pady=2,
-        font=font.Font(family="Manrope", size=14, weight="bold"),
+        padx=int(12 * s), pady=int(2 * s),
+        font=font.Font(family="Manrope", size=int(14 * s), weight="bold"),
     )
-    close_icon.pack(side="right", padx=(0, 16))
+    close_icon.pack(side="right", padx=(0, int(16 * s)))
     close_icon.bind("<Enter>", lambda e: close_icon.configure(fg="#FFC9C9"))
     close_icon.bind("<Leave>", lambda e: close_icon.configure(fg="white"))
     close_icon.bind(
@@ -228,22 +229,22 @@ def _show_tally_config_popup(parent):
 
     # Body content area
     body = tk.Frame(menu_frame, bg="white")
-    body.pack(fill="both", expand=True, padx=28, pady=(18, 14))
+    body.pack(fill="both", expand=True, padx=int(28 * s), pady=(int(18 * s), int(14 * s)))
 
     # Host Entry
     host_frame = tk.Frame(body, bg="white")
-    host_frame.pack(fill=tk.X, pady=(4, 16))
+    host_frame.pack(fill=tk.X, pady=(int(4 * s), int(16 * s)))
 
     tk.Label(
         host_frame, text="Host :-", font=header_font4, bg="white"
-    ).pack(side=tk.LEFT, padx=(0, 14))
+    ).pack(side=tk.LEFT, padx=(0, int(14 * s)))
 
     tally_host_var = tk.StringVar(value=constants.HOST)
     host_entry = tk.Entry(
         host_frame,
         textvariable=tally_host_var,
         font=header_font3,
-        width=12,
+        width=int(12 * s),
         justify="center",
         bd=1,
         relief="solid",
@@ -324,18 +325,18 @@ def _show_tally_config_popup(parent):
 
     # Bottom action button frame (matches shortcuts/version dialog)
     btn_frame = tk.Frame(menu_frame, bg="white")
-    btn_frame.pack(pady=(0, 15))
+    btn_frame.pack(pady=(0, int(15 * s)))
 
     yes_button = CTkButton(
         btn_frame,
         text="Update",
-        width=140,
-        height=34,
-        corner_radius=6,
+        width=int(140 * s),
+        height=int(34 * s),
+        corner_radius=int(6 * s),
         fg_color="#007BFF",
         hover_color="#0056b3",
         text_color="white",
-        font=CTkFont(family="Manrope", size=12, weight="bold"),
+        font=CTkFont(family="Manrope", size=int(12 * s), weight="bold"),
         command=update,
     )
     yes_button.pack()
@@ -417,7 +418,8 @@ class App(tk.Tk):
 
         self.frames = {}
 
-        self.geometry("950x650")
+        self._dpi_scale = self.dpi_scale()
+        self.geometry(f"{int(950 * self._dpi_scale)}x{int(650 * self._dpi_scale)}")
         self.configure(bg="#044C9D")  # Set background to blue
         self.overrideredirect(False)
 
@@ -431,8 +433,8 @@ class App(tk.Tk):
 
         user32 = ctypes.windll.user32
         x, y = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
-        x = (x - 900) // 2
-        y = (y - 600) // 2
+        x = (x - 950 * self._dpi_scale) // 2
+        y = (y - 650 * self._dpi_scale) // 2
 
         self.geometry(f"+{str(int(x))}+{str(int(y))}")
 
@@ -441,7 +443,9 @@ class App(tk.Tk):
         # The OS/CustomTkinter can silently rescale the window (e.g. when it
         # is dragged onto a monitor with a different DPI). Remember the
         # intended size and snap back to it whenever the real size drifts.
-        self._intended_geometry = "950x650"
+        self._intended_geometry = (
+            f"{int(950 * self._dpi_scale)}x{int(650 * self._dpi_scale)}"
+        )
         self._geometry_check_job = None
         self._follow_overlays = []
         self._last_root_pos = None
@@ -495,6 +499,18 @@ class App(tk.Tk):
         self._intended_geometry = geometry
         self.geometry(geometry)
 
+    def dpi_scale(self):
+        """Return the Windows display-scaling factor (e.g. 1.5 at 150%)."""
+        try:
+            hwnd = self.winfo_id()
+            dpi = ctypes.windll.user32.GetDpiForWindow(hwnd)
+            return dpi / 96.0 if dpi else 1.0
+        except (AttributeError, OSError, tk.TclError):
+            try:
+                return self.winfo_fpixels("1i") / 96.0
+            except (tk.TclError, ZeroDivisionError):
+                return 1.0
+
     def register_follow_overlay(self, win):
         """Keep a borderless Toplevel dialog (blurred popup etc.) glued to
         the main window while it is dragged around the screen."""
@@ -514,6 +530,20 @@ class App(tk.Tk):
                 pass
 
     def _on_root_configure(self, event):
+        # Refresh the cached DPI scale when Windows moves the window between
+        # monitors. Existing screens are rebuilt by their normal navigation
+        # flow; the main window geometry is kept consistent with the active DPI.
+        if event.widget is self:
+            try:
+                current_scale = self.dpi_scale()
+                if abs(current_scale - self._dpi_scale) >= 0.01:
+                    self._dpi_scale = current_scale
+                    self._intended_geometry = (
+                        f"{int(950 * self._dpi_scale)}x{int(650 * self._dpi_scale)}"
+                    )
+            except (tk.TclError, AttributeError):
+                pass
+
         # Only react to the root window itself, and debounce so a burst of
         # Configure events (drag/resize/DPI change) triggers one check.
         if event.widget is not self:
@@ -667,26 +697,27 @@ class LoadingScreen(tk.Frame):
         super().__init__(parent, bg="#044C9D")
         self.controller = controller
         parent.title("eVital<>Tally Connects")
+        s = parent.dpi_scale()
 
-        header_font2b = font.Font(family="Manrope", size=13, weight="bold")
-        header_font3 = font.Font(family="Manrope", size=12)
+        header_font2b = font.Font(family="Manrope", size=int(13 * s), weight="bold")
+        header_font3 = font.Font(family="Manrope", size=int(12 * s))
 
         # Left panel - same artwork as the login screen
         left_panel = tk.Frame(self, bg="#044C9D")
         left_panel.pack(side=tk.LEFT, fill=tk.Y)
         try:
             image = Image.open("./lib/images/login_panel.jpg").resize(
-                (500, 600), Image.Resampling.LANCZOS
+                (int(500 * s), int(600 * s)), Image.Resampling.LANCZOS
             )
             image_tk = ImageTk.PhotoImage(image)
             image_label = tk.Label(left_panel, image=image_tk, bg="#004BA8")
             image_label.image = image_tk  # avoid garbage collection
-            image_label.pack(pady=(0, 10))
+            image_label.pack(pady=(0, int(10 * s)))
         except Exception:
             pass
 
         # Right panel - matches the login form styling
-        right_panel = tk.Frame(self, bg="white", width=450, height=650)
+        right_panel = tk.Frame(self, bg="white", width=int(450 * s), height=int(650 * s))
         right_panel.pack(side=tk.RIGHT, fill=tk.Y)
         right_panel.pack_propagate(False)
 
@@ -696,7 +727,7 @@ class LoadingScreen(tk.Frame):
             bg="white",
             font=header_font2b,
             justify=tk.LEFT,
-        ).pack(pady=(85, 0), padx=(60, 55), anchor=tk.W)
+        ).pack(pady=(int(85 * s), 0), padx=(int(60 * s), int(55 * s)), anchor=tk.W)
         tk.Label(
             right_panel,
             text="Checking Tally connection",
@@ -704,10 +735,10 @@ class LoadingScreen(tk.Frame):
             fg="#6B7280",
             font=header_font3,
             justify=tk.LEFT,
-        ).pack(pady=(6, 0), padx=(60, 55), anchor=tk.W)
+        ).pack(pady=(int(6 * s), 0), padx=(int(60 * s), int(55 * s)), anchor=tk.W)
 
-        progress = ttk.Progressbar(right_panel, mode="indeterminate", length=330)
-        progress.pack(pady=(30, 0), padx=(60, 55), anchor=tk.W)
+        progress = ttk.Progressbar(right_panel, mode="indeterminate", length=int(330 * s))
+        progress.pack(pady=(int(30 * s), 0), padx=(int(60 * s), int(55 * s)), anchor=tk.W)
         progress.start(12)
 
         # Stop the animation before the frame goes away, otherwise the
@@ -727,6 +758,7 @@ class LoginScreen(tk.Frame):
         super().__init__(parent, bg="white")
         self.controller = controller
         parent.title("eVital<>Tally Connects")
+        s = parent.dpi_scale()
         LogViewerAppObj = LogViewerApp(parent)
         parent._log_viewer = LogViewerAppObj
 
@@ -734,15 +766,15 @@ class LoginScreen(tk.Frame):
             "<Control-d>", lambda e: open_log_window(parent, e, LogViewerAppObj)
         )
 
-        header_font = font.Font(family="Manrope", size=14, weight="bold")
-        header_font1 = font.Font(family="Manrope", size=14)
-        header_font2 = font.Font(family="Manrope", size=13)
-        header_font2b = font.Font(family="Manrope", size=13, weight="bold")
-        header_font3 = font.Font(family="Manrope", size=12)
-        header_font4 = font.Font(family="Manrope", size=11)
-        header_font4b = font.Font(family="Manrope", size=11, weight="bold")
-        header_font5 = font.Font(family="Manrope", size=8)
-        header_font5b = font.Font(family="Manrope", size=8, weight="bold")
+        header_font = font.Font(family="Manrope", size=int(14 * s), weight="bold")
+        header_font1 = font.Font(family="Manrope", size=int(14 * s))
+        header_font2 = font.Font(family="Manrope", size=int(13 * s))
+        header_font2b = font.Font(family="Manrope", size=int(13 * s), weight="bold")
+        header_font3 = font.Font(family="Manrope", size=int(12 * s))
+        header_font4 = font.Font(family="Manrope", size=int(11 * s))
+        header_font4b = font.Font(family="Manrope", size=int(11 * s), weight="bold")
+        header_font5 = font.Font(family="Manrope", size=int(8 * s))
+        header_font5b = font.Font(family="Manrope", size=int(8 * s), weight="bold")
 
         def close_window():
             self.destroy()
@@ -781,9 +813,9 @@ class LoginScreen(tk.Frame):
                 password_label.pack_forget()
                 password_frame.pack_forget()
                 password_line.pack_forget()
-                apikey_label.pack(pady=(20, 0), padx=(60, 55), anchor=tk.W)
-                apikey_frame.pack(pady=4, padx=65, anchor=tk.W, fill=tk.X)
-                apikey_line.pack(pady=(0, 20), padx=65, anchor=tk.W, fill=tk.X)
+                apikey_label.pack(pady=(int(20 * s), 0), padx=(int(60 * s), int(55 * s)), anchor=tk.W)
+                apikey_frame.pack(pady=int(4 * s), padx=int(65 * s), anchor=tk.W, fill=tk.X)
+                apikey_line.pack(pady=(0, int(20 * s)), padx=int(65 * s), anchor=tk.W, fill=tk.X)
                 login_label.config(text="API Key Login")
                 apikey_entry.focus_set()
             else:
@@ -791,12 +823,12 @@ class LoginScreen(tk.Frame):
                 apikey_label.pack_forget()
                 apikey_frame.pack_forget()
                 apikey_line.pack_forget()
-                mobile_label.pack(pady=(20, 0), padx=(60, 55), anchor=tk.W)
-                mobile_frame.pack(pady=4, padx=65, anchor=tk.W, fill=tk.X)
-                mobile_line.pack(pady=(0, 10), padx=65, anchor=tk.W, fill=tk.X)
-                password_label.pack(pady=(10, 0), padx=(60, 55), anchor=tk.W)
-                password_frame.pack(pady=4, padx=65, anchor=tk.W, fill=tk.X)
-                password_line.pack(pady=(0, 20), padx=65, anchor=tk.W, fill=tk.X)
+                mobile_label.pack(pady=(int(20 * s), 0), padx=(int(60 * s), int(55 * s)), anchor=tk.W)
+                mobile_frame.pack(pady=int(4 * s), padx=int(65 * s), anchor=tk.W, fill=tk.X)
+                mobile_line.pack(pady=(0, int(10 * s)), padx=int(65 * s), anchor=tk.W, fill=tk.X)
+                password_label.pack(pady=(int(10 * s), 0), padx=(int(60 * s), int(55 * s)), anchor=tk.W)
+                password_frame.pack(pady=int(4 * s), padx=int(65 * s), anchor=tk.W, fill=tk.X)
+                password_line.pack(pady=(0, int(20 * s)), padx=int(65 * s), anchor=tk.W, fill=tk.X)
                 login_label.config(text="Login with")
                 mobile_entry.focus_set()
 
@@ -930,44 +962,44 @@ class LoginScreen(tk.Frame):
             menu_frame.place(relx=0.5, rely=0.5, anchor="center")
 
             # Blue header bar (matches config dialog)
-            header_bar = tk.Frame(menu_frame, bg="#004BA8", height=56)
+            header_bar = tk.Frame(menu_frame, bg="#004BA8", height=int(56 * s))
             header_bar.pack(fill="x")
             header_bar.pack_propagate(False)
 
             tk.Label(
                 header_bar, text="Tally Configuration", bg="#004BA8", fg="white",
-                font=font.Font(family="Manrope", size=14, weight="bold"),
-            ).pack(side="left", padx=24, pady=14)
+                font=font.Font(family="Manrope", size=int(14 * s), weight="bold"),
+            ).pack(side="left", padx=int(24 * s), pady=int(14 * s))
 
             close_icon = tk.Label(
                 header_bar, text="✕", bg="#004BA8", fg="white", cursor="hand2",
-                padx=12, pady=2,
-                font=font.Font(family="Manrope", size=14, weight="bold"),
+                padx=int(12 * s), pady=int(2 * s),
+                font=font.Font(family="Manrope", size=int(14 * s), weight="bold"),
             )
-            close_icon.pack(side="right", padx=(0, 16))
+            close_icon.pack(side="right", padx=(0, int(16 * s)))
             close_icon.bind("<Enter>", lambda e: close_icon.configure(fg="#FFC9C9"))
             close_icon.bind("<Leave>", lambda e: close_icon.configure(fg="white"))
             close_icon.bind("<Button-1>", lambda e: overlay.destroy())
 
             # Body content area
             body = tk.Frame(menu_frame, bg="white")
-            body.pack(fill="both", expand=True, padx=28, pady=(18, 14))
+            body.pack(fill="both", expand=True, padx=int(28 * s), pady=(int(18 * s), int(14 * s)))
 
             # Host Entry
             button_frame2 = tk.Frame(body, bg="white")
-            button_frame2.pack(fill=tk.X, pady=(4, 16))
+            button_frame2.pack(fill=tk.X, pady=(int(4 * s), int(16 * s)))
 
             host_label = tk.Label(
                 button_frame2, text="Host :-", font=header_font4, bg="white"
             )
-            host_label.pack(side=tk.LEFT, padx=(0, 14))
+            host_label.pack(side=tk.LEFT, padx=(0, int(14 * s)))
 
             tally_host_var = tk.StringVar(value=constants.HOST)
             host_entry = tk.Entry(
                 button_frame2,
                 textvariable=tally_host_var,
                 font=header_font3,
-                width=12,
+                width=int(12 * s),
                 justify="center",
                 bd=1,
                 relief="solid",
@@ -977,13 +1009,13 @@ class LoginScreen(tk.Frame):
 
             # Port Entry
             button_frame = tk.Frame(body, bg="white")
-            button_frame.pack(fill=tk.X, pady=(4, 16))
+            button_frame.pack(fill=tk.X, pady=(int(4 * s), int(16 * s)))
 
             tally_port_var = tk.StringVar(value=constants.TALLY_PORT)
             port_label = tk.Label(
                 button_frame, text="Port :-", font=header_font4, bg="white"
             )
-            port_label.pack(side=tk.LEFT, padx=(0, 14))
+            port_label.pack(side=tk.LEFT, padx=(0, int(14 * s)))
 
             port_entry = tk.Entry(
                 button_frame,
@@ -991,7 +1023,7 @@ class LoginScreen(tk.Frame):
                 font=header_font3,
                 validate="key",
                 validatecommand=vcmd,
-                width=12,
+                width=int(12 * s),
                 justify="center",
                 bd=1,
                 relief="solid",
@@ -1001,18 +1033,18 @@ class LoginScreen(tk.Frame):
 
             # YES button - Blue background with white text
             btn_frame = tk.Frame(menu_frame, bg="white")
-            btn_frame.pack(pady=(0, 15))
+            btn_frame.pack(pady=(0, int(15 * s)))
 
             yes_button2 = CTkButton(
                 btn_frame,
                 text="Update",
-                width=140,
-                height=34,
-                corner_radius=6,
+                width=int(140 * s),
+                height=int(34 * s),
+                corner_radius=int(6 * s),
                 fg_color="#007BFF",
                 hover_color="#0056b3",
                 text_color="white",
-                font=CTkFont(family="Manrope", size=12, weight="bold"),
+                font=CTkFont(family="Manrope", size=int(12 * s), weight="bold"),
                 command=lambda: update_tally_port(
                     overlay, tally_port_var.get(), tally_host_var.get()
                 ),
@@ -1134,7 +1166,7 @@ class LoginScreen(tk.Frame):
         # close_button = tk.Button(title_bar, text='x', font=header_font, command=close_window, bg='white', fg='#044C9D', borderwidth=0, relief=tk.SUNKEN)
         # close_button.pack(side=tk.RIGHT, padx=20, pady=15)
 
-        right_panel = tk.Frame(self, bg="white", width=450, height=650)
+        right_panel = tk.Frame(self, bg="white", width=int(450 * s), height=int(650 * s))
         right_panel.pack(side=tk.RIGHT, fill=tk.Y)
         right_panel.pack_propagate(False)
 
@@ -1203,7 +1235,7 @@ class LoginScreen(tk.Frame):
             value="eVitalSupply",
             command=update_color,
         )
-        rb2.pack(side="left", padx=(30, 0))
+        rb2.pack(side="left", padx=(int(30 * s), 0))
 
         label2 = tk.Label(
             entity_selection_frame,
@@ -1249,10 +1281,10 @@ class LoginScreen(tk.Frame):
             fg="#044C9D",
             font=header_font3,
         )
-        mobile_label.pack(pady=(20, 0), padx=(60, 55), anchor=tk.W)
+        mobile_label.pack(pady=(int(20 * s), 0), padx=(int(60 * s), int(55 * s)), anchor=tk.W)
 
         mobile_frame = tk.Frame(form_container, bg="white")
-        mobile_frame.pack(pady=4, padx=65, anchor=tk.W, fill=tk.X)
+        mobile_frame.pack(pady=int(4 * s), padx=int(65 * s), anchor=tk.W, fill=tk.X)
 
         mobile_entry = tk.Entry(
             mobile_frame,
@@ -1266,7 +1298,7 @@ class LoginScreen(tk.Frame):
         mobile_line = tk.Canvas(
             form_container, height=1, bg="#004BA8", highlightthickness=0
         )
-        mobile_line.pack(pady=(0, 10), padx=65, anchor=tk.W, fill=tk.X)
+        mobile_line.pack(pady=(0, int(10 * s)), padx=int(65 * s), anchor=tk.W, fill=tk.X)
 
         password_label = tk.Label(
             form_container,
@@ -1278,10 +1310,10 @@ class LoginScreen(tk.Frame):
             justify=tk.LEFT,
             anchor="w",
         )
-        password_label.pack(pady=(10, 0), padx=(60, 55), anchor=tk.W)
+        password_label.pack(pady=(int(10 * s), 0), padx=(int(60 * s), int(55 * s)), anchor=tk.W)
 
         password_frame = tk.Frame(form_container, bg="white")
-        password_frame.pack(pady=4, padx=65, anchor=tk.W, fill=tk.X)
+        password_frame.pack(pady=int(4 * s), padx=int(65 * s), anchor=tk.W, fill=tk.X)
 
         eye_label = tk.Label(
             password_frame,
@@ -1296,7 +1328,7 @@ class LoginScreen(tk.Frame):
         password_entry = tk.Entry(
             password_frame, bg="white", font=header_font2, bd=0, show="*"
         )
-        password_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        password_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, int(10 * s)))
 
         def on_eye_enter(event):
             eye_label.config(fg="#033D7E")
@@ -1319,7 +1351,7 @@ class LoginScreen(tk.Frame):
         password_line = tk.Canvas(
             form_container, height=1, bg="#004BA8", highlightthickness=0
         )
-        password_line.pack(pady=(0, 20), padx=65, anchor=tk.W, fill=tk.X)
+        password_line.pack(pady=(0, int(20 * s)), padx=int(65 * s), anchor=tk.W, fill=tk.X)
 
         # API Key login fields (hidden by default)
         self.login_mode = tk.StringVar(value="password")
@@ -1350,7 +1382,7 @@ class LoginScreen(tk.Frame):
         apikey_entry = tk.Entry(
             apikey_frame, bg="white", font=header_font2, bd=0, show="*"
         )
-        apikey_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        apikey_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, int(10 * s)))
 
         def on_apikey_eye_enter(event):
             apikey_eye_label.config(fg="#033D7E")
@@ -1386,13 +1418,13 @@ class LoginScreen(tk.Frame):
             hover_color="#033D7E",
             text_color="white",
             fg_color="#0CA1F6",
-            font=CTkFont(family="Manrope", size=16, weight="bold"),
-            height=42,
-            width=320,
-            corner_radius=6,
+            font=CTkFont(family="Manrope", size=int(16 * s), weight="bold"),
+            height=int(42 * s),
+            width=int(320 * s),
+            corner_radius=int(6 * s),
             command=check_login,
         )
-        login_button.pack(pady=20, padx=65)
+        login_button.pack(pady=int(20 * s), padx=int(65 * s))
 
         apikey_entry.bind("<Return>", lambda e: login_button.invoke())
         password_entry.bind("<Return>", lambda e: login_button.invoke())
@@ -1415,7 +1447,8 @@ class Dashboard(tk.Frame):
         self.parent = parent
         parent.title("eVital<>Tally Connects")
         self.checkbox_vars = {}
-        header_font5b = font.Font(family="Manrope", size=8, weight="bold")
+        s = parent.dpi_scale()
+        header_font5b = font.Font(family="Manrope", size=int(8 * s), weight="bold")
 
         # def open_log_window()
         LogViewerAppObj = LogViewerApp(parent)
@@ -1452,10 +1485,10 @@ class Dashboard(tk.Frame):
                 constants.STOP_THREAD = False
             if getattr(self, "_logout_label", None) is not None:
                 self._logout_label.pack(
-                    side=tk.BOTTOM, anchor=tk.W, pady=(0, 50), padx=30
+                    side=tk.BOTTOM, anchor=tk.W, pady=(0, int(50 * s)), padx=int(30 * s)
                 )
                 self._user_label.pack(
-                    side=tk.BOTTOM, anchor=tk.W, pady=(0, 8), padx=30
+                    side=tk.BOTTOM, anchor=tk.W, pady=(0, int(8 * s)), padx=int(30 * s)
                 )
             if (
                 right_panel.winfo_exists()
@@ -1493,7 +1526,9 @@ class Dashboard(tk.Frame):
                 "TCheckbutton", foreground="black"
             )  # Checkbutton text color
 
-            parent.apply_intended_geometry("950x650")
+            parent.apply_intended_geometry(
+                f"{int(950 * parent.dpi_scale())}x{int(650 * parent.dpi_scale())}"
+            )
 
             # Upper right panel (contains last sync and button)
             upper_right_panel = tk.Frame(right_panel, bg="#E7F6FF")
@@ -1501,11 +1536,11 @@ class Dashboard(tk.Frame):
 
             # Left and right sections inside the upper panel
             top_left_panel = tk.Frame(upper_right_panel, bg="#E7F6FF")
-            top_left_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=(50, 15))
+            top_left_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=(int(50 * s), int(15 * s)))
 
             top_right_panel = tk.Frame(upper_right_panel, bg="#E7F6FF")
             top_right_panel.pack(
-                side=tk.RIGHT, fill=tk.BOTH, expand=True, pady=(50, 15), padx=(0, 20)
+                side=tk.RIGHT, fill=tk.BOTH, expand=True, pady=(int(50 * s), int(15 * s)), padx=(0, 20)
             )
 
             # Last Sync header and time
@@ -1526,7 +1561,7 @@ class Dashboard(tk.Frame):
                 font=label_font2,
                 justify=tk.LEFT,
             )
-            last_sync_label.pack(pady=(10, 0), padx=30, anchor=tk.W)
+            last_sync_label.pack(pady=(int(10 * s), 0), padx=int(30 * s), anchor=tk.W)
 
             if (
                 constants.SYNC_STAGE == 1
@@ -1547,7 +1582,7 @@ class Dashboard(tk.Frame):
                 font=label_font2,
                 justify=tk.LEFT,
             )
-            last_sync_time.pack(pady=(0, 10), padx=30, anchor=tk.W)
+            last_sync_time.pack(pady=(0, int(10 * s)), padx=int(30 * s), anchor=tk.W)
 
             def show_shortcuts_popup(event=None):
                 overlay = tk.Toplevel(parent)
@@ -1583,21 +1618,21 @@ class Dashboard(tk.Frame):
                 menu_frame.place(relx=0.5, rely=0.5, anchor="center")
 
                 # Blue header bar (matches version update dialog)
-                header_bar = tk.Frame(menu_frame, bg="#004BA8", height=56)
+                header_bar = tk.Frame(menu_frame, bg="#004BA8", height=int(56 * s))
                 header_bar.pack(fill="x")
                 header_bar.pack_propagate(False)
 
                 header_label = tk.Label(
                     header_bar, text="Keyboard Shortcuts", bg="#004BA8",
                     fg="white",
-                    font=font.Font(family="Manrope", size=12, weight="bold"),
+                    font=font.Font(family="Manrope", size=int(12 * s), weight="bold"),
                 )
-                header_label.pack(side="left", padx=24, pady=14)
+                header_label.pack(side="left", padx=int(24 * s), pady=int(14 * s))
 
                 close_icon = tk.Label(
                     header_bar, text="✕", bg="#004BA8", fg="white",
-                    cursor="hand2", padx=12, pady=2,
-                    font=font.Font(family="Manrope", size=14, weight="bold"),
+                    cursor="hand2", padx=int(12 * s), pady=int(2 * s),
+                    font=font.Font(family="Manrope", size=int(14 * s), weight="bold"),
                 )
                 close_icon.pack(side="right", padx=(0, 16))
                 close_icon.bind("<Enter>", lambda e: close_icon.configure(fg="#FFC9C9"))
@@ -1606,15 +1641,15 @@ class Dashboard(tk.Frame):
 
                 # Body content area
                 body = tk.Frame(menu_frame, bg="white")
-                body.pack(fill="both", expand=True, padx=28, pady=(18, 14))
+                body.pack(fill="both", expand=True, padx=int(28 * s), pady=(int(18 * s), int(14 * s)))
 
                 def _keycap(parent, text):
                     return tk.Label(
                         parent, text=text,
-                        font=CTkFont(family="Consolas", size=16, weight="bold"),
+                        font=CTkFont(family="Consolas", size=int(16 * s), weight="bold"),
                         bg="#F2F4F8", fg="#1F2430",
                         relief="raised", borderwidth=2,
-                        padx=14, pady=5,
+                        padx=int(14 * s), pady=int(5 * s),
                     )
 
                 shortcuts = [
@@ -1628,13 +1663,13 @@ class Dashboard(tk.Frame):
                         if i > 0:
                             tk.Label(
                                 row, text="+",
-                                font=CTkFont(family="Manrope", size=16, weight="bold"),
+                                font=CTkFont(family="Manrope", size=int(16 * s), weight="bold"),
                                 bg="white", fg="#9AA3AD",
-                            ).pack(side=tk.LEFT, padx=7)
+                            ).pack(side=tk.LEFT, padx=int(7 * s))
                         _keycap(row, key).pack(side=tk.LEFT)
                     tk.Label(
                         row, text=desc,
-                        font=CTkFont(family="Manrope", size=17),
+                        font=CTkFont(family="Manrope", size=int(17 * s)),
                         bg="white", fg="#333333",
                         anchor="w", justify=tk.LEFT,
                     ).pack(side=tk.LEFT, padx=(25, 0), fill=tk.X, expand=True)
@@ -1646,33 +1681,33 @@ class Dashboard(tk.Frame):
                 overlay.bind("<Escape>", lambda e: overlay.destroy())
 
             btn_row = tk.Frame(top_right_panel, bg="#E7F6FF")
-            btn_row.pack(pady=(10, 10), padx=40, anchor=tk.E)
+            btn_row.pack(pady=(int(10 * s), int(10 * s)), padx=int(40 * s), anchor=tk.E)
 
             history_button = CTkButton(
                 btn_row,
                 text="🕘 History",
                 hover_color="#F3FAFF",
-                font=CTkFont(family="Manrope", size=15),
+                font=CTkFont(family="Manrope", size=int(15 * s)),
                 text_color="#004BA8",
                 fg_color="white",
                 border_width=2,
                 border_color="#B3D9F2",
-                height=42,
-                width=120,
+                height=int(42 * s),
+                width=int(120 * s),
                 corner_radius=6,
                 command=lambda: parent.show_frame("SyncHistory"),
             )
-            history_button.pack(side=tk.LEFT, padx=(0, 12))
+            history_button.pack(side=tk.LEFT, padx=(0, int(12 * s)))
 
             sync_all_button = CTkButton(
                 btn_row,
                 text=constants.SYNC_BTN_TEXT,
                 hover_color="#033D7E",
-                font=CTkFont(family="Manrope", size=16, weight="bold"),
+                font=CTkFont(family="Manrope", size=int(16 * s), weight="bold"),
                 text_color="white",
                 fg_color="#0CA1F6",
-                height=42,
-                width=120,
+                height=int(42 * s),
+                width=int(120 * s),
                 corner_radius=6,
                 command=show_sync_frame,
             )
@@ -1687,10 +1722,10 @@ class Dashboard(tk.Frame):
                     text="⚠ DEBUG MODE — Apikey Session · Server Uploads Disabled",
                     bg="#FFF3CD",
                     fg="#856404",
-                    font=("Manrope", 12, "bold"),
+                    font=("Manrope", int(12 * s), "bold"),
                 )
                 debug_banner.pack(
-                    side=tk.TOP, fill=tk.X, padx=14, pady=(18, 4)
+                    side=tk.TOP, fill=tk.X, padx=14, pady=(int(18 * s), int(4 * s))
                 )
 
             # Lower right panel (contains branch data)
@@ -1704,19 +1739,19 @@ class Dashboard(tk.Frame):
                 # out to zero height. Only shown during the branch listing
                 # stage.
                 footer_bar = tk.Frame(right_panel, bg="white")
-                footer_bar.pack(side=tk.BOTTOM, fill=tk.X, padx=30, pady=(0, 12))
+                footer_bar.pack(side=tk.BOTTOM, fill=tk.X, padx=int(30 * s), pady=(0, int(12 * s)))
 
                 shortcuts_button = CTkButton(
                     footer_bar,
                     text="⌨ Shortcuts",
                     hover_color="#F3FAFF",
-                    font=CTkFont(family="Manrope", size=12),
+                    font=CTkFont(family="Manrope", size=int(12 * s)),
                     text_color="#004BA8",
                     fg_color="white",
                     border_width=2,
                     border_color="#B3D9F2",
-                    height=32,
-                    width=100,
+                    height=int(32 * s),
+                    width=int(100 * s),
                     corner_radius=6,
                     command=show_shortcuts_popup,
                 )
@@ -1727,11 +1762,11 @@ class Dashboard(tk.Frame):
                 # part of the large bottom margin so the module checkboxes
                 # are not clipped (window size stays fixed).
                 lower_right_panel.pack(
-                    side=tk.TOP, fill=tk.X, expand=True, padx=30, pady=(0, 30)
+                    side=tk.TOP, fill=tk.X, expand=True, padx=int(30 * s), pady=(0, int(30 * s))
                 )
             else:
                 lower_right_panel.pack(
-                    side=tk.TOP, fill=tk.X, expand=True, padx=30, pady=(0, 80)
+                    side=tk.TOP, fill=tk.X, expand=True, padx=int(30 * s), pady=(0, int(80 * s))
                 )
 
             if constants.SYNC_STAGE == 0:
@@ -1782,7 +1817,7 @@ class Dashboard(tk.Frame):
                     font=label_font,
                     justify=tk.LEFT,
                 )
-                branches_label.pack(pady=(30, 5), padx=5, anchor=tk.W)
+                branches_label.pack(pady=(int(30 * s), int(5 * s)), padx=int(5 * s), anchor=tk.W)
 
                 canvas = tk.Canvas(
                     lower_right_panel,
@@ -1790,7 +1825,7 @@ class Dashboard(tk.Frame):
                     bd=0,
                     highlightthickness=0,
                     relief="ridge",
-                    height=350,
+                    height=int(350 * s),
                 )
                 scrollbar = ttk.Scrollbar(
                     lower_right_panel, orient="vertical", command=canvas.yview
@@ -1898,10 +1933,10 @@ class Dashboard(tk.Frame):
                     CHEVRON = "#C9D2DC"
                     LIST_BG = "#F3F6F9"
 
-                    MENU_WIDTH = 460
-                    ROW_HEIGHT = 46
-                    ROW_PAD_Y = 6
-                    MAX_LIST_HEIGHT = 368
+                    MENU_WIDTH = int(460 * s)
+                    ROW_HEIGHT = int(46 * s)
+                    ROW_PAD_Y = int(6 * s)
+                    MAX_LIST_HEIGHT = int(368 * s)
                     MAX_VISIBLE_ROWS = MAX_LIST_HEIGHT // (ROW_HEIGHT + ROW_PAD_Y)
 
                     # Centered menu with a subtle border
@@ -1927,7 +1962,7 @@ class Dashboard(tk.Frame):
                         fg="#9DD3FF",
                         font=small_font,
                         anchor=tk.W,
-                    ).pack(anchor=tk.W, pady=(0, 3))
+                    ).pack(anchor=tk.W, pady=(0, int(3 * s)))
 
                     branch_name = branch_data["name"]
                     if len(branch_name) > 55:
@@ -1940,8 +1975,8 @@ class Dashboard(tk.Frame):
                         font=header_font,
                         anchor=tk.W,
                         justify=tk.LEFT,
-                        wraplength=330,
-                    ).pack(anchor=tk.W, pady=(0, 3))
+                        wraplength=int(330 * s),
+                    ).pack(anchor=tk.W, pady=(0, int(3 * s)))
                     tk.Label(
                         header_text,
                         text="Select a Tally company to map this branch",
@@ -1958,8 +1993,8 @@ class Dashboard(tk.Frame):
                         fg="white",
                         font=header_font2,
                         cursor="hand2",
-                        padx=14,
-                        pady=8,
+                        padx=int(14 * s),
+                        pady=int(8 * s),
                     )
                     close_btn.pack(side=tk.RIGHT, padx=(4, 10))
                     close_btn.bind("<Button-1>", lambda e: overlay.destroy())
@@ -1975,7 +2010,7 @@ class Dashboard(tk.Frame):
                         fg=MUTED,
                         font=label_font,
                         anchor=tk.W,
-                    ).pack(fill=tk.X, padx=20, pady=(14, 4))
+                    ).pack(fill=tk.X, padx=int(20 * s), pady=(int(14 * s), int(4 * s)))
 
                     list_wrapper = tk.Frame(
                         menu_frame,
@@ -1983,7 +2018,7 @@ class Dashboard(tk.Frame):
                         highlightbackground=BORDER,
                         highlightthickness=1,
                     )
-                    list_wrapper.pack(fill=tk.X, padx=20, pady=(0, 16))
+                    list_wrapper.pack(fill=tk.X, padx=int(20 * s), pady=(0, int(16 * s)))
 
                     canvas2 = tk.Canvas(
                         list_wrapper, bg=LIST_BG, bd=0, highlightthickness=0, relief="flat"
@@ -2051,7 +2086,7 @@ class Dashboard(tk.Frame):
                             highlightthickness=1,
                         )
                         row.configure(height=ROW_HEIGHT)
-                        row.pack(fill=tk.X, padx=6, pady=3)
+                        row.pack(fill=tk.X, padx=int(6 * s), pady=int(3 * s))
                         row.pack_propagate(False)
 
                         needs_tip = label_font.measure(option) > name_avail
@@ -2106,9 +2141,9 @@ class Dashboard(tk.Frame):
                                     fg="white",
                                     font=small_font,
                                     justify=tk.LEFT,
-                                    wraplength=380,
-                                    padx=10,
-                                    pady=6,
+                                    wraplength=int(380 * s),
+                                    padx=int(10 * s),
+                                    pady=int(6 * s),
                                 ).pack()
                                 tip_state["win"] = tip
                             except tk.TclError:
@@ -2313,7 +2348,7 @@ class Dashboard(tk.Frame):
                             font=label_font,
                             justify=tk.LEFT,
                         )
-                        mapped_status.pack(anchor=tk.W, padx=(5, 10), side=tk.LEFT)
+                        mapped_status.pack(anchor=tk.W, padx=(int(5 * s), int(10 * s)), side=tk.LEFT)
 
                         remove_label = tk.Label(
                             branch_left_frame,
@@ -2364,10 +2399,10 @@ class Dashboard(tk.Frame):
                     bg="white",
                     fg="#444",
                     font=header_font3,
-                ).pack(anchor="w", padx=(0, 10))
+                ).pack(anchor="w", padx=(0, int(10 * s)))
 
                 company_row = tk.Frame(left_top, bg="white")
-                company_row.pack(fill=tk.X, pady=(5, 0), padx=(5, 0))
+                company_row.pack(fill=tk.X, pady=(int(5 * s), 0), padx=(int(5 * s), 0))
 
                 company_options = {
                     x["company_guid"]: x["company_name"]
@@ -2459,19 +2494,19 @@ class Dashboard(tk.Frame):
                     fg="#333",
                     activebackground="white",
                     activeforeground="#333",
-                    font=("Segoe UI", 10),
+                    font=("Segoe UI", int(10 * s)),
                     bd=0,
                     highlightthickness=0,
                     relief="flat",
                     cursor="hand2",
                     indicatoron=False,
-                    width=20,
-                    padx=4,
-                    pady=2,
+                    width=int(20 * s),
+                    padx=int(4 * s),
+                    pady=int(2 * s),
                     anchor=tk.W,
                 )
                 company_dropdown.pack(
-                    side=tk.LEFT, padx=(10, 0), pady=3
+                    side=tk.LEFT, padx=(int(10 * s), 0), pady=int(3 * s)
                 )
 
                 arrow = tk.Label(
@@ -2480,7 +2515,7 @@ class Dashboard(tk.Frame):
                     bg="white",
                     fg="#0CA1F6",
                     cursor="hand2",
-                    font=("Segoe UI", 10, "bold"),
+                    font=("Segoe UI", int(10 * s), "bold"),
                 )
                 arrow.pack(side=tk.RIGHT, padx=(4, 10))
 
@@ -2494,13 +2529,13 @@ class Dashboard(tk.Frame):
                     highlightthickness=1,
                     bd=0,
                 )
-                sync_box.pack(side=tk.LEFT, padx=(0, 10), pady=3)
+                sync_box.pack(side=tk.LEFT, padx=(0, int(10 * s)), pady=int(3 * s))
 
                 branch_image_path = ".\\lib\\images\\sync_btn.png"
                 try:
                     branch_image = Image.open(branch_image_path).convert("RGBA")
                     branch_image = branch_image.resize(
-                        (24, 24), Image.Resampling.LANCZOS
+                        (int(24 * s), int(24 * s)), Image.Resampling.LANCZOS
                     )
                     branch_image_tk = ImageTk.PhotoImage(branch_image)
                 except Exception as e:
@@ -2510,13 +2545,13 @@ class Dashboard(tk.Frame):
                 if branch_image_tk:
                     sync_icon = tk.Canvas(
                         sync_box,
-                        width=29,
-                        height=29,
+                        width=int(29 * s),
+                        height=int(29 * s),
                         bg="white",
                         cursor="hand2",
                         highlightthickness=0,
                     )
-                    sync_icon.pack(padx=5, pady=2)
+                    sync_icon.pack(padx=int(5 * s), pady=int(2 * s))
                     image_id = sync_icon.create_image(
                         int(sync_icon["width"]) / 2,
                         int(sync_icon["height"]) / 2,
@@ -2569,7 +2604,7 @@ class Dashboard(tk.Frame):
                         fg="black",
                         font=label_font,
                     )
-                    branch_image_label.pack(padx=6, pady=4)
+                    branch_image_label.pack(padx=int(6 * s), pady=int(4 * s))
 
                 dd_menu = company_dropdown["menu"]
                 dd_menu.config(
@@ -2578,7 +2613,7 @@ class Dashboard(tk.Frame):
                     fg="#333",
                     activebackground="#E7F6FF",
                     activeforeground="#0CA1F6",
-                    font=("Segoe UI", 10),
+                    font=("Segoe UI", int(10 * s)),
                     bd=0,
                     relief=tk.FLAT,
                 )
@@ -2599,7 +2634,7 @@ class Dashboard(tk.Frame):
                         # postcommand can fire after the dashboard was rebuilt.
                         if not company_dropdown.winfo_exists():
                             return
-                        f = tk.font.Font(font=("Segoe UI", 10))
+                        f = tk.font.Font(font=("Segoe UI", int(10 * s)))
                         btn_w = company_dropdown.winfo_width()
                         try:
                             max_w = (
@@ -2649,9 +2684,9 @@ class Dashboard(tk.Frame):
                         text=text,
                         bg="#333",
                         fg="white",
-                        font=("Segoe UI", 10),
-                        padx=10,
-                        pady=5,
+                        font=("Segoe UI", int(10 * s)),
+                        padx=int(10 * s),
+                        pady=int(5 * s),
                         justify=tk.LEFT,
                     ).pack()
                     tip._tip_text = text
@@ -2858,7 +2893,7 @@ class Dashboard(tk.Frame):
 
                 # ---- RIGHT: SYNC PERIOD ----
                 right_top = tk.Frame(top_panel, bg="white")
-                right_top.pack(side=tk.RIGHT, padx=(0, 10))
+                right_top.pack(side=tk.RIGHT, padx=(0, int(10 * s)))
 
                 tk.Label(
                     right_top,
@@ -2866,17 +2901,17 @@ class Dashboard(tk.Frame):
                     bg="white",
                     fg="#444",
                     font=header_font3,
-                ).pack(anchor="w", padx=(5, 0))
+                ).pack(anchor="w", padx=(int(5 * s), 0))
 
                 date_row = tk.Frame(right_top, bg="white")
-                date_row.pack(pady=(5, 0), padx=(5, 10))
+                date_row.pack(pady=(int(5 * s), 0), padx=(int(5 * s), int(10 * s)))
 
                 constants.SYNC_START_DATE = tk.StringVar()
                 constants.SYNC_END_DATE = tk.StringVar()
 
                 # ================= MODULES SECTION =================
                 bottom_panel = tk.Frame(lower_right_panel, bg="white")
-                bottom_panel.pack(fill=tk.BOTH, expand=True, padx=0, pady=(20, 20))
+                bottom_panel.pack(fill=tk.BOTH, expand=True, padx=0, pady=(int(20 * s), int(20 * s)))
 
                 tk.Label(
                     bottom_panel,
@@ -2884,15 +2919,15 @@ class Dashboard(tk.Frame):
                     bg="white",
                     fg="#444",
                     font=header_font3,
-                ).pack(anchor="w", pady=(0, 10))
+                ).pack(anchor="w", pady=(0, int(10 * s)))
 
                 # Split left/right sections
                 left_section = tk.Frame(bottom_panel, bg="white")
-                left_section.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
+                left_section.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, int(10 * s)))
 
                 right_section = tk.Frame(bottom_panel, bg="white")
                 right_section.pack(
-                    side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(10, 10)
+                    side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(int(10 * s), int(10 * s))
                 )
 
                 def update_module_selection():
@@ -2907,7 +2942,7 @@ class Dashboard(tk.Frame):
 
                 def create_module_section(parent, title, modules):
                     section = tk.Frame(parent, bg="white")
-                    section.pack(fill=tk.X, pady=10, padx=(10, 0))
+                    section.pack(fill=tk.X, pady=int(10 * s), padx=(int(10 * s), 0))
                     # print("Section created:", title)
                     # print("Modules:", modules)
 
@@ -2936,7 +2971,7 @@ class Dashboard(tk.Frame):
 
                     # Grid
                     grid = tk.Frame(section, bg="white")
-                    grid.pack(fill=tk.X, pady=(5, 0))
+                    grid.pack(fill=tk.X, pady=(int(5 * s), 0))
 
                     # print("m,ap|",constants.MAPPING_HISTORY)
                     # constants.MAPPING_HISTORY["login_entity_stock_transfer_import_enabled"] = True
@@ -2961,7 +2996,7 @@ class Dashboard(tk.Frame):
                             command=update_module_selection,
                         )
 
-                        cb.grid(row=row, column=col, padx=10, pady=5, sticky="ew")
+                        cb.grid(row=row, column=col, padx=int(10 * s), pady=int(5 * s), sticky="ew")
                         self.checkbox_vars[module] = var
 
                         grid.grid_columnconfigure(col, weight=1)
@@ -3034,11 +3069,11 @@ class Dashboard(tk.Frame):
                         bordercolor="#004494",  # match header blue
                         borderwidth=2,
                         # --- Font ---
-                        font=("Manrope", 10),
-                        headersfont=("Manrope", 10, "bold"),
+                        font=("Manrope", int(10 * s)),
+                        headersfont=("Manrope", int(10 * s), "bold"),
                     )
 
-                    cal.pack(padx=10, pady=10)
+                    cal.pack(padx=int(10 * s), pady=int(10 * s))
 
                     def select_date(event=None):
                         var.set(cal.get_date())
@@ -3080,7 +3115,7 @@ class Dashboard(tk.Frame):
                         textvariable=var,
                         width=10,
                         bd=0,
-                        font=("Segoe UI", 10),
+                        font=("Segoe UI", int(10 * s)),
                         justify="center",
                         state="readonly",
                         readonlybackground="white",
@@ -3094,7 +3129,7 @@ class Dashboard(tk.Frame):
                         text="📅",
                         bg="white",
                         fg="#666",
-                        font=("Segoe UI", 10),
+                        font=("Segoe UI", int(10 * s)),
                         cursor="hand2",
                     )
                     icon.pack(side=tk.RIGHT, padx=6)
@@ -3115,7 +3150,7 @@ class Dashboard(tk.Frame):
                     date_row, constants.SYNC_START_DATE, open_calendar
                 )
 
-                tk.Label(date_row, text="to", bg="white", font=("Segoe UI", 10)).pack(
+                tk.Label(date_row, text="to", bg="white", font=("Segoe UI", int(10 * s))).pack(
                     side=tk.LEFT
                 )
 
@@ -3451,7 +3486,7 @@ class Dashboard(tk.Frame):
                     self._user_label.pack_forget()
 
                 # right_panel.config(background="#E7F6FF")
-                right_panel2 = tk.Frame(right_panel, width=900, bg="#E7F6FF")
+                right_panel2 = tk.Frame(right_panel, width=int(900 * s), bg="#E7F6FF")
                 right_panel2.pack(fill=tk.BOTH, expand=True)
                 # title_bar = tk.Frame(right_panel2, width=900, bg="#E7F6FF")
                 # title_bar.pack(fill=tk.X)
@@ -3465,7 +3500,7 @@ class Dashboard(tk.Frame):
                 try:
                     gif = Image.open(gif_path)
                     frames = []
-                    size = (350, 350)  # Set your desired size (width, height)
+                    size = (int(350 * s), int(350 * s))  # Set your desired size (width, height)
                     for frame in ImageSequence.Iterator(gif):
                         processed_frame = process_frame(frame, size)
                         tk_frame = ImageTk.PhotoImage(processed_frame)
@@ -3492,16 +3527,16 @@ class Dashboard(tk.Frame):
                     fg_color="#ED5A4A",
                     text_color="white",
                     hover_color="#C93A2B",
-                    font=CTkFont(family="Manrope", size=16, weight="bold"),
-                    height=35,
-                    width=85,
+                    font=CTkFont(family="Manrope", size=int(16 * s), weight="bold"),
+                    height=int(35 * s),
+                    width=int(85 * s),
                     command=stop_thread_process,
                 )
 
                 gif_label = tk.Label(right_panel2, bg="#E7F6FF")
                 gif_label.pack(anchor=tk.N, pady=(60, 20))
 
-                version_label.pack(pady=(0, 20), padx=40, anchor=tk.N)
+                version_label.pack(pady=(0, 20), padx=int(40 * s), anchor=tk.N)
 
                 sync_all_button.pack(padx=40)
                 # sync_all_button.config(r)
@@ -3518,12 +3553,12 @@ class Dashboard(tk.Frame):
             # self.after(0, re_create_main_content)
 
         # Custom fonts
-        header_font = font.Font(family="Manrope", size=14, weight="bold")
-        header_font2 = font.Font(family="Manrope", size=12, weight="bold")
-        header_font3 = font.Font(family="Manrope", size=10, weight="bold")
-        label_font = font.Font(family="Manrope", size=10)
-        label_font2 = font.Font(family="Manrope", size=12)
-        small_font = font.Font(family="Manrope", size=9)
+        header_font = font.Font(family="Manrope", size=int(14 * s), weight="bold")
+        header_font2 = font.Font(family="Manrope", size=int(12 * s), weight="bold")
+        header_font3 = font.Font(family="Manrope", size=int(10 * s), weight="bold")
+        label_font = font.Font(family="Manrope", size=int(10 * s))
+        label_font2 = font.Font(family="Manrope", size=int(12 * s))
+        small_font = font.Font(family="Manrope", size=int(9 * s))
 
         # Add a title label to the custom title bar
         # title_label = tk.Label(title_bar, text="Custom Title Bar - Approach 3", bg='gray', fg='white')
@@ -3571,7 +3606,7 @@ class Dashboard(tk.Frame):
 
                 # Centered menu
                 menu_frame = tk.Frame(
-                    overlay, bg="white", bd=2, relief="ridge", padx=10, pady=10
+                    overlay, bg="white", bd=2, relief="ridge", padx=int(10 * s), pady=int(10 * s)
                 )
                 menu_frame.place(relx=0.5, rely=0.5, anchor="center")
 
@@ -3590,14 +3625,14 @@ class Dashboard(tk.Frame):
                 yes_button = CTkButton(
                     button_frame,
                     text="Yes",
-                    width=100,
-                    height=34,
+                    width=int(100 * s),
+                    height=int(34 * s),
                     corner_radius=6,
                     bg_color="white",
                     fg_color="#007BFF",
                     hover_color="#0056b3",
                     text_color="white",
-                    font=CTkFont(family="Manrope", size=13),
+                    font=CTkFont(family="Manrope", size=int(13 * s)),
                     command=lambda x=overlay: logout_account(x),
                 )
                 yes_button.pack(side="left", padx=10)
@@ -3606,8 +3641,8 @@ class Dashboard(tk.Frame):
                 no_button = CTkButton(
                     button_frame,
                     text="No",
-                    width=100,
-                    height=34,
+                    width=int(100 * s),
+                    height=int(34 * s),
                     corner_radius=6,
                     bg_color="white",
                     fg_color="white",
@@ -3615,7 +3650,7 @@ class Dashboard(tk.Frame):
                     text_color="#007BFF",
                     border_width=2,
                     border_color="#007BFF",
-                    font=CTkFont(family="Manrope", size=13),
+                    font=CTkFont(family="Manrope", size=int(13 * s)),
                     command=lambda x=overlay: x.destroy(),
                 )
                 no_button.pack(side="left", padx=10)
@@ -3628,7 +3663,7 @@ class Dashboard(tk.Frame):
                 # Bind click outside the menu to close the overlay
                 overlay.bind("<Button-1>", on_click_outside)
 
-            upper_left_panel = tk.Frame(left_panel, bg="#033D7E", height=150, width=200)
+            upper_left_panel = tk.Frame(left_panel, bg="#033D7E", height=int(150 * s), width=int(200 * s))
             upper_left_panel.pack(anchor=tk.N, fill=tk.X)
 
             # "eVital<>Tally Connects" header
@@ -3666,7 +3701,7 @@ class Dashboard(tk.Frame):
             version_label.grid(row=3, column=0, sticky="w", padx=30)
             upper_left_panel.pack_propagate(False)
 
-            lower_left_panel = tk.Frame(left_panel, bg="#004BA8", height=150, width=200)
+            lower_left_panel = tk.Frame(left_panel, bg="#004BA8", height=int(150 * s), width=int(200 * s))
             lower_left_panel.pack(anchor=tk.W)
             # Auto Sync Section
             # auto_sync_label = tk.Label(lower_left_panel, text="Auto Sync", bg="#004BA8", fg="white", font=label_font, justify=tk.LEFT)
@@ -3795,12 +3830,12 @@ class Dashboard(tk.Frame):
                 bg_label.pack(fill="both", expand=True)
 
                 # Centered menu dimensions
-                menu_w, menu_h = 250, 330
+                menu_w, menu_h = int(250 * s), int(330 * s)
                 menu_x = (w // 2) - (menu_w // 2)  # Center horizontally
                 menu_y = (h // 2) - (menu_h // 2)  # Center vertically
 
                 # Create a Canvas for rounded border
-                radius = 20
+                radius = int(20 * s)
                 menu_canvas = tk.Canvas(
                     overlay,
                     width=menu_w,
@@ -3831,7 +3866,7 @@ class Dashboard(tk.Frame):
                 tk.Label(
                     menu_frame,
                     text="Auto Sync",
-                    font=("Manrope", 12, "bold"),
+                    font=("Manrope", int(12 * s), "bold"),
                     bg="white",
                 ).pack(pady=(10, 5), padx=40)
 
@@ -3842,7 +3877,7 @@ class Dashboard(tk.Frame):
                     "Wild.TRadiobutton",
                     background="white",
                     foreground="black",
-                    font=("Manrope", 11),
+                    font=("Manrope", int(11 * s)),
                 )
 
                 for option in options:
@@ -3989,7 +4024,7 @@ class Dashboard(tk.Frame):
                 font=small_font,
                 anchor=tk.W,
             )
-            update_btn.pack(padx=30, pady=(10, 0), anchor=tk.W)
+            update_btn.pack(padx=int(30 * s), pady=(int(10 * s), 0), anchor=tk.W)
 
             def _on_check_updates():
                 import updater
@@ -4021,8 +4056,8 @@ class Dashboard(tk.Frame):
                 menu_frame = tk.Frame(
                     overlay,
                     bg="white",
-                    width=520,
-                    height=250,
+                    width=int(520 * s),
+                    height=int(250 * s),
                     highlightthickness=1,
                     highlightbackground="#D0D5DD",
                     highlightcolor="#D0D5DD",
@@ -4031,53 +4066,53 @@ class Dashboard(tk.Frame):
                 menu_frame.place(relx=0.5, rely=0.5, anchor="center")
 
                 def _resize_card(height):
-                    menu_frame.configure(width=520, height=height)
+                    menu_frame.configure(width=int(520 * s), height=height)
                     menu_frame.place(relx=0.5, rely=0.5, anchor="center")
                     overlay.update_idletasks()
 
                 # Blue header bar
-                header_bar = tk.Frame(menu_frame, bg="#004BA8", height=56)
+                header_bar = tk.Frame(menu_frame, bg="#004BA8", height=int(56 * s))
                 header_bar.pack(fill="x")
                 header_bar.pack_propagate(False)
                 header_label = tk.Label(
                     header_bar, text="Version Update", bg="#004BA8", fg="white",
-                    font=font.Font(family="Manrope", size=14, weight="bold"),
+                    font=font.Font(family="Manrope", size=int(14 * s), weight="bold"),
                 )
-                header_label.pack(side="left", padx=24, pady=14)
+                header_label.pack(side="left", padx=int(24 * s), pady=int(14 * s))
 
                 # Body content area
                 body = tk.Frame(menu_frame, bg="white")
-                body.pack(fill="both", expand=True, padx=28, pady=(18, 14))
+                body.pack(fill="both", expand=True, padx=int(28 * s), pady=(int(18 * s), int(14 * s)))
 
                 status_var = tk.StringVar(value="Checking for updates...")
                 status_label = tk.Label(
                     body, textvariable=status_var, bg="white", fg="#1F2430",
-                    font=font.Font(family="Manrope", size=13, weight="bold"),
+                    font=font.Font(family="Manrope", size=int(13 * s), weight="bold"),
                 )
-                status_label.pack(anchor=tk.W, pady=(0, 6))
+                status_label.pack(anchor=tk.W, pady=(0, int(6 * s)))
 
                 detail_var = tk.StringVar(value="")
                 detail_label = tk.Label(
                     body, textvariable=detail_var, bg="white", fg="#7E878C",
-                    font=font.Font(family="Manrope", size=11),
+                    font=font.Font(family="Manrope", size=int(11 * s)),
                 )
-                detail_label.pack(anchor=tk.W, pady=(0, 10))
+                detail_label.pack(anchor=tk.W, pady=(0, int(10 * s)))
 
                 # Release notes (scrollable, hidden by default)
                 notes_container = tk.Frame(body, bg="white")
                 notes_label = tk.Label(
                     notes_container, text="What's new", bg="white", fg="#7E878C",
-                    font=font.Font(family="Manrope", size=10, weight="bold"),
+                    font=font.Font(family="Manrope", size=int(10 * s), weight="bold"),
                     anchor=tk.W,
                 )
-                notes_label.pack(anchor=tk.W, pady=(0, 6))
+                notes_label.pack(anchor=tk.W, pady=(0, int(6 * s)))
                 notes_frame = tk.Frame(notes_container, bg="#EEF4FA",
                                        highlightthickness=1, highlightbackground="#D0D5DD")
                 notes_frame.pack(fill="x")
                 notes_text = tk.Text(
                     notes_frame, bg="#EEF4FA", fg="#333333", wrap=tk.WORD,
-                    font=font.Font(family="Manrope", size=10),
-                    height=5, bd=0, padx=14, pady=10,
+                    font=font.Font(family="Manrope", size=int(10 * s)),
+                    height=5, bd=0, padx=int(14 * s), pady=int(10 * s),
                     state=tk.DISABLED, cursor="arrow",
                     selectbackground="#EEF4FA", selectforeground="#EEF4FA",
                 )
@@ -4140,18 +4175,18 @@ class Dashboard(tk.Frame):
                         notes_container.update_idletasks()
 
                         notes_height_px = notes_container.winfo_reqheight()
-                        card_height = max(370, 250 + notes_height_px)
+                        card_height = max(int(370 * s), int(250 * s) + notes_height_px)
                         _resize_card(card_height)
                     else:
                         notes_container.pack_forget()
-                        _resize_card(250)
+                        _resize_card(int(250 * s))
                         
                 def _hide_notes():
                     notes_container.pack_forget()
 
                 progress_frame = tk.Frame(body, bg="white")
-                progress_frame.pack(fill="x", pady=(0, 10))
-                progress_bar = ttk.Progressbar(progress_frame, length=370, mode="determinate")
+                progress_frame.pack(fill="x", pady=(0, int(10 * s)))
+                progress_bar = ttk.Progressbar(progress_frame, length=int(370 * s), mode="determinate")
                 progress_bar.pack()
                 progress_bar["value"] = 0
 
@@ -4159,7 +4194,7 @@ class Dashboard(tk.Frame):
                 btn_frame.pack(pady=(0, 15))
 
                 def _set_indeterminate():
-                    progress_frame.pack(fill="x", pady=(0, 10))
+                    progress_frame.pack(fill="x", pady=(0, int(10 * s)))
                     progress_bar.configure(mode="indeterminate")
                     progress_bar.start(15)
 
@@ -4178,12 +4213,12 @@ class Dashboard(tk.Frame):
                     btn_frame.pack_forget()
 
                 def _add_close_button():
-                    btn_frame.pack(pady=(0, 15))
+                    btn_frame.pack(pady=(0, int(15 * s)))
                     CTkButton(
-                        btn_frame, text="OK", width=120, height=34,
+                        btn_frame, text="OK", width=int(120 * s), height=int(34 * s),
                         corner_radius=6, fg_color="#007BFF", hover_color="#0056b3",
                         text_color="white",
-                        font=CTkFont(family="Manrope", size=12, weight="bold"),
+                        font=CTkFont(family="Manrope", size=int(12 * s), weight="bold"),
                         command=overlay.destroy,
                     ).pack()
 
@@ -4198,18 +4233,18 @@ class Dashboard(tk.Frame):
                     btn_frame.pack(pady=(0, 15))
                     if _is_force:
                         CTkButton(
-                            btn_frame, text="Retry", width=120, height=34,
+                            btn_frame, text="Retry", width=int(120 * s), height=int(34 * s),
                             corner_radius=6, fg_color="#D93025", hover_color="#b71c1c",
                             text_color="white",
-                            font=CTkFont(family="Manrope", size=12, weight="bold"),
+                            font=CTkFont(family="Manrope", size=int(12 * s), weight="bold"),
                             command=_start_download,
                         ).pack()
                     else:
                         CTkButton(
-                            btn_frame, text="OK", width=120, height=34,
+                            btn_frame, text="OK", width=int(120 * s), height=int(34 * s),
                             corner_radius=6, fg_color="#007BFF", hover_color="#0056b3",
                             text_color="white",
-                            font=CTkFont(family="Manrope", size=12, weight="bold"),
+                            font=CTkFont(family="Manrope", size=int(12 * s), weight="bold"),
                             command=overlay.destroy,
                         ).pack()
 
@@ -4257,29 +4292,29 @@ class Dashboard(tk.Frame):
                         detail_var.set("This update is required to continue.")
                         btn_frame.pack(pady=(0, 15))
                         CTkButton(
-                            btn_frame, text="Update Now", width=200, height=34,
+                            btn_frame, text="Update Now", width=int(200 * s), height=int(34 * s),
                             corner_radius=6, fg_color="#D93025", hover_color="#b71c1c",
                             text_color="white",
-                            font=CTkFont(family="Manrope", size=12, weight="bold"),
+                            font=CTkFont(family="Manrope", size=int(12 * s), weight="bold"),
                             command=_start_download,
                         ).pack()
                     else:
                         detail_label.config(fg="#7E878C")
                         status_var.set(f"Version v{_update_info['latest_version']} is available")
                         detail_var.set(f"You're on v{_update_info['current_version']}")
-                        btn_frame.pack(pady=(0, 15))
+                        btn_frame.pack(pady=(0, int(15 * s)))
                         CTkButton(
-                            btn_frame, text="Update Now", width=120, height=34,
+                            btn_frame, text="Update Now", width=int(120 * s), height=int(34 * s),
                             corner_radius=6, fg_color="#007BFF", hover_color="#0056b3",
                             text_color="white",
-                            font=CTkFont(family="Manrope", size=12, weight="bold"),
+                            font=CTkFont(family="Manrope", size=int(12 * s), weight="bold"),
                             command=_start_download,
-                        ).pack(side="left", padx=(0, 10))
+                        ).pack(side="left", padx=(0, int(10 * s)))
                         CTkButton(
-                            btn_frame, text="Cancel", width=100, height=34,
+                            btn_frame, text="Cancel", width=int(100 * s), height=int(34 * s),
                             corner_radius=6, fg_color="white", hover_color="#f0f4f8",
                             text_color="#333333", border_width=1, border_color="#E3E8EF",
-                            font=CTkFont(family="Manrope", size=12),
+                            font=CTkFont(family="Manrope", size=int(12 * s)),
                             command=overlay.destroy,
                         ).pack(side="left")
 
@@ -4369,7 +4404,7 @@ class Dashboard(tk.Frame):
                 font=header_font2,
                 anchor=tk.W,
                 justify=tk.LEFT,
-                wraplength=160,
+                wraplength=int(160 * s),
             )
 
             # logout_label = tk.Button(left_panel, text="Logout >", bg="#004BA8", fg="white",
@@ -4384,15 +4419,15 @@ class Dashboard(tk.Frame):
                 font=label_font2,
                 anchor=tk.W,
                 justify=tk.LEFT,
-                wraplength=160,
+                wraplength=int(160 * s),
             )
             logout_label.pack(
-                side=tk.BOTTOM, anchor=tk.W, pady=(0, 50), padx=30
+                side=tk.BOTTOM, anchor=tk.W, pady=(0, int(50 * s)), padx=int(30 * s)
             )
             logout_label.bind("<Button-1>", show_logout_popup)
 
             user_label.pack(
-                side=tk.BOTTOM, anchor=tk.W, pady=(0, 8), padx=30
+                side=tk.BOTTOM, anchor=tk.W, pady=(0, int(8 * s)), padx=int(30 * s)
             )
 
             self._logout_label = logout_label
@@ -4442,7 +4477,7 @@ class Dashboard(tk.Frame):
         #     fg="black",
         #     font=header_font5b
         # )
-        # title_label.pack(side=tk.LEFT, padx=(5, 0), pady=(3,0))
+        # title_label.pack(side=tk.LEFT, padx=(int(5 * s), 0), pady=(3,0))
 
         # Close button (right side)
         # close_button = tk.Label(
@@ -4476,11 +4511,11 @@ class Dashboard(tk.Frame):
 
         # close_button.bind("<Button-1>", lambda e: close_window())
 
-        left_panel = tk.Frame(self, bg="#004BA8", width=220, height=600)
+        left_panel = tk.Frame(self, bg="#004BA8", width=int(220 * s), height=int(600 * s))
         left_panel.pack(side=tk.LEFT, fill=tk.Y)
 
         left_panel.pack_propagate(False)
-        right_panel = tk.Frame(self, bg="white", width=600, height=150)
+        right_panel = tk.Frame(self, bg="white", width=int(600 * s), height=int(150 * s))
         right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
         create_left_content()
@@ -4515,6 +4550,11 @@ class SyncHistoryScreen(tk.Frame):
         self.controller = controller
         self.parent = parent
         parent.title("eVital<>Tally Connects")
+        s = parent.dpi_scale()
+        self.HEAD_H = int(self.HEAD_H * s)
+        self.ROW_H = int(self.ROW_H * s)
+        self.PAD_L = int(self.PAD_L * s)
+        self.PAD_R = int(self.PAD_R * s)
 
         ACCENT = "#0CA1F6"
         HEADER_BG = "#004BA8"
@@ -4526,14 +4566,14 @@ class SyncHistoryScreen(tk.Frame):
         ZEBRA_BG = "#F0F4F8"
         HEAD_BG = "#EEF4FA"
 
-        f_title = font.Font(family="Manrope", size=15, weight="bold")
-        f_eyebrow = font.Font(family="Manrope", size=9, weight="bold")
-        f_h3 = font.Font(family="Manrope", size=11, weight="bold")
-        f_body = font.Font(family="Manrope", size=10)
-        f_body_b = font.Font(family="Manrope", size=10, weight="bold")
-        f_small = font.Font(family="Manrope", size=9)
-        f_small_b = font.Font(family="Manrope", size=9, weight="bold")
-        f_empty = font.Font(family="Segoe UI Emoji", size=26)
+        f_title = font.Font(family="Manrope", size=int(15 * s), weight="bold")
+        f_eyebrow = font.Font(family="Manrope", size=int(9 * s), weight="bold")
+        f_h3 = font.Font(family="Manrope", size=int(11 * s), weight="bold")
+        f_body = font.Font(family="Manrope", size=int(10 * s))
+        f_body_b = font.Font(family="Manrope", size=int(10 * s), weight="bold")
+        f_small = font.Font(family="Manrope", size=int(9 * s))
+        f_small_b = font.Font(family="Manrope", size=int(9 * s), weight="bold")
+        f_empty = font.Font(family="Segoe UI Emoji", size=int(26 * s))
 
         state = {
             "page": 1,
@@ -4618,7 +4658,7 @@ class SyncHistoryScreen(tk.Frame):
             return txt + "…"
 
         header_wrap = tk.Frame(self, bg="white")
-        header_wrap.pack(fill=tk.X, padx=14, pady=(14, 0))
+        header_wrap.pack(fill=tk.X, padx=int(14 * s), pady=(int(14 * s), 0))
 
         header = CTkFrame(header_wrap, fg_color=HEADER_BG, corner_radius=14)
         header.pack(fill=tk.X)
@@ -4629,13 +4669,13 @@ class SyncHistoryScreen(tk.Frame):
             fg_color="#033D7E",
             hover_color="#022D5E",
             text_color="white",
-            font=("Manrope", 12, "bold"),
-            width=90,
-            height=32,
-            corner_radius=8,
+            font=("Manrope", int(12 * s), "bold"),
+            width=int(90 * s),
+            height=int(32 * s),
+            corner_radius=int(8 * s),
             command=go_back,
         )
-        back_btn.pack(side=tk.LEFT, padx=(16, 12), pady=14)
+        back_btn.pack(side=tk.LEFT, padx=(int(16 * s), int(12 * s)), pady=int(14 * s))
 
         title_block = tk.Frame(header, bg=HEADER_BG)
         title_block.pack(side=tk.LEFT, fill=tk.Y, pady=14)
@@ -4644,7 +4684,7 @@ class SyncHistoryScreen(tk.Frame):
             text="SYNC HISTORY",
             bg=HEADER_BG,
             fg="#7EC8F8",
-            font=("Manrope", 9, "bold"),
+            font=("Manrope", int(9 * s), "bold"),
             anchor=tk.W,
         ).pack(anchor=tk.W)
         tk.Label(
@@ -4652,34 +4692,34 @@ class SyncHistoryScreen(tk.Frame):
             text="Module-wise Sync Activity",
             bg=HEADER_BG,
             fg="white",
-            font=("Manrope", 15, "bold"),
+            font=("Manrope", int(15 * s), "bold"),
             anchor=tk.W,
         ).pack(anchor=tk.W, pady=(2, 0))
 
         badge_wrap = tk.Frame(header, bg=HEADER_BG)
-        badge_wrap.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 20))
+        badge_wrap.pack(side=tk.RIGHT, fill=tk.Y, padx=(int(10 * s), int(20 * s)))
         total_badge = CTkLabel(
             badge_wrap,
             text="",
-            corner_radius=8,
+            corner_radius=int(8 * s),
             bg_color=HEADER_BG,
             fg_color="#022D5E",
             text_color="white",
-            font=("Manrope", 12, "bold"),
-            padx=14,
-            pady=8,
+            font=("Manrope", int(12 * s), "bold"),
+            padx=int(14 * s),
+            pady=int(8 * s),
         )
         total_badge.pack(expand=True)
 
         toolbar = tk.Frame(self, bg="white")
-        toolbar.pack(fill=tk.X, padx=26, pady=(12, 8))
+        toolbar.pack(fill=tk.X, padx=int(26 * s), pady=(int(12 * s), int(8 * s)))
 
         tk.Label(
             toolbar, text="Period: ", bg="white", fg=MUTED, font=f_body
         ).pack(side=tk.LEFT)
 
         chips_frame = tk.Frame(toolbar, bg="white")
-        chips_frame.pack(side=tk.LEFT, padx=(14, 0))
+        chips_frame.pack(side=tk.LEFT, padx=(int(14 * s), 0))
         chips = {}
         chip_font = CTkFont(family="Manrope", size=12, weight="bold")
 
@@ -4687,9 +4727,9 @@ class SyncHistoryScreen(tk.Frame):
             chip = CTkButton(
                 chips_frame,
                 text=label,
-                height=34,
-                width=max(104, chip_font.measure(label) + 34),
-                corner_radius=16,
+                height=int(34 * s),
+                width=max(int(104 * s), chip_font.measure(label) + int(34 * s)),
+                corner_radius=int(16 * s),
                 border_width=1,
                 border_color=BORDER,
                 fg_color="white",
@@ -4762,8 +4802,8 @@ class SyncHistoryScreen(tk.Frame):
                 fg=MUTED,
                 font=f_small_b,
                 cursor="arrow",
-                padx=14,
-                pady=6,
+                padx=int(14 * s),
+                pady=int(6 * s),
                 highlightbackground=BORDER,
                 highlightthickness=1,
             )
@@ -4810,7 +4850,7 @@ class SyncHistoryScreen(tk.Frame):
             cursor="hand2",
             relief=tk.FLAT,
             bd=0,
-            padx=8,
+            padx=int(8 * s),
         )
         rpp_menu = tk.Menu(
             rpp_btn,
@@ -4903,8 +4943,8 @@ class SyncHistoryScreen(tk.Frame):
                     font=f_small,
                     justify=tk.LEFT,
                     wraplength=420,
-                    padx=10,
-                    pady=6,
+                    padx=int(10 * s),
+                    pady=int(6 * s),
                 ).pack()
                 x = e.x_root + 14
                 y = e.y_root + 18
@@ -4973,7 +5013,7 @@ class SyncHistoryScreen(tk.Frame):
         def draw_error(W, H):
             cy0 = max(H / 2 - 46, 90)
             body.create_text(
-                W / 2, cy0, text="⚠", font=("Segoe UI Emoji", 24), fill="#D93025"
+                W / 2, cy0, text="⚠", font=("Segoe UI Emoji", int(24 * s)), fill="#D93025"
             )
             body.create_text(
                 W / 2,
@@ -4990,10 +5030,10 @@ class SyncHistoryScreen(tk.Frame):
                 hover_color="#033D7E",
                 text_color="white",
                 fg_color=ACCENT,
-                font=CTkFont(family="Manrope", size=12, weight="bold"),
-                height=32,
-                width=96,
-                corner_radius=6,
+                font=CTkFont(family="Manrope", size=int(12 * s), weight="bold"),
+                height=int(32 * s),
+                width=int(96 * s),
+                corner_radius=int(6 * s),
                 command=lambda: on_refresh(),
             )
             retry_holder["btn"] = btn
@@ -5073,7 +5113,7 @@ class SyncHistoryScreen(tk.Frame):
                     bcx,
                     bcy - 1,
                     text=icon,
-                    font=("Segoe UI Symbol", 11, "bold"),
+                    font=("Segoe UI Symbol", int(11 * s), "bold"),
                     fill=pfg,
                     tags=(tag, stag),
                 )
@@ -5321,8 +5361,10 @@ class LogViewerApp:
         # Create a new window
         self.root = tk.Toplevel() if self.main_app else tk.Tk()
         self.root.title("Logs | eVital<>Tally Connects")
-        self.root.geometry("800x600")
-        self.root.minsize(640, 420)
+        s = self.main_app.dpi_scale() if self.main_app else 1.0
+        self._dpi_scale = s
+        self.root.geometry(f"{int(800 * s)}x{int(600 * s)}")
+        self.root.minsize(int(640 * s), int(420 * s))
         self.root.configure(bg="#E7F6FF")
         try:
             self.root.iconbitmap("./lib/images/logo2.ico")
@@ -5350,7 +5392,9 @@ class LogViewerApp:
 
     def _font(self, size=10, bold=False):
         return font.Font(
-            family="Manrope", size=size, weight="bold" if bold else "normal"
+            family="Manrope",
+            size=int(size * getattr(self, "_dpi_scale", 1.0)),
+            weight="bold" if bold else "normal"
         )
 
     def hide_log_viewer(self):
@@ -5364,23 +5408,24 @@ class LogViewerApp:
             self.root = None
 
     def create_widgets(self):
+        s = getattr(self, "_dpi_scale", 1.0)
         # ================= HEADER =================
         HEADER_BG = "#004BA8"
 
         header_wrap = tk.Frame(self.root, bg="#E7F6FF")
-        header_wrap.pack(fill=tk.X, padx=14, pady=(14, 0))
+        header_wrap.pack(fill=tk.X, padx=int(14 * s), pady=(int(14 * s), 0))
 
-        header = CTkFrame(header_wrap, fg_color=HEADER_BG, corner_radius=14)
+        header = CTkFrame(header_wrap, fg_color=HEADER_BG, corner_radius=int(14 * s))
         header.pack(fill=tk.X)
 
         title_block = tk.Frame(header, bg=HEADER_BG)
-        title_block.pack(side=tk.LEFT, fill=tk.Y, pady=14, padx=(20, 0))
+        title_block.pack(side=tk.LEFT, fill=tk.Y, pady=int(14 * s), padx=(int(20 * s), 0))
         tk.Label(
             title_block,
             text="LOG VIEWER",
             bg=HEADER_BG,
             fg="#7EC8F8",
-            font=("Manrope", 9, "bold"),
+            font=("Manrope", int(9 * s), "bold"),
             anchor=tk.W,
         ).pack(anchor=tk.W)
         tk.Label(
@@ -5388,13 +5433,13 @@ class LogViewerApp:
             text="Application Logs & Activity",
             bg=HEADER_BG,
             fg="white",
-            font=("Manrope", 15, "bold"),
+            font=("Manrope", int(15 * s), "bold"),
             anchor=tk.W,
-        ).pack(anchor=tk.W, pady=(2, 0))
+        ).pack(anchor=tk.W, pady=(int(2 * s), 0))
 
         # ================= TOOLBAR =================
         toolbar = tk.Frame(self.root, bg="white")
-        toolbar.pack(fill=tk.X, padx=14, pady=(14, 4))
+        toolbar.pack(fill=tk.X, padx=int(14 * s), pady=(int(14 * s), int(4 * s)))
 
         ttk.Style().configure(
             "Logs.TCheckbutton",
@@ -5412,7 +5457,7 @@ class LogViewerApp:
             variable=self.auto_scroll_var,
             style="Logs.TCheckbutton",
             cursor="hand2",
-        ).pack(side=tk.LEFT, padx=(20, 10))
+        ).pack(side=tk.LEFT, padx=(int(20 * s), int(10 * s)))
 
         self.auto_refresh_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(
@@ -5422,7 +5467,7 @@ class LogViewerApp:
             style="Logs.TCheckbutton",
             cursor="hand2",
             command=self._on_auto_refresh_toggle,
-        ).pack(side=tk.LEFT, padx=(0, 10))
+        ).pack(side=tk.LEFT, padx=(0, int(10 * s)))
 
         refresh_btn = CTkButton(
             toolbar,
@@ -5430,13 +5475,13 @@ class LogViewerApp:
             fg_color="#0CA1F6",
             hover_color="#033D7E",
             text_color="white",
-            font=CTkFont(family="Manrope", size=12, weight="bold"),
-            height=30,
-            width=90,
-            corner_radius=6,
+            font=CTkFont(family="Manrope", size=int(12 * s), weight="bold"),
+            height=int(30 * s),
+            width=int(90 * s),
+            corner_radius=int(6 * s),
             command=self.refresh_logs,
         )
-        refresh_btn.pack(side=tk.RIGHT, padx=(0, 8), pady=6)
+        refresh_btn.pack(side=tk.RIGHT, padx=(0, int(8 * s)), pady=int(6 * s))
 
         clear_btn = CTkButton(
             toolbar,
@@ -5444,17 +5489,17 @@ class LogViewerApp:
             fg_color="#ED5A4A",
             hover_color="#C93A2B",
             text_color="white",
-            font=CTkFont(family="Manrope", size=12, weight="bold"),
-            height=30,
-            width=90,
-            corner_radius=6,
+            font=CTkFont(family="Manrope", size=int(12 * s), weight="bold"),
+            height=int(30 * s),
+            width=int(90 * s),
+            corner_radius=int(6 * s),
             command=self.clear_logs,
         )
-        clear_btn.pack(side=tk.RIGHT, padx=(0, 14), pady=6)
+        clear_btn.pack(side=tk.RIGHT, padx=(0, int(14 * s)), pady=int(6 * s))
 
         # ================= LOG TEXT =================
         text_frame = tk.Frame(self.root, bg="white", bd=1, relief="solid")
-        text_frame.pack(fill=tk.BOTH, expand=True, padx=14, pady=(8, 6))
+        text_frame.pack(fill=tk.BOTH, expand=True, padx=int(14 * s), pady=(int(8 * s), int(6 * s)))
 
         self.log_text = scrolledtext.ScrolledText(
             text_frame,
@@ -5465,8 +5510,8 @@ class LogViewerApp:
             selectbackground="#0CA1F6",
             selectforeground="white",
             font=self._font(size=10),
-            padx=8,
-            pady=6,
+            padx=int(8 * s),
+            pady=int(6 * s),
             highlightthickness=0,
             bd=0,
         )
@@ -5483,7 +5528,7 @@ class LogViewerApp:
             fg="#7E878C",
             font=self._font(size=9),
         )
-        self.count_label.pack(side=tk.LEFT, padx=14, pady=6)
+        self.count_label.pack(side=tk.LEFT, padx=int(14 * s), pady=int(6 * s))
 
         self.last_cleared_label = tk.Label(
             status,
@@ -5492,7 +5537,7 @@ class LogViewerApp:
             fg="#7E878C",
             font=self._font(size=9),
         )
-        self.last_cleared_label.pack(side=tk.RIGHT, padx=14, pady=6)
+        self.last_cleared_label.pack(side=tk.RIGHT, padx=int(14 * s), pady=int(6 * s))
 
         self.update_last_cleared_info()
 
