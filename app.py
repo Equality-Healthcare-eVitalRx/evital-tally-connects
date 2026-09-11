@@ -121,26 +121,26 @@ my_file = Path("./lib/app_cache.txt")
 appObj = App()
 
 
-_force_check_retries = [0]
-
-def _startup_force_check():
-    """Check for force updates on startup. Shows the update dialog if required."""
-    import updater
-    def _check():
-        try:
-            result = updater.check_for_updates()
-            if result.get("force") and result.get("update_available"):
-                LogManagerObj.write_log("[Startup] Force update detected")
-                if hasattr(appObj, "_on_check_updates"):
-                    appObj.after(0, lambda: appObj._on_check_updates())
-                elif _force_check_retries[0] < 15:
-                    _force_check_retries[0] += 1
-                    appObj.after(2000, _startup_force_check)
-            elif result.get("error"):
-                LogManagerObj.write_log(f"[Startup] Update check error: {result['error']}")
-        except Exception as e:
-            LogManagerObj.write_log(f"[Startup] Force check failed: {e}")
-    threading.Thread(target=_check, daemon=True).start()
+# _force_check_retries = [0]
+#
+# def _startup_force_check():
+#     """Check for force updates on startup. Shows the update dialog if required."""
+#     import updater
+#     def _check():
+#         try:
+#             result = updater.check_for_updates()
+#             if result.get("force") and result.get("update_available"):
+#                 LogManagerObj.write_log("[Startup] Force update detected")
+#                 if hasattr(appObj, "_on_check_updates"):
+#                     appObj.after(0, lambda: appObj._on_check_updates())
+#                 elif _force_check_retries[0] < 15:
+#                     _force_check_retries[0] += 1
+#                     appObj.after(2000, _startup_force_check)
+#             elif result.get("error"):
+#                 LogManagerObj.write_log(f"[Startup] Update check error: {result['error']}")
+#         except Exception as e:
+#             LogManagerObj.write_log(f"[Startup] Force check failed: {e}")
+#     threading.Thread(target=_check, daemon=True).start()
 
 
 def finish_startup_restore():
@@ -164,7 +164,7 @@ def finish_startup_restore():
         LogManagerObj.write_log(traceback.format_exc())
 
     appObj.after(0, lambda: appObj.show_frame("Dashboard"))
-    appObj.after(1000, _startup_force_check)
+    # appObj.after(1000, _startup_force_check)
 
 
 if my_file.is_file():
@@ -211,12 +211,12 @@ if my_file.is_file():
         threading.Thread(target=finish_startup_restore, daemon=True).start()
     else:
         appObj.show_frame("LoginScreen")
-        appObj.after(1000, _startup_force_check)
+        # appObj.after(1000, _startup_force_check)
 
 else:
     LogManagerObj.write_log("Login Details Not found.")
     appObj.show_frame("LoginScreen")
-    appObj.after(1000, _startup_force_check)
+    # appObj.after(1000, _startup_force_check)
 
 if __name__ == "__main__":
     constants.LOAD_COMPLETE = True

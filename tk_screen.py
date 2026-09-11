@@ -417,7 +417,32 @@ class App(tk.Tk):
 
         self.frames = {}
 
-        self.geometry("950x650")
+        user32 = ctypes.windll.user32
+        sw, sh = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+
+        # Small-screen support (e.g. MacBook Pro 13" in Parallels). A fixed
+        # 950x650 window clips on displays where the work area is smaller, so
+        # clamp the initial size and the resize minimum to the usable area and
+        # keep a scale factor that screens use to size their fixed child
+        # widgets.
+        import ctypes.wintypes as _wintypes
+        _wa = _wintypes.RECT()
+        if user32.SystemParametersInfoW(
+            0x30, 0, ctypes.byref(_wa), 0
+        ):  # SPI_GETWORKAREA
+            avail_w = max(1, _wa.right - _wa.left)
+            avail_h = max(1, _wa.bottom - _wa.top)
+        else:
+            avail_w, avail_h = sw, sh
+
+        win_w = min(950, max(720, avail_w - 40))
+        win_h = min(650, max(540, avail_h - 60))
+
+        self._ui_scale = max(
+            0.7, min(1.0, (win_w / 950.0), (win_h / 650.0))
+        )
+
+        self.geometry(f"{win_w}x{win_h}")
         self.configure(bg="#044C9D")  # Set background to blue
         self.overrideredirect(False)
 
@@ -429,20 +454,15 @@ class App(tk.Tk):
         #                                     ctypes.windll.user32.GetWindowLongW(hwnd, -20) & ~0x00000080)  # Remove WS_EX_TOOLWINDOW
         # ctypes.windll.user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, 0x0020)  # Apply changes (SWP_FRAMECHANGED)
 
-        user32 = ctypes.windll.user32
-        x, y = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
-        x = (x - 900) // 2
-        y = (y - 600) // 2
+        x = max((sw - win_w) // 2, 0)
+        y = max((sh - win_h) // 2, 0)
 
         self.geometry(f"+{str(int(x))}+{str(int(y))}")
 
-        self.resizable(0, 0)
+        self.resizable(True, True)
+        self.minsize(win_w, win_h)
 
-        # The OS/CustomTkinter can silently rescale the window (e.g. when it
-        # is dragged onto a monitor with a different DPI). Remember the
-        # intended size and snap back to it whenever the real size drifts.
-        self._intended_geometry = "950x650"
-        self._geometry_check_job = None
+        self._intended_geometry = f"{win_w}x{win_h}"
         self._follow_overlays = []
         self._last_root_pos = None
         self.current_frame = None
@@ -483,6 +503,14 @@ class App(tk.Tk):
         self.update()
         self.update_idletasks()
 
+        # Open maximized by default. The adaptive geometry/minsize above stays
+        # as the "restore" (windowed) size, so un-maximizing returns to a size
+        # that fits the screen instead of a hardcoded 950x650.
+        try:
+            self.state("zoomed")
+        except tk.TclError:
+            pass
+
     def report_callback_exception(self, exc, val, tb):
         """Log exceptions raised inside Tkinter callbacks."""
         if isinstance(exc, tk.TclError) and "invalid command name" in str(val):
@@ -493,7 +521,8 @@ class App(tk.Tk):
     def apply_intended_geometry(self, geometry):
         """Set the window size and remember it as the size to enforce."""
         self._intended_geometry = geometry
-        self.geometry(geometry)
+        if self.state() != "zoomed":
+            self.geometry(geometry)
 
     def register_follow_overlay(self, win):
         """Keep a borderless Toplevel dialog (blurred popup etc.) glued to
@@ -548,27 +577,6 @@ class App(tk.Tk):
                     except ValueError:
                         pass
 
-        if self._geometry_check_job is not None:
-            return
-        try:
-            self._geometry_check_job = self.after(250, self._enforce_geometry)
-        except tk.TclError:
-            # App shutting down - nothing to enforce anymore.
-            pass
-
-    def _enforce_geometry(self):
-        self._geometry_check_job = None
-        try:
-            cur_w, cur_h = self.winfo_width(), self.winfo_height()
-            intended_w, intended_h = (
-                int(part) for part in self._intended_geometry.split("x")
-            )
-            # Ignore tiny deviations from Tk/CustomTkinter scaling rounding -
-            # enforcing those would fight the toolkit in a resize loop.
-            if abs(cur_w - intended_w) > 4 or abs(cur_h - intended_h) > 4:
-                self.geometry(self._intended_geometry)
-        except (tk.TclError, ValueError):
-            pass
 
     def start_move(self, event):
         self.x_offset = event.x_root - self.winfo_x()
@@ -671,22 +679,69 @@ class LoadingScreen(tk.Frame):
         header_font2b = font.Font(family="Manrope", size=13, weight="bold")
         header_font3 = font.Font(family="Manrope", size=12)
 
-        # Left panel - same artwork as the login screen
+        # Left panel - same artwork as the login screen. expand=True makes the
+        # packer give it all the horizontal space the fixed 450px right panel
+        # doesn't take, so no manual width management (and no relayout-feedback
+        # lag while resizing the window).
         left_panel = tk.Frame(self, bg="#044C9D")
-        left_panel.pack(side=tk.LEFT, fill=tk.Y)
+        left_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        left_panel.pack_propagate(False)
         try:
-            image = Image.open("./lib/images/login_panel.jpg").resize(
-                (500, 600), Image.Resampling.LANCZOS
-            )
-            image_tk = ImageTk.PhotoImage(image)
-            image_label = tk.Label(left_panel, image=image_tk, bg="#004BA8")
-            image_label.image = image_tk  # avoid garbage collection
-            image_label.pack(pady=(0, 10))
+            image = Image.open("./lib/images/login_panel.jpg")
+            _native_w, _native_h = image.size
+            image_label = tk.Label(left_panel, image=None, bg="#004BA8")
+            image_label.pack(fill=tk.BOTH, expand=True, pady=0)
+
+            _loading_img = {"photo": None}
+            _img_job = {"id": None}
+
+            def _render_loading_image():
+                try:
+                    avail_w = left_panel.winfo_width()
+                    avail_h = left_panel.winfo_height()
+                    if avail_w < 4 or avail_h < 4:
+                        return
+                    scale = min(avail_w / _native_w, avail_h / _native_h, 1.0)
+                    new_w = max(int(_native_w * scale), 1)
+                    new_h = max(int(_native_h * scale), 1)
+                    if new_w == _loading_img.get("w") and new_h == _loading_img.get("h"):
+                        return
+                    resized = image.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                    _loading_img["photo"] = ImageTk.PhotoImage(resized)
+                    _loading_img["w"] = new_w
+                    _loading_img["h"] = new_h
+                    image_label.configure(image=_loading_img["photo"])
+                except Exception:
+                    pass
+
+            def _schedule_loading_image(event=None):
+                if _img_job["id"] is not None:
+                    try:
+                        self.after_cancel(_img_job["id"])
+                    except Exception:
+                        pass
+                _img_job["id"] = self.after(120, _render_loading_image)
+
+            left_panel.bind("<Configure>", _schedule_loading_image)
+
+            def _cancel_loading_job(event=None):
+                if event is None or event.widget is self:
+                    if _img_job["id"] is not None:
+                        try:
+                            self.after_cancel(_img_job["id"])
+                        except Exception:
+                            pass
+                        _img_job["id"] = None
+
+            self.bind("<Destroy>", _cancel_loading_job)
         except Exception:
             pass
 
         # Right panel - matches the login form styling
-        right_panel = tk.Frame(self, bg="white", width=450, height=650)
+        _scale = getattr(self.controller, "_ui_scale", 1.0)
+        right_panel = tk.Frame(
+            self, bg="white", width=max(360, int(450 * _scale))
+        )
         right_panel.pack(side=tk.RIGHT, fill=tk.Y)
         right_panel.pack_propagate(False)
 
@@ -696,7 +751,7 @@ class LoadingScreen(tk.Frame):
             bg="white",
             font=header_font2b,
             justify=tk.LEFT,
-        ).pack(pady=(85, 0), padx=(60, 55), anchor=tk.W)
+        ).pack(pady=(int(85 * _scale), 0), padx=(int(60 * _scale), int(55 * _scale)), anchor=tk.W)
         tk.Label(
             right_panel,
             text="Checking Tally connection",
@@ -704,11 +759,13 @@ class LoadingScreen(tk.Frame):
             fg="#6B7280",
             font=header_font3,
             justify=tk.LEFT,
-        ).pack(pady=(6, 0), padx=(60, 55), anchor=tk.W)
+        ).pack(pady=(6, 0), padx=(int(60 * _scale), int(55 * _scale)), anchor=tk.W)
 
-        progress = ttk.Progressbar(right_panel, mode="indeterminate", length=330)
-        progress.pack(pady=(30, 0), padx=(60, 55), anchor=tk.W)
-        progress.start(12)
+        progress = ttk.Progressbar(
+            right_panel, mode="indeterminate", length=int(330 * _scale)
+        )
+        progress.pack(pady=(int(30 * _scale), 0), padx=(int(60 * _scale), int(55 * _scale)), anchor=tk.W)
+        progress.start(30)
 
         # Stop the animation before the frame goes away, otherwise the
         # pending after() callback spams "invalid command name" errors.
@@ -781,9 +838,13 @@ class LoginScreen(tk.Frame):
                 password_label.pack_forget()
                 password_frame.pack_forget()
                 password_line.pack_forget()
-                apikey_label.pack(pady=(20, 0), padx=(60, 55), anchor=tk.W)
-                apikey_frame.pack(pady=4, padx=65, anchor=tk.W, fill=tk.X)
-                apikey_line.pack(pady=(0, 20), padx=65, anchor=tk.W, fill=tk.X)
+                apikey_label.pack(
+                    pady=(int(20 * _ui_scale), 0), padx=(_pad2, _pad3), anchor=tk.W
+                )
+                apikey_frame.pack(pady=4, padx=_pad, anchor=tk.W, fill=tk.X)
+                apikey_line.pack(
+                    pady=(0, int(20 * _ui_scale)), padx=_pad, anchor=tk.W, fill=tk.X
+                )
                 login_label.config(text="API Key Login")
                 apikey_entry.focus_set()
             else:
@@ -791,12 +852,20 @@ class LoginScreen(tk.Frame):
                 apikey_label.pack_forget()
                 apikey_frame.pack_forget()
                 apikey_line.pack_forget()
-                mobile_label.pack(pady=(20, 0), padx=(60, 55), anchor=tk.W)
-                mobile_frame.pack(pady=4, padx=65, anchor=tk.W, fill=tk.X)
-                mobile_line.pack(pady=(0, 10), padx=65, anchor=tk.W, fill=tk.X)
-                password_label.pack(pady=(10, 0), padx=(60, 55), anchor=tk.W)
-                password_frame.pack(pady=4, padx=65, anchor=tk.W, fill=tk.X)
-                password_line.pack(pady=(0, 20), padx=65, anchor=tk.W, fill=tk.X)
+                mobile_label.pack(
+                    pady=(int(20 * _ui_scale), 0), padx=(_pad2, _pad3), anchor=tk.W
+                )
+                mobile_frame.pack(pady=4, padx=_pad, anchor=tk.W, fill=tk.X)
+                mobile_line.pack(
+                    pady=(0, 10), padx=_pad, anchor=tk.W, fill=tk.X
+                )
+                password_label.pack(
+                    pady=(int(10 * _ui_scale), 0), padx=(_pad2, _pad3), anchor=tk.W
+                )
+                password_frame.pack(pady=4, padx=_pad, anchor=tk.W, fill=tk.X)
+                password_line.pack(
+                    pady=(0, int(20 * _ui_scale)), padx=_pad, anchor=tk.W, fill=tk.X
+                )
                 login_label.config(text="Login with")
                 mobile_entry.focus_set()
 
@@ -1112,21 +1181,67 @@ class LoginScreen(tk.Frame):
 
         # close_button.bind("<Button-1>", lambda e: close_window())
 
-        # Left panel
+        # Left panel - expand=True lets the packer size it to whatever
+        # horizontal space the fixed 450px right panel leaves, avoiding the
+        # width-manager relayout feedback that made resizing laggy.
         left_panel = tk.Frame(self, bg="#044C9D")
-        left_panel.pack(side=tk.LEFT, fill=tk.Y)
+        left_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        left_panel.pack_propagate(False)
 
         image = Image.open(
             "./lib/images/login_panel.jpg"
         )  # Replace with your image path
-        image = image.resize(
-            (500, 600), Image.Resampling.LANCZOS
-        )  # Resize image to fit the panel
-        image_tk = ImageTk.PhotoImage(image)
+        _native_w, _native_h = image.size
 
-        image_label = tk.Label(left_panel, image=image_tk, bg="#004BA8")
-        image_label.image = image_tk  # Keep a reference to avoid garbage collection
-        image_label.pack(pady=(0, 10))
+        image_label = tk.Label(left_panel, image=None, bg="#004BA8")
+        image_label.pack(fill=tk.BOTH, expand=True, pady=0)
+
+        _left_img = {"photo": None}
+        _img_job = {"id": None}
+
+        def _render_login_image():
+            try:
+                avail_w = left_panel.winfo_width()
+                avail_h = left_panel.winfo_height()
+                if avail_w < 4 or avail_h < 4:
+                    return
+                # Keep aspect ratio, fit within the panel, don't blow past the
+                # native size so the artwork never looks stretched or oversized.
+                scale = min(
+                    avail_w / _native_w, avail_h / _native_h, 1.0
+                )
+                new_w = max(int(_native_w * scale), 1)
+                new_h = max(int(_native_h * scale), 1)
+                if new_w == _left_img.get("w") and new_h == _left_img.get("h"):
+                    return
+                resized = image.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                _left_img["photo"] = ImageTk.PhotoImage(resized)
+                _left_img["w"] = new_w
+                _left_img["h"] = new_h
+                image_label.configure(image=_left_img["photo"])
+            except Exception:
+                pass
+
+        def _schedule_login_image(event=None):
+            if _img_job["id"] is not None:
+                try:
+                    self.after_cancel(_img_job["id"])
+                except Exception:
+                    pass
+            _img_job["id"] = self.after(120, _render_login_image)
+
+        left_panel.bind("<Configure>", _schedule_login_image)
+
+        def _cancel_login_job(event=None):
+            if event is None or event.widget is self:
+                if _img_job["id"] is not None:
+                    try:
+                        self.after_cancel(_img_job["id"])
+                    except Exception:
+                        pass
+                    _img_job["id"] = None
+
+        self.bind("<Destroy>", _cancel_login_job)
 
         # title_bar = tk.Frame(self, width=900, bg="white")
         # title_bar.pack(fill=tk.X)
@@ -1134,7 +1249,14 @@ class LoginScreen(tk.Frame):
         # close_button = tk.Button(title_bar, text='x', font=header_font, command=close_window, bg='white', fg='#044C9D', borderwidth=0, relief=tk.SUNKEN)
         # close_button.pack(side=tk.RIGHT, padx=20, pady=15)
 
-        right_panel = tk.Frame(self, bg="white", width=450, height=650)
+        _ui_scale = getattr(self.controller, "_ui_scale", 1.0)
+        _pad = int(65 * _ui_scale)
+        _pad2 = int(60 * _ui_scale)
+        _pad3 = int(55 * _ui_scale)
+
+        right_panel = tk.Frame(
+            self, bg="white", width=max(360, int(450 * _ui_scale))
+        )
         right_panel.pack(side=tk.RIGHT, fill=tk.Y)
         right_panel.pack_propagate(False)
 
@@ -1145,10 +1267,10 @@ class LoginScreen(tk.Frame):
             font=header_font2b,
             justify=tk.LEFT,
         )
-        login_label.pack(pady=(85, 0), padx=(60, 55), anchor=tk.W)
+        login_label.pack(pady=(int(85 * _ui_scale), 0), padx=(_pad2, _pad3), anchor=tk.W)
 
         entity_selection_frame = tk.Frame(right_panel, bg="white")
-        entity_selection_frame.pack(pady=(5, 20), padx=(60, 55), anchor=tk.W)
+        entity_selection_frame.pack(pady=(5, 20), padx=(_pad2, _pad3), anchor=tk.W)
 
         entity_button_theme = ttk.Style()
         try:
@@ -1249,10 +1371,10 @@ class LoginScreen(tk.Frame):
             fg="#044C9D",
             font=header_font3,
         )
-        mobile_label.pack(pady=(20, 0), padx=(60, 55), anchor=tk.W)
+        mobile_label.pack(pady=(int(20 * _ui_scale), 0), padx=(_pad2, _pad3), anchor=tk.W)
 
         mobile_frame = tk.Frame(form_container, bg="white")
-        mobile_frame.pack(pady=4, padx=65, anchor=tk.W, fill=tk.X)
+        mobile_frame.pack(pady=4, padx=_pad, anchor=tk.W, fill=tk.X)
 
         mobile_entry = tk.Entry(
             mobile_frame,
@@ -1266,7 +1388,7 @@ class LoginScreen(tk.Frame):
         mobile_line = tk.Canvas(
             form_container, height=1, bg="#004BA8", highlightthickness=0
         )
-        mobile_line.pack(pady=(0, 10), padx=65, anchor=tk.W, fill=tk.X)
+        mobile_line.pack(pady=(0, 10), padx=_pad, anchor=tk.W, fill=tk.X)
 
         password_label = tk.Label(
             form_container,
@@ -1278,10 +1400,10 @@ class LoginScreen(tk.Frame):
             justify=tk.LEFT,
             anchor="w",
         )
-        password_label.pack(pady=(10, 0), padx=(60, 55), anchor=tk.W)
+        password_label.pack(pady=(int(10 * _ui_scale), 0), padx=(_pad2, _pad3), anchor=tk.W)
 
         password_frame = tk.Frame(form_container, bg="white")
-        password_frame.pack(pady=4, padx=65, anchor=tk.W, fill=tk.X)
+        password_frame.pack(pady=4, padx=_pad, anchor=tk.W, fill=tk.X)
 
         eye_label = tk.Label(
             password_frame,
@@ -1319,7 +1441,7 @@ class LoginScreen(tk.Frame):
         password_line = tk.Canvas(
             form_container, height=1, bg="#004BA8", highlightthickness=0
         )
-        password_line.pack(pady=(0, 20), padx=65, anchor=tk.W, fill=tk.X)
+        password_line.pack(pady=(0, int(20 * _ui_scale)), padx=_pad, anchor=tk.W, fill=tk.X)
 
         # API Key login fields (hidden by default)
         self.login_mode = tk.StringVar(value="password")
@@ -1387,12 +1509,12 @@ class LoginScreen(tk.Frame):
             text_color="white",
             fg_color="#0CA1F6",
             font=CTkFont(family="Manrope", size=16, weight="bold"),
-            height=42,
-            width=320,
+            height=int(42 * _ui_scale),
+            width=int(320 * _ui_scale),
             corner_radius=6,
             command=check_login,
         )
-        login_button.pack(pady=20, padx=65)
+        login_button.pack(pady=int(20 * _ui_scale), padx=_pad)
 
         apikey_entry.bind("<Return>", lambda e: login_button.invoke())
         password_entry.bind("<Return>", lambda e: login_button.invoke())
@@ -1452,10 +1574,10 @@ class Dashboard(tk.Frame):
                 constants.STOP_THREAD = False
             if getattr(self, "_logout_label", None) is not None:
                 self._logout_label.pack(
-                    side=tk.BOTTOM, anchor=tk.W, pady=(0, 50), padx=30
+                    side=tk.BOTTOM, anchor=tk.W, pady=(0, int(50 * _dash_scale * _side_scale)), padx=int(30 * _side_scale)
                 )
                 self._user_label.pack(
-                    side=tk.BOTTOM, anchor=tk.W, pady=(0, 8), padx=30
+                    side=tk.BOTTOM, anchor=tk.W, pady=(0, int(8 * _dash_scale * _side_scale)), padx=int(30 * _side_scale)
                 )
             if (
                 right_panel.winfo_exists()
@@ -1493,19 +1615,20 @@ class Dashboard(tk.Frame):
                 "TCheckbutton", foreground="black"
             )  # Checkbutton text color
 
-            parent.apply_intended_geometry("950x650")
+            parent.apply_intended_geometry(parent._intended_geometry)
 
             # Upper right panel (contains last sync and button)
             upper_right_panel = tk.Frame(right_panel, bg="#E7F6FF")
             upper_right_panel.pack(side=tk.TOP, fill=tk.X)
 
             # Left and right sections inside the upper panel
+            _top_pad = int(50 * _dash_scale)
             top_left_panel = tk.Frame(upper_right_panel, bg="#E7F6FF")
-            top_left_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=(50, 15))
+            top_left_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=(_top_pad, 15))
 
             top_right_panel = tk.Frame(upper_right_panel, bg="#E7F6FF")
             top_right_panel.pack(
-                side=tk.RIGHT, fill=tk.BOTH, expand=True, pady=(50, 15), padx=(0, 20)
+                side=tk.RIGHT, fill=tk.BOTH, expand=True, pady=(_top_pad, 15), padx=(0, 20)
             )
 
             # Last Sync header and time
@@ -1727,11 +1850,11 @@ class Dashboard(tk.Frame):
                 # part of the large bottom margin so the module checkboxes
                 # are not clipped (window size stays fixed).
                 lower_right_panel.pack(
-                    side=tk.TOP, fill=tk.X, expand=True, padx=30, pady=(0, 30)
+                    side=tk.TOP, fill=tk.X, expand=True, padx=int(30 * _dash_scale), pady=(0, int(30 * _dash_scale))
                 )
             else:
                 lower_right_panel.pack(
-                    side=tk.TOP, fill=tk.X, expand=True, padx=30, pady=(0, 80)
+                    side=tk.TOP, fill=tk.X, expand=True, padx=int(30 * _dash_scale), pady=(0, int(80 * _dash_scale))
                 )
 
             if constants.SYNC_STAGE == 0:
@@ -1790,7 +1913,7 @@ class Dashboard(tk.Frame):
                     bd=0,
                     highlightthickness=0,
                     relief="ridge",
-                    height=350,
+                    height=int(350 * _dash_scale),
                 )
                 scrollbar = ttk.Scrollbar(
                     lower_right_panel, orient="vertical", command=canvas.yview
@@ -3465,7 +3588,8 @@ class Dashboard(tk.Frame):
                 try:
                     gif = Image.open(gif_path)
                     frames = []
-                    size = (350, 350)  # Set your desired size (width, height)
+                    _gif_scale = getattr(self.controller, "_ui_scale", 1.0)
+                    size = (int(350 * _gif_scale), int(350 * _gif_scale))
                     for frame in ImageSequence.Iterator(gif):
                         processed_frame = process_frame(frame, size)
                         tk_frame = ImageTk.PhotoImage(processed_frame)
@@ -3499,11 +3623,11 @@ class Dashboard(tk.Frame):
                 )
 
                 gif_label = tk.Label(right_panel2, bg="#E7F6FF")
-                gif_label.pack(anchor=tk.N, pady=(60, 20))
+                gif_label.pack(anchor=tk.N, pady=(int(60 * _dash_scale), int(20 * _dash_scale)))
 
-                version_label.pack(pady=(0, 20), padx=40, anchor=tk.N)
+                version_label.pack(pady=(0, int(20 * _dash_scale)), padx=int(40 * _dash_scale), anchor=tk.N)
 
-                sync_all_button.pack(padx=40)
+                sync_all_button.pack(padx=int(40 * _dash_scale))
                 # sync_all_button.config(r)
 
                 # Start animation
@@ -3628,7 +3752,24 @@ class Dashboard(tk.Frame):
                 # Bind click outside the menu to close the overlay
                 overlay.bind("<Button-1>", on_click_outside)
 
-            upper_left_panel = tk.Frame(left_panel, bg="#033D7E", height=150, width=200)
+            # The panel width scales with the window, but the sidebar text
+            # grows much more gently so it does not balloon on large or
+            # high-DPI (Retina/Parallels) maximized displays. The shared
+            # header_font/small_font stay as-is for the main content area.
+            _sps = max(1.0, _side_scale)
+            _fs = 1.0 + min(_sps - 1.0, 0.9) * 0.25
+            side_header_font = font.Font(
+                family="Manrope", size=int(14 * _fs), weight="bold"
+            )
+            side_small_font = font.Font(
+                family="Manrope", size=max(8, int(9 * _fs))
+            )
+            side_label_font2 = font.Font(
+                family="Manrope", size=int(12 * _fs)
+            )
+            _pad = int(30 * _sps)
+
+            upper_left_panel = tk.Frame(left_panel, bg="#033D7E", height=int(150 * _sps), width=200)
             upper_left_panel.pack(anchor=tk.N, fill=tk.X)
 
             # "eVital<>Tally Connects" header
@@ -3637,7 +3778,7 @@ class Dashboard(tk.Frame):
                 text="eVital<>Tally",
                 bg="#033D7E",
                 fg="white",
-                font=header_font,
+                font=side_header_font,
                 justify=tk.LEFT,
             )
             connects_label = tk.Label(
@@ -3645,7 +3786,7 @@ class Dashboard(tk.Frame):
                 text="Connects",
                 bg="#033D7E",
                 fg="white",
-                font=header_font,
+                font=side_header_font,
                 justify=tk.LEFT,
             )
 
@@ -3654,16 +3795,16 @@ class Dashboard(tk.Frame):
                 text=f"Version {constants.APP_VERSION}",
                 bg="#033D7E",
                 fg="#7E878C",
-                font=small_font,
+                font=side_small_font,
             )
 
             upper_left_panel.grid_propagate(False)
             upper_left_panel.grid_rowconfigure(0, weight=2)
             upper_left_panel.grid_rowconfigure(4, weight=1)
             upper_left_panel.grid_columnconfigure(0, weight=1)
-            header_label.grid(row=1, column=0, sticky="w", padx=30)
-            connects_label.grid(row=2, column=0, sticky="w", padx=30, pady=(0, 5))
-            version_label.grid(row=3, column=0, sticky="w", padx=30)
+            header_label.grid(row=1, column=0, sticky="w", padx=_pad)
+            connects_label.grid(row=2, column=0, sticky="w", padx=_pad, pady=(0, int(5 * _sps)))
+            version_label.grid(row=3, column=0, sticky="w", padx=_pad)
             upper_left_panel.pack_propagate(False)
 
             lower_left_panel = tk.Frame(left_panel, bg="#004BA8", height=150, width=200)
@@ -3979,371 +4120,371 @@ class Dashboard(tk.Frame):
 
             lower_left_panel.pack_propagate(False)
 
-            # Check for Updates Button
-            update_btn = tk.Label(
-                lower_left_panel,
-                text="Check for Updates",
-                bg="#004BA8",
-                fg="#A8D4FF",
-                cursor="hand2",
-                font=small_font,
-                anchor=tk.W,
-            )
-            update_btn.pack(padx=30, pady=(10, 0), anchor=tk.W)
+    #         # Check for Updates Button
+    #         update_btn = tk.Label(
+    #             lower_left_panel,
+    #             text="Check for Updates",
+    #             bg="#004BA8",
+    #             fg="#A8D4FF",
+    #             cursor="hand2",
+    #             font=small_font,
+    #             anchor=tk.W,
+    #         )
+    #         update_btn.pack(padx=30, pady=(10, 0), anchor=tk.W)
 
-            def _on_check_updates():
-                import updater
-                import tkinter.ttk as ttk
+    #         def _on_check_updates():
+    #             import updater
+    #             import tkinter.ttk as ttk
 
-                # Capture screen for blur overlay (same pattern as logout dialog)
-                x = self.winfo_rootx()
-                y = self.winfo_rooty()
-                w = self.winfo_width()
-                h = self.winfo_height()
-                screen = ImageGrab.grab(bbox=(x, y, x + w, y + h))
-                blurred_screen = screen.filter(ImageFilter.GaussianBlur(4))
+    #             # Capture screen for blur overlay (same pattern as logout dialog)
+    #             x = self.winfo_rootx()
+    #             y = self.winfo_rooty()
+    #             w = self.winfo_width()
+    #             h = self.winfo_height()
+    #             screen = ImageGrab.grab(bbox=(x, y, x + w, y + h))
+    #             blurred_screen = screen.filter(ImageFilter.GaussianBlur(4))
 
-                overlay = tk.Toplevel(self.winfo_toplevel())
-                overlay.geometry(f"{w}x{h}+{x}+{y}")
-                overlay.overrideredirect(True)
-                self.winfo_toplevel().register_follow_overlay(overlay)
+    #             overlay = tk.Toplevel(self.winfo_toplevel())
+    #             overlay.geometry(f"{w}x{h}+{x}+{y}")
+    #             overlay.overrideredirect(True)
+    #             self.winfo_toplevel().register_follow_overlay(overlay)
 
-                # Darken blurred background for contrast with the white card
-                from PIL import ImageEnhance
+    #             # Darken blurred background for contrast with the white card
+    #             from PIL import ImageEnhance
 
-                dark_blur = ImageEnhance.Brightness(blurred_screen).enhance(0.5)
-                bg_image = ImageTk.PhotoImage(dark_blur)
-                bg_label = tk.Label(overlay, image=bg_image)
-                bg_label.image = bg_image
-                bg_label.pack(fill="both", expand=True)
+    #             dark_blur = ImageEnhance.Brightness(blurred_screen).enhance(0.5)
+    #             bg_image = ImageTk.PhotoImage(dark_blur)
+    #             bg_label = tk.Label(overlay, image=bg_image)
+    #             bg_label.image = bg_image
+    #             bg_label.pack(fill="both", expand=True)
 
-                # ---- Menu card (centered, with border) ----
-                menu_frame = tk.Frame(
-                    overlay,
-                    bg="white",
-                    width=520,
-                    height=250,
-                    highlightthickness=1,
-                    highlightbackground="#D0D5DD",
-                    highlightcolor="#D0D5DD",
-                )
-                menu_frame.pack_propagate(False)
-                menu_frame.place(relx=0.5, rely=0.5, anchor="center")
+    #             # ---- Menu card (centered, with border) ----
+    #             menu_frame = tk.Frame(
+    #                 overlay,
+    #                 bg="white",
+    #                 width=520,
+    #                 height=250,
+    #                 highlightthickness=1,
+    #                 highlightbackground="#D0D5DD",
+    #                 highlightcolor="#D0D5DD",
+    #             )
+    #             menu_frame.pack_propagate(False)
+    #             menu_frame.place(relx=0.5, rely=0.5, anchor="center")
 
-                def _resize_card(height):
-                    menu_frame.configure(width=520, height=height)
-                    menu_frame.place(relx=0.5, rely=0.5, anchor="center")
-                    overlay.update_idletasks()
+    #             def _resize_card(height):
+    #                 menu_frame.configure(width=520, height=height)
+    #                 menu_frame.place(relx=0.5, rely=0.5, anchor="center")
+    #                 overlay.update_idletasks()
 
-                # Blue header bar
-                header_bar = tk.Frame(menu_frame, bg="#004BA8", height=56)
-                header_bar.pack(fill="x")
-                header_bar.pack_propagate(False)
-                header_label = tk.Label(
-                    header_bar, text="Version Update", bg="#004BA8", fg="white",
-                    font=font.Font(family="Manrope", size=14, weight="bold"),
-                )
-                header_label.pack(side="left", padx=24, pady=14)
+    #             # Blue header bar
+    #             header_bar = tk.Frame(menu_frame, bg="#004BA8", height=56)
+    #             header_bar.pack(fill="x")
+    #             header_bar.pack_propagate(False)
+    #             header_label = tk.Label(
+    #                 header_bar, text="Version Update", bg="#004BA8", fg="white",
+    #                 font=font.Font(family="Manrope", size=14, weight="bold"),
+    #             )
+    #             header_label.pack(side="left", padx=24, pady=14)
 
-                # Body content area
-                body = tk.Frame(menu_frame, bg="white")
-                body.pack(fill="both", expand=True, padx=28, pady=(18, 14))
+    #             # Body content area
+    #             body = tk.Frame(menu_frame, bg="white")
+    #             body.pack(fill="both", expand=True, padx=28, pady=(18, 14))
 
-                status_var = tk.StringVar(value="Checking for updates...")
-                status_label = tk.Label(
-                    body, textvariable=status_var, bg="white", fg="#1F2430",
-                    font=font.Font(family="Manrope", size=13, weight="bold"),
-                )
-                status_label.pack(anchor=tk.W, pady=(0, 6))
+    #             status_var = tk.StringVar(value="Checking for updates...")
+    #             status_label = tk.Label(
+    #                 body, textvariable=status_var, bg="white", fg="#1F2430",
+    #                 font=font.Font(family="Manrope", size=13, weight="bold"),
+    #             )
+    #             status_label.pack(anchor=tk.W, pady=(0, 6))
 
-                detail_var = tk.StringVar(value="")
-                detail_label = tk.Label(
-                    body, textvariable=detail_var, bg="white", fg="#7E878C",
-                    font=font.Font(family="Manrope", size=11),
-                )
-                detail_label.pack(anchor=tk.W, pady=(0, 10))
+    #             detail_var = tk.StringVar(value="")
+    #             detail_label = tk.Label(
+    #                 body, textvariable=detail_var, bg="white", fg="#7E878C",
+    #                 font=font.Font(family="Manrope", size=11),
+    #             )
+    #             detail_label.pack(anchor=tk.W, pady=(0, 10))
 
-                # Release notes (scrollable, hidden by default)
-                notes_container = tk.Frame(body, bg="white")
-                notes_label = tk.Label(
-                    notes_container, text="What's new", bg="white", fg="#7E878C",
-                    font=font.Font(family="Manrope", size=10, weight="bold"),
-                    anchor=tk.W,
-                )
-                notes_label.pack(anchor=tk.W, pady=(0, 6))
-                notes_frame = tk.Frame(notes_container, bg="#EEF4FA",
-                                       highlightthickness=1, highlightbackground="#D0D5DD")
-                notes_frame.pack(fill="x")
-                notes_text = tk.Text(
-                    notes_frame, bg="#EEF4FA", fg="#333333", wrap=tk.WORD,
-                    font=font.Font(family="Manrope", size=10),
-                    height=5, bd=0, padx=14, pady=10,
-                    state=tk.DISABLED, cursor="arrow",
-                    selectbackground="#EEF4FA", selectforeground="#EEF4FA",
-                )
-                notes_text.bind("<Button-1>", lambda e, w=notes_text: (w.tag_remove("sel", "1.0", tk.END), "break"))
-                notes_text.bind("<B1-Motion>", lambda e, w=notes_text: (w.tag_remove("sel", "1.0", tk.END), "break"))
-                notes_text.bind("<Double-Button-1>", lambda e, w=notes_text: (w.tag_remove("sel", "1.0", tk.END), "break"))
-                notes_text.bind("<Triple-Button-1>", lambda e, w=notes_text: (w.tag_remove("sel", "1.0", tk.END), "break"))
-                notes_scrollbar = tk.Scrollbar(notes_frame, command=notes_text.yview)
-                notes_text.configure(yscrollcommand=notes_scrollbar.set)
-                notes_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-                notes_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    #             # Release notes (scrollable, hidden by default)
+    #             notes_container = tk.Frame(body, bg="white")
+    #             notes_label = tk.Label(
+    #                 notes_container, text="What's new", bg="white", fg="#7E878C",
+    #                 font=font.Font(family="Manrope", size=10, weight="bold"),
+    #                 anchor=tk.W,
+    #             )
+    #             notes_label.pack(anchor=tk.W, pady=(0, 6))
+    #             notes_frame = tk.Frame(notes_container, bg="#EEF4FA",
+    #                                    highlightthickness=1, highlightbackground="#D0D5DD")
+    #             notes_frame.pack(fill="x")
+    #             notes_text = tk.Text(
+    #                 notes_frame, bg="#EEF4FA", fg="#333333", wrap=tk.WORD,
+    #                 font=font.Font(family="Manrope", size=10),
+    #                 height=5, bd=0, padx=14, pady=10,
+    #                 state=tk.DISABLED, cursor="arrow",
+    #                 selectbackground="#EEF4FA", selectforeground="#EEF4FA",
+    #             )
+    #             notes_text.bind("<Button-1>", lambda e, w=notes_text: (w.tag_remove("sel", "1.0", tk.END), "break"))
+    #             notes_text.bind("<B1-Motion>", lambda e, w=notes_text: (w.tag_remove("sel", "1.0", tk.END), "break"))
+    #             notes_text.bind("<Double-Button-1>", lambda e, w=notes_text: (w.tag_remove("sel", "1.0", tk.END), "break"))
+    #             notes_text.bind("<Triple-Button-1>", lambda e, w=notes_text: (w.tag_remove("sel", "1.0", tk.END), "break"))
+    #             notes_scrollbar = tk.Scrollbar(notes_frame, command=notes_text.yview)
+    #             notes_text.configure(yscrollcommand=notes_scrollbar.set)
+    #             notes_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+    #             notes_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-                # Configure text tags for markdown rendering
-                _nf = lambda sz=10, b=False: font.Font(family="Manrope", size=sz, weight="bold" if b else "normal")
-                notes_text.tag_configure("h2", font=_nf(12, True), foreground="#004BA8",
-                                         spacing1=6, spacing3=4)
-                notes_text.tag_configure("h3", font=_nf(11, True), foreground="#1F2430", 
-                                         spacing1=4, spacing3=2)
-                notes_text.tag_configure("bold", font=_nf(10, True), foreground="#1F2430")
-                notes_text.tag_configure("bullet", font=_nf(10), foreground="#333333",
-                                         lmargin1=16, lmargin2=24, spacing1=2)
-                notes_text.tag_configure("normal", font=_nf(10), foreground="#333333")
+    #             # Configure text tags for markdown rendering
+    #             _nf = lambda sz=10, b=False: font.Font(family="Manrope", size=sz, weight="bold" if b else "normal")
+    #             notes_text.tag_configure("h2", font=_nf(12, True), foreground="#004BA8",
+    #                                      spacing1=6, spacing3=4)
+    #             notes_text.tag_configure("h3", font=_nf(11, True), foreground="#1F2430", 
+    #                                      spacing1=4, spacing3=2)
+    #             notes_text.tag_configure("bold", font=_nf(10, True), foreground="#1F2430")
+    #             notes_text.tag_configure("bullet", font=_nf(10), foreground="#333333",
+    #                                      lmargin1=16, lmargin2=24, spacing1=2)
+    #             notes_text.tag_configure("normal", font=_nf(10), foreground="#333333")
 
-                def _render_md(text_widget, raw):
-                    """Parse lightweight markdown and insert with formatting tags."""
-                    import re
+    #             def _render_md(text_widget, raw):
+    #                 """Parse lightweight markdown and insert with formatting tags."""
+    #                 import re
 
-                    for line in raw.strip().splitlines():
-                        stripped = line.rstrip()
-                        if not stripped:
-                            text_widget.insert(tk.END, "\n", "normal")
-                            continue
-                        if stripped.startswith("## "):
-                            text_widget.insert(tk.END, stripped[3:] + "\n", "h2")
-                        elif stripped.startswith("### "):
-                            text_widget.insert(tk.END, stripped[4:] + "\n", "h3")
-                        elif stripped.startswith("- ") or stripped.startswith("* "):
-                            text_widget.insert(tk.END, "  •  " + stripped[2:] + "\n", "bullet")
-                        else:
-                            # Handle **inline bold** segments
-                            parts = re.split(r'(\*\*.*?\*\*)', stripped)
-                            for part in parts:
-                                if part.startswith("**") and part.endswith("**"):
-                                    inner = part[2:-2]
-                                    if inner:
-                                        text_widget.insert(tk.END, inner, "bold")
-                                elif part:
-                                    text_widget.insert(tk.END, part, "normal")
-                            text_widget.insert(tk.END, "\n", "normal")
+    #                 for line in raw.strip().splitlines():
+    #                     stripped = line.rstrip()
+    #                     if not stripped:
+    #                         text_widget.insert(tk.END, "\n", "normal")
+    #                         continue
+    #                     if stripped.startswith("## "):
+    #                         text_widget.insert(tk.END, stripped[3:] + "\n", "h2")
+    #                     elif stripped.startswith("### "):
+    #                         text_widget.insert(tk.END, stripped[4:] + "\n", "h3")
+    #                     elif stripped.startswith("- ") or stripped.startswith("* "):
+    #                         text_widget.insert(tk.END, "  •  " + stripped[2:] + "\n", "bullet")
+    #                     else:
+    #                         # Handle **inline bold** segments
+    #                         parts = re.split(r'(\*\*.*?\*\*)', stripped)
+    #                         for part in parts:
+    #                             if part.startswith("**") and part.endswith("**"):
+    #                                 inner = part[2:-2]
+    #                                 if inner:
+    #                                     text_widget.insert(tk.END, inner, "bold")
+    #                             elif part:
+    #                                 text_widget.insert(tk.END, part, "normal")
+    #                         text_widget.insert(tk.END, "\n", "normal")
 
-                def _show_notes(text):
-                    if text and text.strip():
-                        notes_text.configure(state=tk.NORMAL)
-                        notes_text.delete("1.0", tk.END)
-                        _render_md(notes_text, text.strip())
-                        line_count = int(notes_text.index("end-1c").split(".")[0])
-                        notes_text.configure(height=min(line_count, 6))
-                        notes_text.configure(state=tk.DISABLED)
-                        notes_container.pack(fill="x", pady=(0, 12))
-                        notes_container.update_idletasks()
+    #             def _show_notes(text):
+    #                 if text and text.strip():
+    #                     notes_text.configure(state=tk.NORMAL)
+    #                     notes_text.delete("1.0", tk.END)
+    #                     _render_md(notes_text, text.strip())
+    #                     line_count = int(notes_text.index("end-1c").split(".")[0])
+    #                     notes_text.configure(height=min(line_count, 6))
+    #                     notes_text.configure(state=tk.DISABLED)
+    #                     notes_container.pack(fill="x", pady=(0, 12))
+    #                     notes_container.update_idletasks()
 
-                        notes_height_px = notes_container.winfo_reqheight()
-                        card_height = max(370, 250 + notes_height_px)
-                        _resize_card(card_height)
-                    else:
-                        notes_container.pack_forget()
-                        _resize_card(250)
+    #                     notes_height_px = notes_container.winfo_reqheight()
+    #                     card_height = max(370, 250 + notes_height_px)
+    #                     _resize_card(card_height)
+    #                 else:
+    #                     notes_container.pack_forget()
+    #                     _resize_card(250)
                         
-                def _hide_notes():
-                    notes_container.pack_forget()
+    #             def _hide_notes():
+    #                 notes_container.pack_forget()
 
-                progress_frame = tk.Frame(body, bg="white")
-                progress_frame.pack(fill="x", pady=(0, 10))
-                progress_bar = ttk.Progressbar(progress_frame, length=370, mode="determinate")
-                progress_bar.pack()
-                progress_bar["value"] = 0
+    #             progress_frame = tk.Frame(body, bg="white")
+    #             progress_frame.pack(fill="x", pady=(0, 10))
+    #             progress_bar = ttk.Progressbar(progress_frame, length=370, mode="determinate")
+    #             progress_bar.pack()
+    #             progress_bar["value"] = 0
 
-                btn_frame = tk.Frame(menu_frame, bg="white")
-                btn_frame.pack(pady=(0, 15))
+    #             btn_frame = tk.Frame(menu_frame, bg="white")
+    #             btn_frame.pack(pady=(0, 15))
 
-                def _set_indeterminate():
-                    progress_frame.pack(fill="x", pady=(0, 10))
-                    progress_bar.configure(mode="indeterminate")
-                    progress_bar.start(15)
+    #             def _set_indeterminate():
+    #                 progress_frame.pack(fill="x", pady=(0, 10))
+    #                 progress_bar.configure(mode="indeterminate")
+    #                 progress_bar.start(15)
 
-                def _set_determinate():
-                    progress_bar.stop()
-                    progress_bar.configure(mode="determinate")
-                    progress_bar["value"] = 0
+    #             def _set_determinate():
+    #                 progress_bar.stop()
+    #                 progress_bar.configure(mode="determinate")
+    #                 progress_bar["value"] = 0
 
-                def _hide_progress():
-                    progress_bar.stop()
-                    progress_frame.pack_forget()
+    #             def _hide_progress():
+    #                 progress_bar.stop()
+    #                 progress_frame.pack_forget()
 
-                def _clear_buttons():
-                    for w in btn_frame.winfo_children():
-                        w.destroy()
-                    btn_frame.pack_forget()
+    #             def _clear_buttons():
+    #                 for w in btn_frame.winfo_children():
+    #                     w.destroy()
+    #                 btn_frame.pack_forget()
 
-                def _add_close_button():
-                    btn_frame.pack(pady=(0, 15))
-                    CTkButton(
-                        btn_frame, text="OK", width=120, height=34,
-                        corner_radius=6, fg_color="#007BFF", hover_color="#0056b3",
-                        text_color="white",
-                        font=CTkFont(family="Manrope", size=12, weight="bold"),
-                        command=overlay.destroy,
-                    ).pack()
+    #             def _add_close_button():
+    #                 btn_frame.pack(pady=(0, 15))
+    #                 CTkButton(
+    #                     btn_frame, text="OK", width=120, height=34,
+    #                     corner_radius=6, fg_color="#007BFF", hover_color="#0056b3",
+    #                     text_color="white",
+    #                     font=CTkFont(family="Manrope", size=12, weight="bold"),
+    #                     command=overlay.destroy,
+    #                 ).pack()
 
-                def _show_error(msg):
-                    _hide_progress()
-                    _hide_notes()
-                    _clear_buttons()
-                    _is_force = _update_info.get("force", False)
-                    status_var.set("Update failed")
-                    detail_label.config(fg="#D93025")
-                    detail_var.set(msg)
-                    btn_frame.pack(pady=(0, 15))
-                    if _is_force:
-                        CTkButton(
-                            btn_frame, text="Retry", width=120, height=34,
-                            corner_radius=6, fg_color="#D93025", hover_color="#b71c1c",
-                            text_color="white",
-                            font=CTkFont(family="Manrope", size=12, weight="bold"),
-                            command=_start_download,
-                        ).pack()
-                    else:
-                        CTkButton(
-                            btn_frame, text="OK", width=120, height=34,
-                            corner_radius=6, fg_color="#007BFF", hover_color="#0056b3",
-                            text_color="white",
-                            font=CTkFont(family="Manrope", size=12, weight="bold"),
-                            command=overlay.destroy,
-                        ).pack()
+    #             def _show_error(msg):
+    #                 _hide_progress()
+    #                 _hide_notes()
+    #                 _clear_buttons()
+    #                 _is_force = _update_info.get("force", False)
+    #                 status_var.set("Update failed")
+    #                 detail_label.config(fg="#D93025")
+    #                 detail_var.set(msg)
+    #                 btn_frame.pack(pady=(0, 15))
+    #                 if _is_force:
+    #                     CTkButton(
+    #                         btn_frame, text="Retry", width=120, height=34,
+    #                         corner_radius=6, fg_color="#D93025", hover_color="#b71c1c",
+    #                         text_color="white",
+    #                         font=CTkFont(family="Manrope", size=12, weight="bold"),
+    #                         command=_start_download,
+    #                     ).pack()
+    #                 else:
+    #                     CTkButton(
+    #                         btn_frame, text="OK", width=120, height=34,
+    #                         corner_radius=6, fg_color="#007BFF", hover_color="#0056b3",
+    #                         text_color="white",
+    #                         font=CTkFont(family="Manrope", size=12, weight="bold"),
+    #                         command=overlay.destroy,
+    #                     ).pack()
 
-                def _show_up_to_date(ver):
-                    _hide_progress()
-                    _hide_notes()
-                    _clear_buttons()
-                    status_var.set("You're on the latest version")
-                    detail_label.config(fg="#1E9E5A")
-                    detail_var.set(f"Current version: v{ver}")
-                    _add_close_button()
+    #             def _show_up_to_date(ver):
+    #                 _hide_progress()
+    #                 _hide_notes()
+    #                 _clear_buttons()
+    #                 status_var.set("You're on the latest version")
+    #                 detail_label.config(fg="#1E9E5A")
+    #                 detail_var.set(f"Current version: v{ver}")
+    #                 _add_close_button()
 
-                _update_info = {}
+    #             _update_info = {}
 
-                def _do_check():
-                    result = updater.check_for_updates()
-                    if result["error"]:
-                        self.after(0, lambda: _show_error(result["error"]))
-                        return
-                    if not result["update_available"]:
-                        self.after(0, lambda: _show_up_to_date(result["current_version"]))
-                        return
-                    _update_info.update(result)
-                    self.after(0, _prompt_download)
+    #             def _do_check():
+    #                 result = updater.check_for_updates()
+    #                 if result["error"]:
+    #                     self.after(0, lambda: _show_error(result["error"]))
+    #                     return
+    #                 if not result["update_available"]:
+    #                     self.after(0, lambda: _show_up_to_date(result["current_version"]))
+    #                     return
+    #                 _update_info.update(result)
+    #                 self.after(0, _prompt_download)
 
-                def _prompt_download():
-                    _hide_progress()
-                    _clear_buttons()
-                    _show_notes(_update_info.get("release_notes", ""))
-                    _is_force = _update_info.get("force", False)
+    #             def _prompt_download():
+    #                 _hide_progress()
+    #                 _clear_buttons()
+    #                 _show_notes(_update_info.get("release_notes", ""))
+    #                 _is_force = _update_info.get("force", False)
 
-                    if _is_force:
-                        overlay.attributes("-topmost", True)
-                        _root = self.winfo_toplevel()
-                        _root._mandatory_update_active = True
-                        overlay.protocol("WM_DELETE_WINDOW", lambda: None)
-                        overlay.bind("<Escape>", lambda e: None)
-                        overlay.bind("<Button-1>", lambda e: None)
-                        def _on_mandatory_destroy(e):
-                            _root._mandatory_update_active = False
-                        overlay.bind("<Destroy>", _on_mandatory_destroy)
-                        header_label.config(text="Mandatory Update")
-                        detail_label.config(fg="#D93025")
-                        status_var.set(f"Version v{_update_info['latest_version']} is available")
-                        detail_var.set("This update is required to continue.")
-                        btn_frame.pack(pady=(0, 15))
-                        CTkButton(
-                            btn_frame, text="Update Now", width=200, height=34,
-                            corner_radius=6, fg_color="#D93025", hover_color="#b71c1c",
-                            text_color="white",
-                            font=CTkFont(family="Manrope", size=12, weight="bold"),
-                            command=_start_download,
-                        ).pack()
-                    else:
-                        detail_label.config(fg="#7E878C")
-                        status_var.set(f"Version v{_update_info['latest_version']} is available")
-                        detail_var.set(f"You're on v{_update_info['current_version']}")
-                        btn_frame.pack(pady=(0, 15))
-                        CTkButton(
-                            btn_frame, text="Update Now", width=120, height=34,
-                            corner_radius=6, fg_color="#007BFF", hover_color="#0056b3",
-                            text_color="white",
-                            font=CTkFont(family="Manrope", size=12, weight="bold"),
-                            command=_start_download,
-                        ).pack(side="left", padx=(0, 10))
-                        CTkButton(
-                            btn_frame, text="Cancel", width=100, height=34,
-                            corner_radius=6, fg_color="white", hover_color="#f0f4f8",
-                            text_color="#333333", border_width=1, border_color="#E3E8EF",
-                            font=CTkFont(family="Manrope", size=12),
-                            command=overlay.destroy,
-                        ).pack(side="left")
+    #                 if _is_force:
+    #                     overlay.attributes("-topmost", True)
+    #                     _root = self.winfo_toplevel()
+    #                     _root._mandatory_update_active = True
+    #                     overlay.protocol("WM_DELETE_WINDOW", lambda: None)
+    #                     overlay.bind("<Escape>", lambda e: None)
+    #                     overlay.bind("<Button-1>", lambda e: None)
+    #                     def _on_mandatory_destroy(e):
+    #                         _root._mandatory_update_active = False
+    #                     overlay.bind("<Destroy>", _on_mandatory_destroy)
+    #                     header_label.config(text="Mandatory Update")
+    #                     detail_label.config(fg="#D93025")
+    #                     status_var.set(f"Version v{_update_info['latest_version']} is available")
+    #                     detail_var.set("This update is required to continue.")
+    #                     btn_frame.pack(pady=(0, 15))
+    #                     CTkButton(
+    #                         btn_frame, text="Update Now", width=200, height=34,
+    #                         corner_radius=6, fg_color="#D93025", hover_color="#b71c1c",
+    #                         text_color="white",
+    #                         font=CTkFont(family="Manrope", size=12, weight="bold"),
+    #                         command=_start_download,
+    #                     ).pack()
+    #                 else:
+    #                     detail_label.config(fg="#7E878C")
+    #                     status_var.set(f"Version v{_update_info['latest_version']} is available")
+    #                     detail_var.set(f"You're on v{_update_info['current_version']}")
+    #                     btn_frame.pack(pady=(0, 15))
+    #                     CTkButton(
+    #                         btn_frame, text="Update Now", width=120, height=34,
+    #                         corner_radius=6, fg_color="#007BFF", hover_color="#0056b3",
+    #                         text_color="white",
+    #                         font=CTkFont(family="Manrope", size=12, weight="bold"),
+    #                         command=_start_download,
+    #                     ).pack(side="left", padx=(0, 10))
+    #                     CTkButton(
+    #                         btn_frame, text="Cancel", width=100, height=34,
+    #                         corner_radius=6, fg_color="white", hover_color="#f0f4f8",
+    #                         text_color="#333333", border_width=1, border_color="#E3E8EF",
+    #                         font=CTkFont(family="Manrope", size=12),
+    #                         command=overlay.destroy,
+    #                     ).pack(side="left")
 
-                def _start_download():
-                    _clear_buttons()
-                    _hide_notes()
-                    _set_determinate()
-                    progress_bar["value"] = 0
-                    detail_label.config(fg="#7E878C")
-                    status_var.set("Downloading update...")
-                    detail_var.set("Preparing...")
-                    threading.Thread(
-                        target=_do_download,
-                        args=(_update_info["download_url"], _update_info.get("asset_id")),
-                        daemon=True,
-                    ).start()
+    #             def _start_download():
+    #                 _clear_buttons()
+    #                 _hide_notes()
+    #                 _set_determinate()
+    #                 progress_bar["value"] = 0
+    #                 detail_label.config(fg="#7E878C")
+    #                 status_var.set("Downloading update...")
+    #                 detail_var.set("Preparing...")
+    #                 threading.Thread(
+    #                     target=_do_download,
+    #                     args=(_update_info["download_url"], _update_info.get("asset_id")),
+    #                     daemon=True,
+    #                 ).start()
 
-                def _do_download(url, asset_id=None):
-                    def _progress(downloaded, total):
-                        if total > 0:
-                            pct = int((downloaded / total) * 100)
-                            dl_mb = downloaded / (1024 * 1024)
-                            total_mb = total / (1024 * 1024)
-                            self.after(0, lambda p=pct, d=f"{dl_mb:.1f}", t=f"{total_mb:.1f}": (
-                                progress_bar.configure(value=p),
-                                detail_var.set(f"{d} MB / {t} MB  ({p}%)"),
-                            ))
-                    try:
-                        zip_path = updater.download_update(
-                            url, asset_id=asset_id, progress_callback=_progress,
-                        )
-                        self.after(0, lambda: _apply_update(zip_path))
-                    except Exception as exc:
-                        LogManagerObj.write_log(f"[Update] Download failed: {exc}")
-                        self.after(0, lambda e=exc: _show_error(str(e)))
+    #             def _do_download(url, asset_id=None):
+    #                 def _progress(downloaded, total):
+    #                     if total > 0:
+    #                         pct = int((downloaded / total) * 100)
+    #                         dl_mb = downloaded / (1024 * 1024)
+    #                         total_mb = total / (1024 * 1024)
+    #                         self.after(0, lambda p=pct, d=f"{dl_mb:.1f}", t=f"{total_mb:.1f}": (
+    #                             progress_bar.configure(value=p),
+    #                             detail_var.set(f"{d} MB / {t} MB  ({p}%)"),
+    #                         ))
+    #                 try:
+    #                     zip_path = updater.download_update(
+    #                         url, asset_id=asset_id, progress_callback=_progress,
+    #                     )
+    #                     self.after(0, lambda: _apply_update(zip_path))
+    #                 except Exception as exc:
+    #                     LogManagerObj.write_log(f"[Update] Download failed: {exc}")
+    #                     self.after(0, lambda e=exc: _show_error(str(e)))
 
-                def _apply_update(zip_path):
-                    _set_determinate()
-                    progress_bar["value"] = 100
-                    detail_label.config(fg="#7E878C")
-                    status_var.set("Installing update...")
-                    detail_var.set("The app will restart shortly")
+    #             def _apply_update(zip_path):
+    #                 _set_determinate()
+    #                 progress_bar["value"] = 100
+    #                 detail_label.config(fg="#7E878C")
+    #                 status_var.set("Installing update...")
+    #                 detail_var.set("The app will restart shortly")
 
-                    def _do_apply():
-                        try:
-                            updater.apply_update(zip_path)
-                        except Exception as exc:
-                            LogManagerObj.write_log(f"[Update] Apply failed: {exc}")
-                            self.after(0, lambda e=exc: _show_error(str(e)))
+    #                 def _do_apply():
+    #                     try:
+    #                         updater.apply_update(zip_path)
+    #                     except Exception as exc:
+    #                         LogManagerObj.write_log(f"[Update] Apply failed: {exc}")
+    #                         self.after(0, lambda e=exc: _show_error(str(e)))
 
-                    threading.Thread(target=_do_apply, daemon=True).start()
+    #                 threading.Thread(target=_do_apply, daemon=True).start()
 
-                def on_click_outside(event):
-                    if not menu_frame.winfo_containing(event.x_root, event.y_root):
-                        pass  # Don't close — update dialog should be explicit
+    #             def on_click_outside(event):
+    #                 if not menu_frame.winfo_containing(event.x_root, event.y_root):
+    #                     pass  # Don't close — update dialog should be explicit
 
-                overlay.bind("<Button-1>", on_click_outside)
-                overlay.bind("<Escape>", lambda e: None)  # Block Escape key
+    #             overlay.bind("<Button-1>", on_click_outside)
+    #             overlay.bind("<Escape>", lambda e: None)  # Block Escape key
 
-                _set_indeterminate()
-                threading.Thread(target=_do_check, daemon=True).start()
+    #             _set_indeterminate()
+    #             threading.Thread(target=_do_check, daemon=True).start()
 
-            update_btn.bind("<Button-1>", lambda e: _on_check_updates())
-            controller._on_check_updates = _on_check_updates
+    #         update_btn.bind("<Button-1>", lambda e: _on_check_updates())
+    #         controller._on_check_updates = _on_check_updates
 
             # User Info Section
             # Caches saved by older versions may not contain a "mobile"
@@ -4366,10 +4507,10 @@ class Dashboard(tk.Frame):
                 textvariable=constants.MOBILE_VAR,
                 bg="#004BA8",
                 fg="white",
-                font=header_font2,
+                font=side_label_font2,
                 anchor=tk.W,
                 justify=tk.LEFT,
-                wraplength=160,
+                wraplength=int(160 * _sps),
             )
 
             # logout_label = tk.Button(left_panel, text="Logout >", bg="#004BA8", fg="white",
@@ -4381,18 +4522,18 @@ class Dashboard(tk.Frame):
                 bg="#004BA8",
                 fg="white",
                 cursor="hand2",
-                font=label_font2,
+                font=side_label_font2,
                 anchor=tk.W,
                 justify=tk.LEFT,
-                wraplength=160,
+                wraplength=int(160 * _sps),
             )
             logout_label.pack(
-                side=tk.BOTTOM, anchor=tk.W, pady=(0, 50), padx=30
+                side=tk.BOTTOM, anchor=tk.W, pady=(0, int(50 * _sps)), padx=_pad
             )
             logout_label.bind("<Button-1>", show_logout_popup)
 
             user_label.pack(
-                side=tk.BOTTOM, anchor=tk.W, pady=(0, 8), padx=30
+                side=tk.BOTTOM, anchor=tk.W, pady=(0, int(8 * _sps)), padx=_pad
             )
 
             self._logout_label = logout_label
@@ -4476,7 +4617,21 @@ class Dashboard(tk.Frame):
 
         # close_button.bind("<Button-1>", lambda e: close_window())
 
-        left_panel = tk.Frame(self, bg="#004BA8", width=220, height=600)
+        _dash_scale = getattr(self.controller, "_ui_scale", 1.0)
+        try:
+            _root_w = int(self.controller.winfo_width())
+        except (tk.TclError, AttributeError, ValueError):
+            _root_w = 950
+        if _root_w < 200:
+            _root_w = 950
+        self._side_scale = max(_dash_scale, min(_root_w / 950.0, 1.9))
+        _side_scale = self._side_scale
+        left_panel = tk.Frame(
+            self,
+            bg="#004BA8",
+            width=int(220 * _side_scale),
+            height=int(600 * _dash_scale),
+        )
         left_panel.pack(side=tk.LEFT, fill=tk.Y)
 
         left_panel.pack_propagate(False)
