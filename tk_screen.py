@@ -1537,6 +1537,7 @@ class Dashboard(tk.Frame):
         self.parent = parent
         parent.title("eVital<>Tally Connects")
         self.checkbox_vars = {}
+        self._cal_popups = {}
         header_font5b = font.Font(family="Manrope", size=8, weight="bold")
 
         # def open_log_window()
@@ -1574,10 +1575,10 @@ class Dashboard(tk.Frame):
                 constants.STOP_THREAD = False
             if getattr(self, "_logout_label", None) is not None:
                 self._logout_label.pack(
-                    side=tk.BOTTOM, anchor=tk.W, pady=(0, int(50 * _dash_scale * _side_scale)), padx=int(30 * _side_scale)
+                    side=tk.BOTTOM, anchor=tk.W, pady=(0, int(50 * _dash_scale * _side_scale)), padx=int(22 * _side_scale)
                 )
                 self._user_label.pack(
-                    side=tk.BOTTOM, anchor=tk.W, pady=(0, int(8 * _dash_scale * _side_scale)), padx=int(30 * _side_scale)
+                    side=tk.BOTTOM, anchor=tk.W, pady=(0, int(8 * _dash_scale * _side_scale)), padx=int(22 * _side_scale)
                 )
             if (
                 right_panel.winfo_exists()
@@ -1850,11 +1851,11 @@ class Dashboard(tk.Frame):
                 # part of the large bottom margin so the module checkboxes
                 # are not clipped (window size stays fixed).
                 lower_right_panel.pack(
-                    side=tk.TOP, fill=tk.X, expand=True, padx=int(30 * _dash_scale), pady=(0, int(30 * _dash_scale))
+                    side=tk.TOP, fill=tk.BOTH, expand=True, padx=int(30 * _dash_scale), pady=(0, int(30 * _dash_scale))
                 )
             else:
                 lower_right_panel.pack(
-                    side=tk.TOP, fill=tk.X, expand=True, padx=int(30 * _dash_scale), pady=(0, int(80 * _dash_scale))
+                    side=tk.TOP, fill=tk.BOTH, expand=True, padx=int(30 * _dash_scale), pady=(0, int(80 * _dash_scale))
                 )
 
             if constants.SYNC_STAGE == 0:
@@ -1933,12 +1934,27 @@ class Dashboard(tk.Frame):
 
                 scrollable_frame.bind("<Configure>", _update_scrollregion)
 
-                canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+                _branch_window_id = canvas.create_window(
+                    (0, 0), window=scrollable_frame, anchor="nw"
+                )
                 canvas.configure(yscrollcommand=scrollbar.set)
 
-                # Pack canvas and scrollbar
-                canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+                def _fit_branch_width(_e=None):
+                    try:
+                        if canvas.winfo_exists():
+                            canvas.itemconfigure(
+                                _branch_window_id, width=canvas.winfo_width()
+                            )
+                    except tk.TclError:
+                        pass
+
+                canvas.bind("<Configure>", _fit_branch_width)
+
+                # Pack scrollbar FIRST so it gets the full height parcel,
+                # otherwise the expandable canvas takes the whole area and
+                # the scrollbar ends up shorter than the white block.
                 scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+                canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
                 def on_scroll(event):
                     """Enable scrolling inside the frame without dragging the app."""
@@ -3126,13 +3142,23 @@ class Dashboard(tk.Frame):
                     create_module_section(right_section, modules[3][0], modules[3][1])
 
                 def open_calendar(entry, var, start_date=None):
+                    key = id(var)
+                    top = self._cal_popups.get(key)
+
+                    if top and top.winfo_exists():
+                        top.update_idletasks()
+                        w = top.winfo_reqwidth()
+                        x = entry.winfo_rootx() + entry.winfo_width() - w
+                        x = max(0, x)
+                        y = entry.winfo_rooty() + entry.winfo_height()
+                        top.geometry(f"+{x}+{y}")
+                        top.deiconify()
+                        top.focus_set()
+                        return
+
                     top = tk.Toplevel(entry)
                     top.overrideredirect(True)
-
-                    # Position BELOW entry (like your dropdown)
-                    x = entry.winfo_rootx()
-                    y = entry.winfo_rooty() + entry.winfo_height()
-                    top.geometry(f"+{x}+{y}")
+                    top.withdraw()
 
                     cal = Calendar(
                         top,
@@ -3163,26 +3189,28 @@ class Dashboard(tk.Frame):
 
                     cal.pack(padx=10, pady=10)
 
+                    self._cal_popups[key] = top
+
+                    top.update_idletasks()
+                    w = top.winfo_reqwidth()
+                    x = entry.winfo_rootx() + entry.winfo_width() - w
+                    x = max(0, x)
+                    y = entry.winfo_rooty() + entry.winfo_height()
+                    top.geometry(f"+{x}+{y}")
+                    top.deiconify()
+
                     def select_date(event=None):
                         var.set(cal.get_date())
-                        top.destroy()
-
-                        # trigger your validation manually
+                        top.withdraw()
                         validate_dates()
 
                     cal.bind("<<CalendarSelected>>", select_date)
 
-                    # Optional: close if click outside
-                    def close_on_focus_out(e):
-                        top.destroy()
-                        
                     def close_on_focus_out_cal(e):
-                        top.destroy()
-                        cal.destroy()
+                        if top.winfo_exists():
+                            top.withdraw()
 
                     cal.bind("<FocusOut>", close_on_focus_out_cal)
-                    # cal.bind("<FocusOut>", close_on_focus_out)
-                    # top.bind("<FocusOut>", close_on_focus_out)
                     top.focus_set()
 
                 def create_date_input(parent, var, open_calendar):
@@ -3756,7 +3784,7 @@ class Dashboard(tk.Frame):
             # grows much more gently so it does not balloon on large or
             # high-DPI (Retina/Parallels) maximized displays. The shared
             # header_font/small_font stay as-is for the main content area.
-            _sps = max(1.0, _side_scale)
+            _sps = self._side_scale
             _fs = 1.0 + min(_sps - 1.0, 0.9) * 0.25
             side_header_font = font.Font(
                 family="Manrope", size=int(14 * _fs), weight="bold"
@@ -3767,9 +3795,9 @@ class Dashboard(tk.Frame):
             side_label_font2 = font.Font(
                 family="Manrope", size=int(12 * _fs)
             )
-            _pad = int(30 * _sps)
+            _pad = int(22 * _sps)
 
-            upper_left_panel = tk.Frame(left_panel, bg="#033D7E", height=int(150 * _sps), width=200)
+            upper_left_panel = tk.Frame(left_panel, bg="#033D7E", height=int(150 * _sps), width=int(175 * _sps))
             upper_left_panel.pack(anchor=tk.N, fill=tk.X)
 
             # "eVital<>Tally Connects" header
@@ -3807,7 +3835,7 @@ class Dashboard(tk.Frame):
             version_label.grid(row=3, column=0, sticky="w", padx=_pad)
             upper_left_panel.pack_propagate(False)
 
-            lower_left_panel = tk.Frame(left_panel, bg="#004BA8", height=150, width=200)
+            lower_left_panel = tk.Frame(left_panel, bg="#004BA8", height=int(150 * _sps), width=int(175 * _sps))
             lower_left_panel.pack(anchor=tk.W)
             # Auto Sync Section
             # auto_sync_label = tk.Label(lower_left_panel, text="Auto Sync", bg="#004BA8", fg="white", font=label_font, justify=tk.LEFT)
@@ -4510,7 +4538,7 @@ class Dashboard(tk.Frame):
                 font=side_label_font2,
                 anchor=tk.W,
                 justify=tk.LEFT,
-                wraplength=int(160 * _sps),
+                wraplength=int(140 * _sps),
             )
 
             # logout_label = tk.Button(left_panel, text="Logout >", bg="#004BA8", fg="white",
@@ -4525,7 +4553,7 @@ class Dashboard(tk.Frame):
                 font=side_label_font2,
                 anchor=tk.W,
                 justify=tk.LEFT,
-                wraplength=int(160 * _sps),
+                wraplength=int(140 * _sps),
             )
             logout_label.pack(
                 side=tk.BOTTOM, anchor=tk.W, pady=(0, int(50 * _sps)), padx=_pad
@@ -4624,12 +4652,12 @@ class Dashboard(tk.Frame):
             _root_w = 950
         if _root_w < 200:
             _root_w = 950
-        self._side_scale = max(_dash_scale, min(_root_w / 950.0, 1.9))
+        self._side_scale = min(1.9, _root_w / 950.0)
         _side_scale = self._side_scale
         left_panel = tk.Frame(
             self,
             bg="#004BA8",
-            width=int(220 * _side_scale),
+            width=int(195 * _side_scale),
             height=int(600 * _dash_scale),
         )
         left_panel.pack(side=tk.LEFT, fill=tk.Y)
@@ -4640,6 +4668,42 @@ class Dashboard(tk.Frame):
 
         create_left_content()
         create_main_content()
+
+        # Keep sidebar width in sync with the window when it is
+        # maximized/restored/resized, so it never stays oversized after
+        # going from maximized back to a smaller window.
+        _resize_job = [None]
+
+        def _on_dashboard_resize(e):
+            if e.widget is not self:
+                return
+            try:
+                _w = self.winfo_width()
+            except tk.TclError:
+                return
+            if _w < 200:
+                return
+
+            def _apply():
+                _resize_job[0] = None
+                _scale = min(1.9, _w / 950.0)
+                if abs(_scale - self._side_scale) < 0.02:
+                    return
+                self._side_scale = _scale
+                left_panel.configure(width=int(195 * _scale))
+                try:
+                    create_left_content()
+                except (tk.TclError, Exception):
+                    pass
+
+            if _resize_job[0] is not None:
+                try:
+                    self.after_cancel(_resize_job[0])
+                except tk.TclError:
+                    pass
+            _resize_job[0] = self.after(200, _apply)
+
+        self.bind("<Configure>", _on_dashboard_resize)
 
         # if constants.MOBILE == "":
         #     thread1 = threading.Thread(
