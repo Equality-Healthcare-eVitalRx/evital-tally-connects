@@ -36,7 +36,7 @@ env_config = {
     },
     "beta": {
         "EVITAL_RX_HOST": "beta-api.evitalrx.in",
-        "EVITAL_RX_URL": "https://beta-api.portal-evital.com/",
+        "EVITAL_RX_URL": "https://beta-api.portal-evital.com/", 
     },
     "production": {
         "EVITAL_RX_HOST": "api.evitalrx.in",
